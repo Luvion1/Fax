@@ -56,6 +56,6 @@ jobs:
           tar -czvf ${PKG_NAME}.tar.gz $PKG_NAME
 
       - name: Upload Release Asset
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: faxc/*.tar.gz
