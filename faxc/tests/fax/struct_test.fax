@@ -1,0 +1,9 @@
+struct Person {
+    age: i32,
+    score: i32
+}
+
+fn main() {
+    let p = Person { age: 25, score: 100 };
+    print(200);
+}

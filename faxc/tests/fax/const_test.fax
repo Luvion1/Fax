@@ -1,0 +1,6 @@
+fn main() {
+    const PI = 3;
+    let r = 10;
+    let area = PI * r * r;
+    print(area);
+}

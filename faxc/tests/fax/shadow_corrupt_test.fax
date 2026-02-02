@@ -1,0 +1,13 @@
+fn main() {
+    let x = 1;
+    if (true) {
+        let x = 2;
+        if (false) {
+            let x = 3;
+        }
+        // Di sini, emit_if untuk 'if (false)' akan melakukan pop_back() untuk x.
+        // Jika pop_back() salah sasaran, x di sini bisa kembali ke 1, atau crash.
+        print(x); // Harusnya 2
+    }
+    print(x); // Harusnya 1
+}

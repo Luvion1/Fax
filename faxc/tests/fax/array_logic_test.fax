@@ -1,0 +1,18 @@
+fn main() {
+    let arr = [10, 20, 30, 40];
+    let idx = 2;
+    let val = arr[idx];
+    print(val); // 30
+
+    let a = true;
+    let b = false;
+    if a && b {
+        print(1);
+    } else {
+        print(0); // 0
+    }
+
+    if a || b {
+        print(99); // 99
+    }
+}

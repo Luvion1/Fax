@@ -1,0 +1,12 @@
+fn main() {
+    let x = 1;
+    if (true) {
+        let x = 2; // push x (scope ID baru)
+        if (false) {
+            let x = 3; // TIDAK dieksekusi, TIDAK ada push
+        }
+        // Di akhir 'if (false)', Codegen melakukan pop_back() untuk 'x'.
+        // Karena 'let x = 3' tidak dieksekusi, pop_back() akan menghapus 'x = 2'!
+        print(x); // Di sini x malah jadi 1, padahal harusnya 2.
+    }
+}

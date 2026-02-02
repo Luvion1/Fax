@@ -1,0 +1,13 @@
+fn main() {
+    if 10 == 10 {
+        print(1);
+    } else {
+        print(0);
+    }
+
+    if 5 > 10 {
+        print(999);
+    } else {
+        print(2);
+    }
+}

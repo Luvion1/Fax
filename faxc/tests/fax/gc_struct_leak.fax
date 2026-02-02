@@ -1,0 +1,19 @@
+struct Inner { val: i64 }
+struct Outer { inner: Inner }
+
+fn create_outer(): Outer {
+    let i = Inner { val: 42 };
+    let o = Outer { inner: i };
+    return o;
+}
+
+fn main() {
+    let o = create_outer();
+    // Di sini, 'i' sudah keluar dari stack frame 'create_outer'.
+    // Satu-satunya referensi ke 'Inner' ada di dalam 'o' (di heap).
+    // Karena 'Outer' dialokasikan tanpa ptr_map, GC akan menghapus 'Inner'.
+    
+    Std::io::collect_gc();
+    
+    print(o.inner.val); // Harusnya 42, tapi kemungkinan besar sampah atau crash.
+}

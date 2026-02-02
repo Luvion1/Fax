@@ -1,0 +1,21 @@
+fn validate(n: i64): Result {
+    if (n < 0) {
+        return Err(404);
+    }
+    return Ok(n * 2);
+}
+
+fn try_example(n: i64): Result {
+    let val = validate(n)?;
+    print(val);
+    return Ok(val);
+}
+
+fn main() {
+    print(111);
+    let res1 = try_example(10); // Harusnya print 20
+    
+    print(222);
+    let res2 = try_example(-5); // Harusnya TIDAK print apa-apa (langsung return Err)
+    print(333);
+}

@@ -1,0 +1,6 @@
+extern fn puts(s: i64) -> i64;
+
+fn main() {
+    let s = "Calling C puts via FFI!";
+    puts(s);
+}

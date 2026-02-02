@@ -1,0 +1,1 @@
+target/\nnode_modules/\n*.pyc\n__pycache__/\nbuild/\n.zig-cache/\nzig-out/\ndist/

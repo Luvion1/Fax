@@ -1,0 +1,8 @@
+fn main() {
+    let x = 2;
+    match x {
+        case 1: { print(101); }
+        case 2: { print(202); }
+        default: { print(404); }
+    }
+}

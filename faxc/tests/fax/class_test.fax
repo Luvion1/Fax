@@ -1,0 +1,20 @@
+class Point {
+    let x: i64;
+    let y: i64;
+    
+    fn set(new_x: i64, new_y: i64) {
+        self.x = new_x;
+        self.y = new_y;
+    }
+    
+    fn print_pos() {
+        print(self.x);
+        print(self.y);
+    }
+}
+
+fn main() {
+    let p = Point {}; // Initialization for class?
+    p.set(10, 20);
+    p.print_pos();
+}

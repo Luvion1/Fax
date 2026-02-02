@@ -1,0 +1,11 @@
+fn add(a: i32, b: i32) {
+    let res = a + b;
+    return res;
+}
+
+fn main() {
+    let x = 10;
+    let y = 20;
+    let z = add(x, y);
+    print(z);
+}

@@ -1,0 +1,9 @@
+fn main() {
+    let a = true;
+    let b = false;
+    if a {
+        print(1);
+    } else {
+        print(0);
+    }
+}

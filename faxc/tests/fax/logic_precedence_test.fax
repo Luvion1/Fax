@@ -1,0 +1,13 @@
+fn main() {
+    // true || (false && false) -> true || false -> true (1)
+    // Jika (true || false) && false -> true && false -> false (0)
+    let result = true || false && false;
+    print(result);
+
+    let a = 0;
+    let b = 0;
+    // Short-circuit check (jika didukung)
+    // false && (b = 1) -> b harus tetap 0
+    // true || (a = 1) -> a harus tetap 0
+    // Namun Fax-lang mungkin belum mendukung short-circuiting di level Codegen
+}

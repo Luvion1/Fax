@@ -1,0 +1,8 @@
+fn main() {
+    for (let i = 0; i < 3; i = i + 1) {
+        print(i);
+    }
+    // i tidak boleh diakses di sini!
+    // Jika analyzer atau codegen meloloskan ini, berarti ada kebocoran scope.
+    print(i); 
+}

@@ -1,0 +1,5 @@
+struct User { id: i64, age: i64 }
+fn main() {
+    let u = User { id: 1, age: 25 };
+    print(u.age);
+}

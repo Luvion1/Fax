@@ -1,0 +1,9 @@
+fn main() {
+    let s = "Hello, Fax-lang!";
+    print(s);
+    
+    let s2 = "Multi
+line
+string";
+    print(s2);
+}

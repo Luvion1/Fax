@@ -1,0 +1,25 @@
+class Counter {
+    let count: i64;
+    
+    fn inc(self) {
+        self.count = self.count + 1;
+    }
+    
+    fn get(self) -> i64 {
+        return self.count;
+    }
+    
+    fn reset(self, val: i64) {
+        self.count = val;
+    }
+}
+
+fn main() {
+    let c = Counter { count: 10 };
+    c.inc();
+    c.inc();
+    print(c.get());
+    
+    c.reset(50);
+    print(c.get());
+}

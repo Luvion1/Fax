@@ -1,0 +1,6 @@
+fn main() {
+    let a: i32 = 1;
+    if 1 {
+        print(123);
+    }
+}

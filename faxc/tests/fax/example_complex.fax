@@ -1,0 +1,15 @@
+module ComplexGC;
+
+fn main() {
+    // Alokasi objek induk
+    let parent: Object = GC::alloc(16);
+    
+    // Alokasi objek anak
+    let child: Object = GC::alloc(16);
+    
+    // Hubungkan (Simulasi melalui Codegen nanti)
+    // parent.next = child
+    
+    let value: i32 = 777;
+    Std::IO::println(value);
+}

@@ -1,0 +1,13 @@
+enum Error {
+    DatabaseError,
+    LogicError
+}
+
+fn check_db() {
+    return Err(Error::DatabaseError);
+}
+
+fn main() {
+    let a: i32 = check_db()?;
+    print(a);
+}
