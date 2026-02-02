@@ -13,7 +13,7 @@ jobs:
         working-directory: ./faxc
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # --- SETUP (Mirrors CI) ---
       - name: Setup Tools
