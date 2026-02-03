@@ -733,7 +733,9 @@ public:
         std::cout << "\ndefine i64 @" << name << "(";
         if (fn_node.contains("args")) { bool first = true; for (auto& arg : fn_node["args"]) { if (!first) std::cout << ", "; std::cout << "i64 %arg_" << arg["name"].get<std::string>(); symbol_table[arg["name"].get<std::string>()] = "arg"; first = false; } }
         std::cout << ") {\nentry:\n";
-        if (name == "main") indent(1); std::cout << "call void @fax_fgc_init()\n";
+        if (name == "main") {
+            indent(1); std::cout << "call void @fax_fgc_init()\n";
+        }
         if (fn_node.contains("body")) collect_allocas(fn_node["body"]);
         if (fn_node.contains("args")) {
             for (auto& arg : fn_node["args"]) {
