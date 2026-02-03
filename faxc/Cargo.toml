@@ -8,8 +8,8 @@ name = "lexer"
 path = "src/components/lexer/lexer.rs"
 
 [[bin]]
-name = "gc-runtime"
-path = "src/runtime/gc.rs"
+name = "fgc-runtime"
+path = "src/runtime/fgc_test.rs"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }

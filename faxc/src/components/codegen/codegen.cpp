@@ -71,12 +71,12 @@ public:
     void emit_header() {
         std::cout << "; Fax Codegen\n";
         std::cout << "target triple = \"x86_64-pc-linux-gnu\"\n\n";
-        std::cout << "declare void @fax_gc_init()\n";
-        std::cout << "declare i8* @fax_gc_alloc(i64, i64*, i64)\n";
-        std::cout << "declare void @fax_gc_collect()\n";
-        std::cout << "declare void @fax_gc_register_root(i8*, i64)\n";
+        std::cout << "declare void @fax_fgc_init()\n";
+        std::cout << "declare i8* @fax_fgc_alloc(i64, i64*, i64)\n";
+        std::cout << "declare void @fax_fgc_collect()\n";
+        std::cout << "declare void @fax_fgc_register_root(i8**, i64)\n";
         std::cout << "declare i64 @printf(i8*, ...)\n\n";
-        std::cout << "define void @Std_io_collect_gc() {\nentry:\n    call void @fax_gc_collect()\n    ret void\n}\n\n";
+        std::cout << "define void @Std_io_collect_fgc() {\nentry:\n    call void @fax_fgc_collect()\n    ret void\n}\n\n";
         std::cout << "@fmt_int = private unnamed_addr constant [5 x i8] c\"%ld\\0A\\00\"\n";
         std::cout << "@fmt_str = private unnamed_addr constant [4 x i8] c\"%s\\0A\\00\"\n";
     }
@@ -238,7 +238,7 @@ public:
         if (current_root_slot < MAX_ROOTS) {
             int rs = current_root_slot++;
             var_to_slot["self_0"] = rs;
-            indent(level); std::cout << "call void @fax_gc_register_root(i8* %self_raw, i64 " << rs << ")\n";
+            indent(level); std::cout << "call void @fax_fgc_register_root(i8* %self_raw, i64 " << rs << ")\n";
         }
 
         if (fn_node.contains("body")) {
@@ -276,8 +276,8 @@ public:
             }
         }
         int id = next_label();
-        if (name == "Std::io::collect_gc") {
-            indent(level); std::cout << "call void @Std_io_collect_gc()\n";
+        if (name == "Std::io::collect_fgc") {
+            indent(level); std::cout << "call void @Std_io_collect_fgc()\n";
         } else {
             indent(level); std::cout << "%ign" << id << " = call i64 " << get_llvm_func_name(name) << "(";
             for (size_t i = 0; i < arg_regs.size(); ++i) {
@@ -440,7 +440,7 @@ public:
              if (name == "Ok" || name == "Err") {
                  std::string val_reg = load_node_to_reg(node["args"][0], level);
                  int id = next_label();
-                 indent(level); std::cout << "%res_raw" << id << " = call i8* @fax_gc_alloc(i64 24, i64* null, i64 0)\n";
+                 indent(level); std::cout << "%res_raw" << id << " = call i8* @fax_fgc_alloc(i64 24, i64* null, i64 0)\n";
                  indent(level); std::cout << "%res_cast" << id << " = bitcast i8* %res_raw" << id << " to %struct.Result*\n";
                  indent(level); std::cout << "%tag_ptr" << id << " = getelementptr %struct.Result, %struct.Result* %res_cast" << id << ", i32 0, i32 0\n";
                  indent(level); std::cout << "store i64 " << (name == "Ok" ? "0" : "1") << ", i64* %tag_ptr" << id << "\n";
@@ -575,7 +575,7 @@ public:
                  indent(level); std::cout << "%cast_val" << id << " = inttoptr i64 " << val_reg << " to i8*\n";
                  indent(level); std::cout << "store i8* %cast_val" << id << ", i8** " << ptr_name << "\n";
                  if (var_to_slot.count(mangled)) {
-                     indent(level); std::cout << "call void @fax_gc_register_root(i8* %cast_val, i64 " << var_to_slot[mangled] << ")\n";
+                     indent(level); std::cout << "call void @fax_fgc_register_root(i8* %cast_val, i64 " << var_to_slot[mangled] << ")\n";
                  }
             } else indent(level); std::cout << "store i64 " << val_reg << ", i64* " << ptr_name << "\n";
         }
@@ -675,13 +675,13 @@ public:
                 for (size_t i = 0; i < ptr_offsets.size(); ++i) { if (i > 0) global_stream << ", "; global_stream << "i64 " << ptr_offsets[i]; }
                 global_stream << "]\n";
                 indent(level); std::cout << "%map_ptr" << alloc_id << " = getelementptr [" << ptr_offsets.size() << " x i64], [" << ptr_offsets.size() << " x i64]* @" << map_name << ", i32 0, i32 0\n";
-                indent(level); std::cout << "%" << mangled << "_ptr_raw = call i8* @fax_gc_alloc(i64 " << (fields_count * 8) << ", i64* %map_ptr" << alloc_id << ", i64 " << ptr_offsets.size() << ")\n";
+                indent(level); std::cout << "%" << mangled << "_ptr_raw = call i8* @fax_fgc_alloc(i64 " << (fields_count * 8) << ", i64* %map_ptr" << alloc_id << ", i64 " << ptr_offsets.size() << ")\n";
             } else { 
-                indent(level); std::cout << "%" << mangled << "_ptr_raw = call i8* @fax_gc_alloc(i64 " << (fields_count * 8) << ", i64* null, i64 0)\n"; 
+                indent(level); std::cout << "%" << mangled << "_ptr_raw = call i8* @fax_fgc_alloc(i64 " << (fields_count * 8) << ", i64* null, i64 0)\n"; 
             }
             indent(level); std::cout << "store i8* %" << mangled << "_ptr_raw, i8** " << ptr_name << "\n";
             if (var_to_slot.count(mangled)) {
-                indent(level); std::cout << "call void @fax_gc_register_root(i8* %" << mangled << "_ptr_raw, i64 " << var_to_slot[mangled] << ")\n";
+                indent(level); std::cout << "call void @fax_fgc_register_root(i8** " << ptr_name << ", i64 " << var_to_slot[mangled] << ")\n";
             }
             
             indent(level); std::cout << "%" << mangled << "_cast = bitcast i8* %" << mangled << "_ptr_raw to %struct." << s_name << "*\n";
@@ -713,7 +713,7 @@ public:
                 indent(level); std::cout << "%ptr_val" << cid << " = inttoptr i64 " << reg << " to i8*\n";
                 indent(level); std::cout << "store i8* %ptr_val" << cid << ", i8** " << ptr_name << "\n";
                 if (var_to_slot.count(mangled)) {
-                    indent(level); std::cout << "call void @fax_gc_register_root(i8* %ptr_val" << cid << ", i64 " << var_to_slot[mangled] << ")\n";
+                    indent(level); std::cout << "call void @fax_fgc_register_root(i8** " << ptr_name << ", i64 " << var_to_slot[mangled] << ")\n";
                 }
             } else {
                 indent(level); std::cout << "store i64 " << reg << ", i64* " << ptr_name << "\n";
@@ -733,7 +733,7 @@ public:
         std::cout << "\ndefine i64 @" << name << "(";
         if (fn_node.contains("args")) { bool first = true; for (auto& arg : fn_node["args"]) { if (!first) std::cout << ", "; std::cout << "i64 %arg_" << arg["name"].get<std::string>(); symbol_table[arg["name"].get<std::string>()] = "arg"; first = false; } }
         std::cout << ") {\nentry:\n";
-        if (name == "main") indent(1); std::cout << "call void @fax_gc_init()\n";
+        if (name == "main") indent(1); std::cout << "call void @fax_fgc_init()\n";
         if (fn_node.contains("body")) collect_allocas(fn_node["body"]);
         if (fn_node.contains("args")) {
             for (auto& arg : fn_node["args"]) {
@@ -746,7 +746,7 @@ public:
                         indent(1); std::cout << arg_ptr << " = alloca i8*\n";
                         indent(1); std::cout << "%arg_tmp" << rs << " = inttoptr i64 %arg_" << arg_name << " to i8*\n";
                         indent(1); std::cout << "store i8* %arg_tmp" << rs << ", i8** " << arg_ptr << "\n";
-                        indent(1); std::cout << "call void @fax_gc_register_root(i8* %arg_tmp" << rs << ", i64 " << rs << ")\n";
+                        indent(1); std::cout << "call void @fax_fgc_register_root(i8** " << arg_ptr << ", i64 " << rs << ")\n";
                     }
                 }
             }

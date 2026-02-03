@@ -1,0 +1,14 @@
+struct LargeStruct {
+    a: i64, b: i64, c: i64, d: i64,
+    e: i64, f: i64, g: i64, h: i64
+}
+
+fn main() {
+    print("Starting auto GC test...");
+    let i = 0;
+    while (i < 50000) {
+        let s = LargeStruct { a: i, b: i, c: i, d: i, e: i, f: i, g: i, h: i };
+        i = i + 1;
+    }
+    print("Done. Check if [ZGC] logs appeared above.");
+}

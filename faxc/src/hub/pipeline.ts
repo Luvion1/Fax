@@ -47,8 +47,8 @@ class FaxCompilerHub {
 
       // 5. NATIVE COMPILATION phase (Link using zig cc)
       try {
-          const gcObj = "gc.o";
-          execSync(`zig build-obj src/runtime/gc.zig -femit-bin=${gcObj} -fPIE -lc`);
+          const gcObj = "fgc.o";
+          execSync(`zig build-obj src/runtime/fgc.zig -femit-bin=${gcObj} -fPIE -lc`);
           execSync(`zig cc ${llPath} ${gcObj} -o ${binPath} -Wno-override-module -pie -lc`);
           if (fs.existsSync(gcObj)) fs.unlinkSync(gcObj);
       } catch (e: any) {
