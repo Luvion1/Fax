@@ -48,7 +48,7 @@ class FaxCompilerHub {
       // 5. NATIVE COMPILATION phase (Link using zig cc)
       try {
           const gcObj = "fgc.o";
-          execSync(`zig build-obj src/runtime/fgc.zig -femit-bin=${gcObj} -fPIE -lc`);
+          execSync(`zig build-obj faxc/src/runtime/fgc.zig -femit-bin=${gcObj} -fPIE -lc`);
           execSync(`zig cc ${llPath} ${gcObj} -o ${binPath} -Wno-override-module -pie -lc`);
           if (fs.existsSync(gcObj)) fs.unlinkSync(gcObj);
       } catch (e: any) {
@@ -85,10 +85,10 @@ class FaxCompilerHub {
     let command = '';
     switch (name) {
       case 'lexer': command = `cargo run --quiet --bin lexer -- "${inputArg}"`; break;
-      case 'parser': command = `zig run src/components/parser/parser.zig -- "${inputArg}"`; break;
-      case 'sema': command = `ghc -dynamic src/components/sema/sema.hs -o src/components/sema/sema_bin && ./src/components/sema/sema_bin "${inputArg}"`; break;
-      case 'optimizer': command = `python3 src/components/optimizer/optimizer.py "${inputArg}"`; break;
-      case 'codegen': command = `g++ src/components/codegen/codegen.cpp -o src/components/codegen/codegen_bin && ./src/components/codegen/codegen_bin "${inputArg}"`; break;
+      case 'parser': command = `zig run faxc/src/components/parser/parser.zig -- "${inputArg}"`; break;
+      case 'sema': command = `ghc -dynamic faxc/src/components/sema/sema.hs -o faxc/src/components/sema/sema_bin && ./faxc/src/components/sema/sema_bin "${inputArg}"`; break;
+      case 'optimizer': command = `python3 faxc/src/components/optimizer/optimizer.py "${inputArg}"`; break;
+      case 'codegen': command = `g++ faxc/src/components/codegen/codegen.cpp -o faxc/src/components/codegen/codegen_bin && ./faxc/src/components/codegen/codegen_bin "${inputArg}"`; break;
       default: throw new Error(`Unknown component: ${name}`);
     }
 

@@ -10,9 +10,6 @@ jobs:
   build-test:
     name: Build & Test (Linux)
     runs-on: ubuntu-24.04
-    defaults:
-      run:
-        working-directory: ./faxc
 
     steps:
       - uses: actions/checkout@v6
@@ -26,7 +23,7 @@ jobs:
             ~/tools
             ~/.cargo
             ~/.ghcup
-          key: ${{ runner.os }}-tools-v2-${{ hashFiles('faxc/package-lock.json') }}
+          key: ${{ runner.os }}-tools-v2-${{ hashFiles('package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-tools-v2-
 
@@ -38,38 +35,30 @@ jobs:
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
           echo "$HOME/.ghcup/bin" >> $GITHUB_PATH
 
-      # --- MANUAL TOOLCHAIN SETUP ---
-
       - name: Install System Deps
         run: |
           sudo apt-get update
           sudo apt-get install -y wget curl build-essential libgmp-dev libncurses-dev xz-utils git python3-venv
 
-      # Node: Cacheable
       - name: Install Node.js v25.4.0
         if: steps.cache-tools.outputs.cache-hit != 'true'
         run: |
-          echo "Downloading Node.js..."
           wget -q https://nodejs.org/dist/v25.4.0/node-v25.4.0-linux-x64.tar.xz
           tar -xf node-v25.4.0-linux-x64.tar.xz -C ~/tools/
 
-      # Zig: Always fetch fresh for bleeding edge 'master'
       - name: Install Zig (Master)
         run: |
-          echo "Updating Zig Master..."
           rm -rf ~/tools/zig-linux
           ZIG_URL=$(curl -s https://ziglang.org/download/index.json | grep -A 10 '"master":' | grep 'x86_64-linux' | grep 'tarball' | cut -d '"' -f 4)
           wget -q "$ZIG_URL" -O zig.tar.xz
           mkdir -p ~/tools/zig-linux
           tar -xf zig.tar.xz --strip-components=1 -C ~/tools/zig-linux
 
-      # Rust: Cacheable
       - name: Install Rust 1.93.0
         if: steps.cache-tools.outputs.cache-hit != 'true'
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.93.0
 
-      # Haskell: Cacheable
       - name: Install GHC
         if: steps.cache-tools.outputs.cache-hit != 'true'
         run: |
@@ -78,21 +67,11 @@ jobs:
           ghcup install ghc 9.10.1
           ghcup set ghc 9.10.1
 
-      # Python: Deadsnakes
-      - name: Install Python 3.14
-        run: |
-          sudo add-apt-repository -y ppa:deadsnakes/ppa
-          sudo apt-get update
-          sudo apt-get install -y python3.14
-
-      # --- BUILD & VERIFY ---
-
       - name: Verify Versions
         run: |
           node -v
           zig version
           cargo --version
-          python3.14 --version
 
       - name: Install NPM Deps
         run: npm ci
@@ -100,8 +79,8 @@ jobs:
       - name: Build Components
         run: |
           cargo build --release --bin lexer
-          ghc -dynamic src/components/sema/sema.hs -o src/components/sema/sema_bin
-          g++ src/components/codegen/codegen.cpp -o src/components/codegen/codegen_bin
+          ghc -dynamic faxc/src/components/sema/sema.hs -o faxc/src/components/sema/sema_bin
+          g++ faxc/src/components/codegen/codegen.cpp -o faxc/src/components/codegen/codegen_bin
 
       - name: Run Integration Test
         run: |
