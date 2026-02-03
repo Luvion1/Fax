@@ -1,2 +1,0 @@
-cargo:rustc-link-search=native=zig-out/lib
-cargo:rustc-link-lib=static=faxruntime
