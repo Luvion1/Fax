@@ -668,12 +668,10 @@ pub fn main() !void {
     defer arena.deinit();
     const allocator = arena.allocator();
     
-    var args_it = try std.process.argsWithAllocator(allocator);
-    defer args_it.deinit();
-    
+    var args = std.process.args();
     // Skip binary name
-    _ = args_it.skip();
-    const input_file = args_it.next() orelse return;
+    _ = args.skip();
+    const input_file = args.next() orelse return;
     
     const file_content = try std.fs.cwd().readFileAlloc(allocator, input_file, 1024 * 1024);
     const tokens_json = try json.parseFromSlice(json.Value, allocator, file_content, .{});
