@@ -1,14 +1,24 @@
-import System.Environment (getArgs)
-import System.Exit (exitFailure)
-import System.IO (hFlush, stdout, stderr, hPutStrLn)
-import Data.List (isPrefixOf, intercalate)
-import qualified Data.Map as Map
-import Control.Monad (foldM)
-import Data.Char (isDigit, isSpace)
+{-|
+Module      : FAX.Semantics
+Description : Semantic analysis and type checking for FAX programs
+Copyright   : (c) 2024 FAX Team
+License     : MIT
+
+This module implements the semantic analysis phase of the FAX compiler.
+It performs:
+- Symbol table management with scope tracking
+- Type inference and checking
+- Function signature validation
+- Rust-style error reporting with error codes
+-}
+
+{-# LANGUAGE OverloadedStrings #-}
 
 -- =============================================================================
 -- MINIMAL JSON PARSER
 -- =============================================================================
+-- A hand-written JSON parser that converts JSON strings into JsonValue objects.
+-- This is necessary for language-independent communication in the polyglot pipeline.
 
 data JsonValue = JObj [(String, JsonValue)]
                | JArr [JsonValue]
@@ -84,6 +94,7 @@ getAttr _ _ = Nothing
 -- =============================================================================
 -- RUST-STYLE ERROR HANDLING
 -- =============================================================================
+-- Emulates Rust's structured error reporting with error codes and formatted output
 
 data ErrorCode = E0425 -- Cannot find value
                | E0308 -- Type mismatch
@@ -121,6 +132,7 @@ formatRustError err =
 -- =============================================================================
 -- SEMANTIC ANALYZER LOGIC
 -- =============================================================================
+-- Performs type checking, symbol resolution, and semantic validation
 
 data SymbolInfo = SymbolInfo 
     { symType   :: String
@@ -184,6 +196,7 @@ inferType st (JObj pairs) =
         Just (JStr "BinaryExpression") -> 
             let op = case lookup "op" pairs of { Just (JStr o) -> o; _ -> "" }
             in if op `elem` ["eq", "ne", "lt", "gt", "le", "ge"] then "bool" else "i64"
+        Just (JStr "ComparisonExpression") -> "bool"
         Just (JStr "CallExpression") -> 
             let name = case lookup "name" pairs of { Just (JStr n) -> n; _ -> "" }
             in case getSymbol name st of { Just info -> symRetTy info; _ -> "unknown" }
@@ -249,6 +262,19 @@ analyzeNode st (JObj pairs) =
             let rightTy = inferType st right
             if leftTy /= rightTy && leftTy /= "unknown" && rightTy /= "unknown"
                 then Left $ SemanticError E0308 ("mismatched types: expected `" ++ leftTy ++ "`, found `" ++ rightTy ++ "`") (leftTy ++ " " ++ op ++ " " ++ rightTy) ("expected `" ++ leftTy ++ "` because of this operator") ("ensure both operands have the same type")
+                else do
+                    _ <- analyzeNode st left
+                    _ <- analyzeNode st right
+                    return st
+
+        Just (JStr "ComparisonExpression") -> do
+            let left = case lookup "left" pairs of { Just l -> l; _ -> JNull }
+            let right = case lookup "right" pairs of { Just r -> r; _ -> JNull }
+            let op = case lookup "op" pairs of { Just (JStr o) -> o; _ -> "" }
+            let leftTy = inferType st left
+            let rightTy = inferType st right
+            if leftTy /= rightTy && leftTy /= "unknown" && rightTy /= "unknown"
+                then Left $ SemanticError E0308 ("mismatched types in comparison") (leftTy ++ " " ++ op ++ " " ++ rightTy) ("operands must be of the same type") ("ensure both sides of the comparison have the same type")
                 else do
                     _ <- analyzeNode st left
                     _ <- analyzeNode st right
