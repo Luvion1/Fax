@@ -357,4 +357,3 @@ fn main() {
     let mut lexer = Lexer::new(&content);
     let tokens = lexer.lex();
     println!("{}", serde_json::to_string(&tokens).unwrap());
-}
