@@ -1,0 +1,55 @@
+{
+  "compiler": {
+    "name": "Fax",
+    "version": "0.1.0",
+    "components": {
+      "lexer": {
+        "language": "Rust",
+        "path": "./packages/lexer",
+        "binary": "./target/release/lexer"
+      },
+      "parser": {
+        "language": "Zig",
+        "path": "./packages/parser",
+        "binary": "./zig-out/bin/parser"
+      },
+      "sema": {
+        "language": "Haskell",
+        "path": "./packages/sema",
+        "binary": "./bin/sema"
+      },
+      "optimizer": {
+        "language": "Rust",
+        "path": "./packages/optimizer",
+        "binary": "./target/release/fax-opt"
+      },
+      "codegen": {
+        "language": "C++",
+        "path": "./packages/codegen",
+        "binary": "./build/faxc_cpp"
+      },
+      "runtime": {
+        "language": "Zig",
+        "path": "./packages/runtime",
+        "library": "./zig-out/lib/libfaxruntime.a"
+      }
+    },
+    "protocol": {
+      "type": "FlatBuffers",
+      "definition": "./common/protocol.fbs",
+      "generated_path": "./common/generated"
+    },
+    "pipeline": {
+      "temporary_files": [
+        "temp_tokens.bin",
+        "temp_ast.bin", 
+        "temp_typed.bin",
+        "temp_optimized.bin"
+      ],
+      "output": {
+        "llvm_ir": "./output.ll",
+        "executable": "./output"
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+module io;
+
+pub extern fn print_int(val: i64);
+pub extern fn print_str(val: str);
+
+pub fn print<T>(val: T) {
+    // Untuk saat ini, compiler masih menangani print secara khusus
+    // Namun ini adalah struktur untuk masa depan
+}

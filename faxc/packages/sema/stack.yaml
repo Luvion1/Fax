@@ -1,0 +1,8 @@
+resolver: lts-22.6
+packages:
+- .
+extra-deps:
+- aeson-2.1.2.1
+- text-2.0.2
+- vector-0.13.1.0
+- unordered-containers-0.2.19.1

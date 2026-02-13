@@ -1,0 +1,10 @@
+// Standard Library for Fax-lang
+
+pub fn version() -> string {
+    "0.1.0"
+}
+
+pub fn print_info() {
+    print("Fax-lang Standard Library");
+    print("Status: Operational");
+}

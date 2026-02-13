@@ -1,0 +1,13 @@
+struct Point { x: i64, y: i64 }
+struct Rect { p1: Point, p2: Point }
+
+fn main() {
+    let r = Rect { 
+        p1: Point { x: 10, y: 20 }, 
+        p2: Point { x: 30, y: 40 } 
+    };
+    print(r.p1.x);
+    print(r.p1.y);
+    print(r.p2.x);
+    print(r.p2.y);
+}

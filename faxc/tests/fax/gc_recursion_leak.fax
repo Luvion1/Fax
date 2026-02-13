@@ -3,7 +3,7 @@ struct Node { val: i64 }
 fn leak_checker(n: i64): i64 {
     let node = Node { val: n };
     if (n <= 0) {
-        Std::io::collect_gc(); 
+        collect_gc(); 
         return 0;
     }
     return node.val + leak_checker(n - 1);

@@ -1,0 +1,22 @@
+[package]
+name = "fax"
+version = "0.0.1"
+authors = ["Fax Developers <dev@fax-lang.org>"]
+edition = "2026"
+description = "The Fax Programming Language: A high-performance polyglot system"
+documentation = "https://docs.fax-lang.org"
+readme = "README.md"
+repository = "https://github.com/fax-lang/fax"
+license = "MIT OR Apache-2.0"
+keywords = ["compiler", "polyglot", "zgc", "llvm"]
+
+[dependencies]
+# Fax package dependencies will be listed here
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[profile.release]
+opt-level = 3
+debug = false

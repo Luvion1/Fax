@@ -13,7 +13,7 @@ fn main() {
     // Satu-satunya referensi ke 'Inner' ada di dalam 'o' (di heap).
     // Karena 'Outer' dialokasikan tanpa ptr_map, GC akan menghapus 'Inner'.
     
-    Std::io::collect_gc();
+    collect_gc();
     
     print(o.inner.val); // Harusnya 42, tapi kemungkinan besar sampah atau crash.
 }

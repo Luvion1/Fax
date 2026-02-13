@@ -1,0 +1,4 @@
+fn main() {
+    let x = 42;
+    print(y);  // y is undefined
+}

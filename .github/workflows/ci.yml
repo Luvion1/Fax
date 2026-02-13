@@ -1,68 +1,99 @@
-name: Fax-lang Master CI
+name: Fax-lang Comprehensive CI
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "master", "main" ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "master", "main" ]
 
 jobs:
-  build-test:
-    name: Build & Test (Linux)
-    runs-on: ubuntu-24.04
-
+  lint:
+    name: Lint & Format Checks
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
-      # --- TOOLCHAIN SETUP ---
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          node-version: '22'
-          cache: 'npm'
+          components: rustfmt, clippy
 
       - name: Setup Zig
         uses: goto-bus-stop/setup-zig@v2
         with:
           version: 0.13.0
 
-      - name: Setup Rust
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Rustfmt (Lexer)
+        run: cargo fmt --all --check --manifest-path faxc/packages/lexer/Cargo.toml
+
+      - name: Rustfmt (Optimizer)
+        run: cargo fmt --all --check --manifest-path faxc/packages/optimizer/Cargo.toml
+
+      - name: Zig Format Check
+        run: zig fmt --check faxc/packages/parser/src/main.zig faxc/packages/runtime/src/
+
+      - name: TypeScript Lint (if configured)
+        run: |
+          cd faxc/packages/hub
+          npm install
+          # npx tsc --noEmit (if you want strict type checking in CI)
+
+  build-and-test:
+    name: Build & Integration Test
+    needs: lint
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include:
+          - component: lexer
+            dir: faxc/packages/lexer
+            build: cargo build --release
+          - component: parser
+            dir: faxc/packages/parser
+            build: zig build -Doptimize=ReleaseSafe
+          - component: optimizer
+            dir: faxc/packages/optimizer
+            build: cargo build --release
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Toolchain
+        if: matrix.component == 'lexer' || matrix.component == 'optimizer'
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Zig
+        if: matrix.component == 'parser'
+        uses: goto-bus-stop/setup-zig@v2
         with:
-          toolchain: stable
+          version: 0.13.0
 
-      - name: Setup GHC (Haskell)
-        uses: haskell-actions/setup@v2
-        with:
-          ghc-version: '9.10.1'
-          cabal-version: 'latest'
-
-      - name: Install System Deps
+      - name: Build ${{ matrix.component }}
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libgmp-dev libncurses-dev python3
+          cd ${{ matrix.dir }}
+          ${{ matrix.build }}
 
-      # --- BUILD & VERIFY ---
+  full-pipeline:
+    name: End-to-End Pipeline Test
+    needs: [lint, build-and-test]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Verify Versions
+      - name: Setup All Toolchains
+        uses: ./.github/actions/setup-fax-env
+
+      - name: Build All
+        run: ./build_compiler.sh
+
+      - name: Run Integration Tests
         run: |
-          node -v
-          zig version
-          cargo --version
-          ghc --version
-
-      - name: Install NPM Deps
-        run: npm ci
-
-      - name: Build Components
-        run: |
-          cargo build --release --bin lexer
-          ghc -dynamic faxc/src/components/sema/sema.hs -o faxc/src/components/sema/sema_bin
-          g++ faxc/src/components/codegen/codegen.cpp -o faxc/src/components/codegen/codegen_bin
-
-      - name: Run Integration Test
-        run: |
-          echo 'fn main() { print(999); }' > ci.fax
-          npm start ci.fax
-          ./ci | grep "999"
+          chmod +x run_pipeline.sh
+          ./run_pipeline.sh simple_test.fax
+          # Verify output
+          ./output | grep "15"

@@ -1,0 +1,17 @@
+node_modules/
+target/
+zig-out/
+.zig-cache/
+dist-newstyle/
+output
+output.ll
+temp_*.json
+bin/
+build/
+*.o
+*.hi
+*.a
+*.dyn_hi
+*.dyn_o
+tools/
+

@@ -1,0 +1,4 @@
+module std::collections;
+
+// Placeholder for collections module
+// Will contain implementations of common data structures like Vector, HashMap, etc.

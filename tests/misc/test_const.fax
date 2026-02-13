@@ -1,0 +1,8 @@
+const GLOBAL_LIMIT = 100;
+
+fn main() {
+    let x = 50;
+    if (x < GLOBAL_LIMIT) {
+        print(x);
+    }
+}

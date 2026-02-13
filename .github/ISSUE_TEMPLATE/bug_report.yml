@@ -37,14 +37,22 @@ body:
         - Lexer (Rust)
         - Parser (Zig)
         - Semantic Analysis (Haskell)
+        - Optimizer (Rust)
         - Codegen (C++)
-        - Runtime (Zig/Rust)
-        - CLI/Hub (TypeScript)
+        - Runtime (Zig)
+        - Hub (TypeScript)
     validations:
       required: true
   - type: input
-    id: environment
+    id: version
     attributes:
-      label: Environment
-      description: OS, Fax version, etc.
-      placeholder: "Linux (Ubuntu 22.04), Zig 0.13.0"
+      label: Fax Version
+      description: What version of Fax are you using? (Run `faxc --version`)
+      placeholder: "e.g., v0.1.0-alpha"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs
+      description: Please provide relevant output or error logs.
+      render: shell
+

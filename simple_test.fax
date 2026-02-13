@@ -1,0 +1,21 @@
+fn main() {
+    let x = 5;
+    let y = 10;
+    let sum = x + y;
+    print(sum);
+    
+    if x < y {
+        print("x is less than y");
+    } else {
+        print("x is greater than or equal to y");
+    }
+    
+    let mut counter = 0;
+    while counter < 3 {
+        print(counter);
+        counter = counter + 1;
+    }
+    
+    let arr = [1, 2, 3, 4, 5];
+    print(arr[2]);  // Should print 3
+}

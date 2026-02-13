@@ -1,0 +1,18 @@
+{
+  "name": "fax-compiler",
+  "version": "0.1.0",
+  "description": "The Fax Programming Language Compiler Suite",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "bash scripts/build-all.sh",
+    "test": "bash scripts/test-all.sh",
+    "generate-protocol": "bash common/generate_protocol.sh",
+    "lint": "bash scripts/lint-all.sh"
+  },
+  "devDependencies": {
+    "@types/node": "^25.1.0",
+    "typescript": "^5.9.3"
+  }
+}

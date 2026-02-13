@@ -1,7 +1,0 @@
-[project]
-name = "faxc"
-version = "0.0.1"
-description = "Fax Compiler"
-readme = "README.md"
-requires-python = ">=3.11"
-dependencies = []

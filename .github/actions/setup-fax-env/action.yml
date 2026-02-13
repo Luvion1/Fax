@@ -1,0 +1,28 @@
+name: 'Setup Fax Environment'
+description: 'Sets up all toolchains required for Fax-lang'
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Setup Zig
+      uses: goto-bus-stop/setup-zig@v2
+      with:
+        version: 0.13.0
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Setup GHC (Haskell)
+      uses: haskell-actions/setup@v2
+      with:
+        ghc-version: '9.10.1'
+
+    - name: Install System Deps
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libgmp-dev libncurses-dev python3 llvm-dev build-essential cmake

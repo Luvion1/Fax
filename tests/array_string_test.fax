@@ -1,0 +1,6 @@
+fn main() {
+    let mut names: str[] = ["Alice", "Bob", "Charlie"];
+    print(names[1]);
+    names[1] = "David";
+    print(names[1]);
+}

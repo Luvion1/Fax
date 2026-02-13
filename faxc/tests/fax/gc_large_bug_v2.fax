@@ -606,7 +606,7 @@ fn main() {
     let s = Small { val: 1337 };
     let b = Big { target: s };
     print("Before GC");
-    Std::io::collect_gc();
+    collect_gc();
     print("After GC");
     let s2 = b.target;
     print(s2.val);
