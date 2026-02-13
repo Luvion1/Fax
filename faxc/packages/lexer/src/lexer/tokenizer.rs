@@ -120,7 +120,8 @@ impl<'a> Tokenizer<'a> {
         let mut has_dot = false;
 
         while let Some(&(_, ch)) = self.peek() {
-            if ch.is_ascii_digit() || ch == '_' || ch == 'e' || ch == 'E' || ch == 'x' || ch == 'b' {
+            if ch.is_ascii_digit() || ch == '_' || ch == 'e' || ch == 'E' || ch == 'x' || ch == 'b'
+            {
                 if let Some(c) = self.next() {
                     v.push(c);
                 } else {

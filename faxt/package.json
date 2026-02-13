@@ -1,0 +1,12 @@
+{
+  "name": "faxt",
+  "version": "0.0.1",
+  "description": "Fax CLI Toolchain",
+  "main": "main.py",
+  "scripts": {
+    "start": "python3 main.py"
+  },
+  "keywords": ["fax", "compiler", "programming-language"],
+  "author": "",
+  "license": "MIT"
+}

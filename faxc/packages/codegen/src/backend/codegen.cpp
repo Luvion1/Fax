@@ -401,7 +401,7 @@ Info Codegen::load(const json& node, int level) {
             int index = std::stoi(field);
             indent(level); std::cout << "%c" << id << " = bitcast i8* " << baseReg << " to i64*\n";
             indent(level); std::cout << "%g" << id << " = getelementptr i64, i64* %c" << id << ", i32 " << index << "\n";
-            indent(level); std::cout << "%v" << id << " = load i64, i64* " << g << id << "\n";
+            indent(level); std::cout << "%v" << id << " = load i64, i64* %g" << id << "\n";
             return {"%v" + std::to_string(id), "i64"};
         }
         std::string structType = baseInfo.type;
