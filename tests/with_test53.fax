@@ -1,0 +1,414 @@
+// Fungsi-fungsi awal dari edge_cases.fax
+fn test1() {
+    let x = 0;
+    let y = -1;
+    print(x + y);
+}
+
+fn test2() {
+    let a = 9223372036854775807;  // max i64
+    let b = -9223372036854775808; // min i64
+    print(a + b);
+}
+
+fn test3() {
+    let zero = 0;
+    let result = 10 / (zero + 1);  // avoid division by zero
+    print(result);
+}
+
+fn test4() {
+    let mut x = 5;
+    x = 10;
+    x = x * 2;
+    print(x);
+}
+
+fn test5() {
+    let imm = 100;
+    let mut x = imm;
+    x = x + imm;
+    print(x);
+}
+
+fn test6() {
+    let cond = 0;
+    if cond == 0 {
+        print(1);
+    } else {
+        print(0);
+    }
+}
+
+fn test7() {
+    let truth = 1;
+    if truth != 0 {
+        print(truth);
+    } else {
+        print(0);
+    }
+}
+
+fn test8() {
+    let neg = -1;
+    if neg < 0 {
+        print(-neg);
+    } else {
+        print(neg);
+    }
+}
+
+fn test9() {
+    let mut i = 0;
+    while i < 0 {  // never executes
+        print(i);
+        i = i + 1;
+    }
+    print(0);  // verify execution
+}
+
+fn test10() {
+    let mut i = 0;
+    while i < 1 {
+        print(i);
+        i = i + 1;
+    }
+}
+
+fn test11() {
+    let mut i = 5;
+    while i > 0 {
+        print(i);
+        i = i - 1;
+    }
+}
+
+fn test12() {
+    for i in 0..0 {  // empty range
+        print(i);
+    }
+    print(0);  // verify execution
+}
+
+fn test13() {
+    for i in 0..1 {
+        print(i);
+    }
+}
+
+fn test14() {
+    for i in 5..6 {
+        print(i);
+    }
+}
+
+fn test15() {
+    let arr = [];
+    print(0);  // empty array
+}
+
+fn test16() {
+    let arr = [42];
+    print(arr[0]);
+}
+
+fn test17() {
+    let arr = [1, 2, 3, 4, 5];
+    print(arr[0]);
+    print(arr[4]);
+}
+
+fn test18() {
+    let arr = [0, 0, 0, 0, 0];
+    let mut i = 0;
+    while i < 5 {
+        print(arr[i]);
+        i = i + 1;
+    }
+}
+
+fn test19() {
+    let mut arr = [10, 20, 30];
+    arr[1] = 99;
+    print(arr[1]);
+}
+
+fn test20() {
+    let arr = [1, 2, 3];
+    let idx = 1;
+    print(arr[idx]);
+}
+
+fn test21() {
+    let s = "";
+    print(0);  // empty string
+}
+
+fn test22() {
+    let s = "a";
+    print(1);  // single char
+}
+
+fn test23() {
+    let s1 = "hello";
+    let s2 = "world";
+    let s3 = s1 + s2;
+    print(1);  // string concat
+}
+
+fn test24() {
+    let s = "test";
+    print(1);  // normal string
+}
+
+fn test25() {
+    if 1 == 1 {
+        if 2 == 2 {
+            print(1);
+        }
+    }
+}
+
+fn test26() {
+    let mut x = 0;
+    if x == 0 {
+        x = 1;
+        if x == 1 {
+            x = 2;
+        }
+    }
+    print(x);
+}
+
+fn test27() {
+    let mut i = 0;
+    while i < 2 {
+        let mut j = 0;
+        while j < 2 {
+            print(i * 2 + j);
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+}
+
+fn test28() {
+    for i in 0..2 {
+        for j in 0..2 {
+            print(i * 2 + j);
+        }
+    }
+}
+
+// Fungsi helper untuk test29 dan test30
+fn helper(x: i64) -> i64 {
+    return x + 1;
+}
+
+fn test29() {
+    let res = helper(5);
+    print(res);
+}
+
+fn test30() {
+    print(helper(0));
+}
+
+// Fungsi identity untuk test31
+fn identity(x: i64) -> i64 {
+    return x;
+}
+
+fn test31() {
+    print(identity(42));
+}
+
+// Fungsi double untuk test32
+fn double(x: i64) -> i64 {
+    return x * 2;
+}
+
+fn test32() {
+    print(double(7));
+}
+
+// Ekspresi kompleks
+fn test33() {
+    let x = 1 + 2 * 3;
+    print(x);
+}
+
+fn test34() {
+    let x = (1 + 2) * 3;
+    print(x);
+}
+
+fn test35() {
+    let a = 10;
+    let b = 5;
+    let c = a - b + 1;
+    print(c);
+}
+
+fn test36() {
+    let x = 100;
+    let y = 50;
+    let z = x / y * 2;
+    print(z);
+}
+
+fn test37() {
+    let result = 2 * 3 + 4 * 5;
+    print(result);
+}
+
+fn test38() {
+    let a = 1;
+    let b = 2;
+    let c = 3;
+    let d = a + b + c;
+    print(d);
+}
+
+// Nilai nol dan operasi
+fn test39() {
+    let zero = 0;
+    print(zero);
+}
+
+fn test40() {
+    let x = 5;
+    let y = 0;
+    print(x * y);
+}
+
+fn test41() {
+    let x = 10;
+    print(x - x);
+}
+
+fn test42() {
+    let x = 7;
+    print(x % x);  // should be 0
+}
+
+fn test43() {
+    let x = 8;
+    print(x % 1);  // should be 0
+}
+
+// Angka negatif
+fn test44() {
+    let neg = -5;
+    print(neg);
+}
+
+fn test45() {
+    let pos = 5;
+    let neg = -pos;
+    print(neg);
+}
+
+fn test46() {
+    let x = -10;
+    let y = -5;
+    print(x - y);
+}
+
+fn test47() {
+    let x = -1;
+    let y = -1;
+    print(x * y);
+}
+
+fn test48() {
+    let x = -8;
+    let y = 2;
+    print(x / y);
+}
+
+// Angka besar
+fn test49() {
+    let big = 1000000;
+    print(big);
+}
+
+fn test50() {
+    let huge = 999999999;
+    print(huge);
+}
+
+fn test51() {
+    let a = 1000;
+    let b = 1000;
+    print(a * b);
+}
+
+fn test52() {
+    let a = 1000000;
+    let b = 1000000;
+    // Note: might overflow, but tests behavior
+    print(1);
+}
+
+// Operasi boolean-like
+fn test53() {
+    let x = 1;
+    if x { print(1); } else { print(0); }
+}
+
+fn main() {
+    test1();
+    test2();
+    test3();
+    test4();
+    test5();
+    test6();
+    test7();
+    test8();
+    test9();
+    test10();
+    test11();
+    test12();
+    test13();
+    test14();
+    test15();
+    test16();
+    test17();
+    test18();
+    test19();
+    test20();
+    test21();
+    test22();
+    test23();
+    test24();
+    test25();
+    test26();
+    test27();
+    test28();
+    test29();
+    test30();
+    test31();
+    test32();
+    test33();
+    test34();
+    test35();
+    test36();
+    test37();
+    test38();
+    test39();
+    test40();
+    test41();
+    test42();
+    test43();
+    test44();
+    test45();
+    test46();
+    test47();
+    test48();
+    test49();
+    test50();
+    test51();
+    test52();
+    test53();
+}

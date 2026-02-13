@@ -5,7 +5,7 @@ import { writeFileSync } from 'fs';
 export class CodeGeneratorAdapter implements ComponentAdapter {
   private readonly command: string;
 
-  constructor(command: string = './faxc/packages/codegen/build/faxc_cpp') {
+  constructor(command: string = '../codegen/build/faxc_cpp') {
     this.command = command;
   }
 

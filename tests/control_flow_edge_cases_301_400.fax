@@ -1,0 +1,887 @@
+// Control Flow Edge Cases 301-400
+
+fn test_simple_if() {
+    let x = 5;
+    if x > 0 {
+        print(1);
+    }
+}
+
+fn test_if_else() {
+    let x = -5;
+    if x > 0 {
+        print(1);
+    } else {
+        print(0);
+    }
+}
+
+fn test_if_elif_else() {
+    let x = 0;
+    if x > 0 {
+        print(1);
+    } else if x < 0 {
+        print(-1);
+    } else {
+        print(0);
+    }
+}
+
+fn test_nested_ifs() {
+    let a = 5;
+    let b = 10;
+    if a > 0 {
+        if b > 0 {
+            print(1);
+        } else {
+            print(0);
+        }
+    } else {
+        print(-1);
+    }
+}
+
+fn test_chained_conditions() {
+    let a = 5;
+    let b = 10;
+    let c = 15;
+    if a < b && b < c {
+        print(1);
+    } else {
+        print(0);
+    }
+}
+
+fn test_complex_condition() {
+    let a = 5;
+    let b = 10;
+    let c = 15;
+    if (a < b || b > c) && (c > a) {
+        print(1);
+    } else {
+        print(0);
+    }
+}
+
+fn test_empty_if_block() {
+    let x = 5;
+    if x > 0 {
+        // Empty block
+    }
+    print(1);
+}
+
+fn test_empty_else_block() {
+    let x = -5;
+    if x > 0 {
+        print(1);
+    } else {
+        // Empty else
+    }
+    print(0);
+}
+
+fn test_multiple_elif() {
+    let x = 2;
+    if x == 0 {
+        print(0);
+    } else if x == 1 {
+        print(1);
+    } else if x == 2 {
+        print(2);
+    } else if x == 3 {
+        print(3);
+    } else {
+        print(-1);
+    }
+}
+
+fn test_if_as_expression_simulation() {
+    let a = 5;
+    let b = 10;
+    let max_val = if a > b { a } else { b };
+    print(max_val);
+}
+
+fn test_dangling_else_simulation() {
+    let a = true;
+    let b = false;
+    // This simulates the classic dangling else problem
+    if a {
+        if b {
+            print(1);
+        } else {
+            print(2);  // Associates with inner if
+        }
+    }
+}
+
+fn test_if_with_assignment() {
+    let mut x = 0;
+    if x == 0 {
+        x = 5;
+    }
+    print(x);
+}
+
+fn test_if_with_scope() {
+    let x = 5;
+    if x > 0 {
+        let y = 10;
+        print(y);
+    }
+    // y is not accessible here
+    print(x);
+}
+
+fn test_if_with_complex_scope() {
+    let x = 1;
+    if x > 0 {
+        let y = 2;
+        {
+            let z = 3;
+            print(x + y + z);
+        }
+        print(x + y);
+    }
+    print(x);
+}
+
+fn test_if_with_function_call() {
+    if check_condition(5) {
+        print(1);
+    } else {
+        print(0);
+    }
+}
+
+fn check_condition(x: int) -> bool {
+    return x > 0;
+}
+
+fn test_if_with_side_effect() {
+    let mut counter = 0;
+    if increment_counter(&mut counter) {
+        print(counter);
+    }
+}
+
+fn increment_counter(counter: &mut int) -> bool {
+    *counter = *counter + 1;
+    return *counter > 0;
+}
+
+fn test_while_basic() {
+    let mut i = 0;
+    while i < 3 {
+        print(i);
+        i = i + 1;
+    }
+}
+
+fn test_while_false_condition() {
+    let mut i = 0;
+    while i < 0 {
+        print(i);
+        i = i + 1;
+    }
+    print(-1);  // Should execute
+}
+
+fn test_while_infinite_protection() {
+    let mut i = 0;
+    while i < 3 {
+        print(i);
+        i = i + 1;
+    }
+}
+
+fn test_while_with_break() {
+    let mut i = 0;
+    while true {
+        if i == 3 {
+            break;
+        }
+        print(i);
+        i = i + 1;
+    }
+}
+
+fn test_while_with_continue() {
+    let mut i = 0;
+    while i < 5 {
+        i = i + 1;
+        if i == 3 {
+            continue;
+        }
+        print(i);
+    }
+}
+
+fn test_nested_while() {
+    let mut i = 0;
+    while i < 2 {
+        let mut j = 0;
+        while j < 3 {
+            print(i * 10 + j);
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+}
+
+fn test_while_with_complex_condition() {
+    let mut a = 0;
+    let mut b = 10;
+    while a < b && a < 5 {
+        print(a);
+        a = a + 1;
+    }
+}
+
+fn test_while_with_modification_in_condition() {
+    let mut i = 0;
+    while i < 3 {
+        print(i);
+        i = i + 1;
+    }
+}
+
+fn test_while_with_scope() {
+    let mut i = 0;
+    while i < 2 {
+        let x = i * 10;
+        print(x);
+        i = i + 1;
+    }
+}
+
+fn test_while_with_function_calls() {
+    let mut i = 0;
+    while i < 2 {
+        process_iteration(i);
+        i = i + 1;
+    }
+}
+
+fn process_iteration(iter: int) {
+    print(iter);
+}
+
+fn test_while_with_side_effects() {
+    let mut counter = 0;
+    while counter < 3 {
+        print(counter);
+        increment_global(&mut counter);
+    }
+}
+
+fn increment_global(val: &mut int) {
+    *val = *val + 1;
+}
+
+fn test_while_with_complex_body() {
+    let mut i = 0;
+    while i < 3 {
+        let temp = i * i;
+        if temp > 0 {
+            print(temp);
+        } else {
+            print(0);
+        }
+        i = i + 1;
+    }
+}
+
+fn test_while_with_multiple_vars() {
+    let mut i = 0;
+    let mut j = 10;
+    while i < 3 && j > 7 {
+        print(i + j);
+        i = i + 1;
+        j = j - 1;
+    }
+}
+
+fn test_while_with_assignment_in_condition() {
+    let mut i = 0;
+    let mut condition = true;
+    while condition && i < 3 {
+        print(i);
+        i = i + 1;
+        if i >= 3 {
+            condition = false;
+        }
+    }
+}
+
+fn test_while_with_complex_exit() {
+    let mut i = 0;
+    let mut exit_flag = false;
+    while !exit_flag {
+        print(i);
+        i = i + 1;
+        if i >= 3 {
+            exit_flag = true;
+        }
+    }
+}
+
+fn test_for_loop_simulation() {
+    let mut i = 0;
+    while i < 3 {
+        print(i);
+        i = i + 1;
+    }
+}
+
+fn test_for_loop_downward() {
+    let mut i = 3;
+    while i > 0 {
+        i = i - 1;
+        print(i);
+    }
+}
+
+fn test_for_loop_with_step() {
+    let mut i = 0;
+    while i < 10 {
+        print(i);
+        i = i + 2;
+    }
+}
+
+fn test_for_loop_empty_range() {
+    let mut i = 0;
+    while i < 0 {  // Empty range
+        print(i);
+        i = i + 1;
+    }
+    print(-1);  // Should execute
+}
+
+fn test_for_loop_single_iteration() {
+    let mut i = 0;
+    while i < 1 {
+        print(i);
+        i = i + 1;
+    }
+}
+
+fn test_for_loop_large_range() {
+    let mut i = 0;
+    while i < 5 {
+        print(i);
+        i = i + 1;
+    }
+}
+
+fn test_for_loop_with_break() {
+    let mut i = 0;
+    while i < 10 {
+        if i == 3 {
+            break;
+        }
+        print(i);
+        i = i + 1;
+    }
+}
+
+fn test_for_loop_with_continue() {
+    let mut i = 0;
+    while i < 5 {
+        i = i + 1;
+        if i == 3 {
+            continue;
+        }
+        print(i);
+    }
+}
+
+fn test_nested_for_simulation() {
+    let mut i = 0;
+    while i < 2 {
+        let mut j = 0;
+        while j < 3 {
+            print(i * 10 + j);
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+}
+
+fn test_for_with_complex_body() {
+    let mut i = 0;
+    while i < 3 {
+        let square = i * i;
+        let cube = square * i;
+        print(square);
+        print(cube);
+        i = i + 1;
+    }
+}
+
+fn test_for_with_conditional_logic() {
+    let mut i = 0;
+    while i < 5 {
+        if i % 2 == 0 {
+            print(i);
+        }
+        i = i + 1;
+    }
+}
+
+fn test_for_with_accumulator() {
+    let mut sum = 0;
+    let mut i = 0;
+    while i < 5 {
+        sum = sum + i;
+        i = i + 1;
+    }
+    print(sum);
+}
+
+fn test_for_with_multiple_counters() {
+    let mut i = 0;
+    let mut j = 10;
+    while i < 5 {
+        print(i + j);
+        i = i + 1;
+        j = j - 1;
+    }
+}
+
+fn test_control_flow_with_return() {
+    let result = conditional_return(5);
+    print(result);
+}
+
+fn conditional_return(x: int) -> int {
+    if x > 0 {
+        return x * 2;
+    }
+    return x;
+}
+
+fn test_control_flow_with_multiple_returns() {
+    let result1 = multi_return_func(1);
+    let result2 = multi_return_func(0);
+    print(result1);
+    print(result2);
+}
+
+fn multi_return_func(x: int) -> int {
+    if x > 0 {
+        return 10;
+    } else if x == 0 {
+        return 0;
+    } else {
+        return -10;
+    }
+}
+
+fn test_control_flow_with_early_exit() {
+    early_exit_function(0);
+    early_exit_function(5);
+}
+
+fn early_exit_function(x: int) {
+    if x <= 0 {
+        return;
+    }
+    print(x * 2);
+}
+
+fn test_control_flow_with_nested_functions() {
+    outer_function(3);
+}
+
+fn outer_function(n: int) {
+    let mut i = 0;
+    while i < n {
+        if inner_check(i) {
+            print(i);
+        }
+        i = i + 1;
+    }
+}
+
+fn inner_check(x: int) -> bool {
+    return x % 2 == 0;
+}
+
+fn test_control_flow_with_exception_simulation() {
+    let result = safe_divide_control(10, 2);
+    print(result);
+    let error_result = safe_divide_control(10, 0);
+    print(error_result);
+}
+
+fn safe_divide_control(a: int, b: int) -> int {
+    if b == 0 {
+        return -999;  // Error code
+    }
+    return a / b;
+}
+
+fn test_control_flow_with_validation() {
+    process_with_validation(5);
+    process_with_validation(-1);
+}
+
+fn process_with_validation(x: int) {
+    if x < 0 {
+        print(-1);
+        return;
+    }
+    if x > 100 {
+        print(101);
+        return;
+    }
+    print(x * 2);
+}
+
+fn test_control_flow_with_state_machine_simulation() {
+    let mut state = 0;
+    let mut counter = 0;
+    
+    while counter < 5 {
+        if state == 0 {
+            print(0);
+            state = 1;
+        } else if state == 1 {
+            print(1);
+            state = 2;
+        } else if state == 2 {
+            print(2);
+            state = 0;
+        }
+        counter = counter + 1;
+    }
+}
+
+fn test_control_flow_with_flag_based_logic() {
+    let mut flag1 = true;
+    let mut flag2 = false;
+    let mut counter = 0;
+    
+    while counter < 3 {
+        if flag1 {
+            print(1);
+            flag1 = false;
+            flag2 = true;
+        } else if flag2 {
+            print(2);
+            flag1 = true;
+            flag2 = false;
+        }
+        counter = counter + 1;
+    }
+}
+
+fn test_control_flow_with_complex_switch_simulation() {
+    let value = 2;
+    if value == 1 {
+        print(10);
+    } else if value == 2 {
+        print(20);
+    } else if value == 3 {
+        print(30);
+    } else if value == 4 {
+        print(40);
+    } else {
+        print(0);
+    }
+}
+
+fn test_control_flow_with_range_checks() {
+    let num = 15;
+    if num >= 0 && num <= 10 {
+        print(1);
+    } else if num > 10 && num <= 20 {
+        print(2);
+    } else if num > 20 && num <= 30 {
+        print(3);
+    } else {
+        print(0);
+    }
+}
+
+fn test_control_flow_with_bounded_iteration() {
+    let start = 1;
+    let end = 5;
+    let mut i = start;
+    while i <= end {
+        print(i);
+        i = i + 1;
+    }
+}
+
+fn test_control_flow_with_dynamic_bounds() {
+    let mut bound = 3;
+    let mut i = 0;
+    while i < bound {
+        print(i);
+        if i == 1 {
+            bound = bound + 1;  // Change bound mid-loop
+        }
+        i = i + 1;
+    }
+}
+
+fn test_control_flow_with_nested_conditions() {
+    let a = 5;
+    let b = 10;
+    let c = 15;
+    
+    if a > 0 {
+        if b > 0 {
+            if c > 0 {
+                print(1);
+            } else {
+                print(2);
+            }
+        } else {
+            if c > 0 {
+                print(3);
+            } else {
+                print(4);
+            }
+        }
+    } else {
+        if b > 0 {
+            if c > 0 {
+                print(5);
+            } else {
+                print(6);
+            }
+        } else {
+            print(7);
+        }
+    }
+}
+
+fn test_control_flow_with_complex_loops() {
+    let mut i = 0;
+    while i < 3 {
+        let mut j = 0;
+        while j < i + 1 {
+            print(i * 10 + j);
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+}
+
+fn test_control_flow_with_conditional_loops() {
+    let condition = true;
+    if condition {
+        let mut i = 0;
+        while i < 3 {
+            print(i);
+            i = i + 1;
+        }
+    } else {
+        print(-1);
+    }
+}
+
+fn test_control_flow_with_loop_in_else() {
+    let condition = false;
+    if condition {
+        print(-1);
+    } else {
+        let mut i = 0;
+        while i < 3 {
+            print(i);
+            i = i + 1;
+        }
+    }
+}
+
+fn test_control_flow_with_multiple_breaks_simulation() {
+    let mut i = 0;
+    let mut exit_outer = false;
+    
+    while !exit_outer && i < 5 {
+        let mut j = 0;
+        while j < 3 {
+            if i == 2 && j == 1 {
+                exit_outer = true;
+                break;
+            }
+            print(i * 10 + j);
+            j = j + 1;
+        }
+        if !exit_outer {
+            i = i + 1;
+        }
+    }
+}
+
+fn test_control_flow_with_complex_continue_simulation() {
+    let mut i = 0;
+    while i < 5 {
+        i = i + 1;
+        if i == 2 {
+            continue;
+        }
+        
+        let mut j = 0;
+        while j < 3 {
+            if i == 4 && j == 2 {
+                j = j + 1;
+                continue;
+            }
+            print(i * 10 + j);
+            j = j + 1;
+        }
+    }
+}
+
+fn test_control_flow_with_deep_nesting() {
+    let a = 1;
+    if a > 0 {
+        let b = 2;
+        if b > 0 {
+            let c = 3;
+            if c > 0 {
+                let d = 4;
+                if d > 0 {
+                    let e = 5;
+                    print(a + b + c + d + e);
+                }
+            }
+        }
+    }
+}
+
+fn test_control_flow_with_mixed_constructs() {
+    let mut i = 0;
+    while i < 3 {
+        if i % 2 == 0 {
+            print(i);
+        } else {
+            let mut j = 0;
+            while j < 2 {
+                print(i * 10 + j);
+                j = j + 1;
+            }
+        }
+        i = i + 1;
+    }
+}
+
+fn test_control_flow_with_complex_state() {
+    let mut state = 0;
+    let mut counter = 0;
+    
+    while counter < 10 {
+        if state == 0 {
+            state = 1;
+        } else if state == 1 {
+            if counter % 3 == 0 {
+                state = 2;
+            }
+        } else if state == 2 {
+            state = 0;
+        }
+        
+        print(state);
+        counter = counter + 1;
+    }
+}
+
+fn test_control_flow_with_guard_clauses() {
+    process_with_guards(5);
+    process_with_guards(-1);
+    process_with_guards(15);
+}
+
+fn process_with_guards(x: int) {
+    if x < 0 {
+        print(-1);
+        return;
+    }
+    
+    if x > 10 {
+        print(11);
+        return;
+    }
+    
+    if x == 0 {
+        print(0);
+        return;
+    }
+    
+    print(x * 2);
+}
+
+fn main() {
+    test_simple_if();
+    test_if_else();
+    test_if_elif_else();
+    test_nested_ifs();
+    test_chained_conditions();
+    test_complex_condition();
+    test_empty_if_block();
+    test_empty_else_block();
+    test_multiple_elif();
+    test_if_as_expression_simulation();
+    test_dangling_else_simulation();
+    test_if_with_assignment();
+    test_if_with_scope();
+    test_if_with_complex_scope();
+    test_if_with_function_call();
+    test_if_with_side_effect();
+    test_while_basic();
+    test_while_false_condition();
+    test_while_infinite_protection();
+    test_while_with_break();
+    test_while_with_continue();
+    test_nested_while();
+    test_while_with_complex_condition();
+    test_while_with_modification_in_condition();
+    test_while_with_scope();
+    test_while_with_function_calls();
+    test_while_with_side_effects();
+    test_while_with_complex_body();
+    test_while_with_multiple_vars();
+    test_while_with_assignment_in_condition();
+    test_while_with_complex_exit();
+    test_for_loop_simulation();
+    test_for_loop_downward();
+    test_for_loop_with_step();
+    test_for_loop_empty_range();
+    test_for_loop_single_iteration();
+    test_for_loop_large_range();
+    test_for_loop_with_break();
+    test_for_loop_with_continue();
+    test_nested_for_simulation();
+    test_for_with_complex_body();
+    test_for_with_conditional_logic();
+    test_for_with_accumulator();
+    test_for_with_multiple_counters();
+    test_control_flow_with_return();
+    test_control_flow_with_multiple_returns();
+    test_control_flow_with_early_exit();
+    test_control_flow_with_nested_functions();
+    test_control_flow_with_exception_simulation();
+    test_control_flow_with_validation();
+    test_control_flow_with_state_machine_simulation();
+    test_control_flow_with_flag_based_logic();
+    test_control_flow_with_complex_switch_simulation();
+    test_control_flow_with_range_checks();
+    test_control_flow_with_bounded_iteration();
+    test_control_flow_with_dynamic_bounds();
+    test_control_flow_with_nested_conditions();
+    test_control_flow_with_complex_loops();
+    test_control_flow_with_conditional_loops();
+    test_control_flow_with_loop_in_else();
+    test_control_flow_with_multiple_breaks_simulation();
+    test_control_flow_with_complex_continue_simulation();
+    test_control_flow_with_deep_nesting();
+    test_control_flow_with_mixed_constructs();
+    test_control_flow_with_complex_state();
+    test_control_flow_with_guard_clauses();
+}

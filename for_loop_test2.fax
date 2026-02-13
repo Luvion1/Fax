@@ -1,0 +1,16 @@
+fn test13() {
+    for i in 0..1 {
+        print(i);
+    }
+}
+
+fn test14() {
+    for i in 5..6 {
+        print(i);
+    }
+}
+
+fn main() {
+    test13();
+    test14();
+}

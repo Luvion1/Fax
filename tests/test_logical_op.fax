@@ -1,0 +1,11 @@
+fn side_effect(val: bool): bool {
+    print(999);
+    return val;
+}
+
+fn main() {
+    print(false && side_effect(true));
+    print(true || side_effect(false));
+    print(true && side_effect(true));
+    print(false || side_effect(false));
+}

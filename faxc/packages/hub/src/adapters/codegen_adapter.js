@@ -4,7 +4,7 @@ exports.CodeGeneratorAdapter = void 0;
 const child_process_1 = require("child_process");
 const fs_1 = require("fs");
 class CodeGeneratorAdapter {
-    constructor(command = './faxc/packages/codegen/build/faxc_cpp') {
+    constructor(command = '../codegen/build/faxc_cpp') {
         this.command = command;
     }
     async execute(input) {

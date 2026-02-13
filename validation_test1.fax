@@ -1,0 +1,47 @@
+fn test_basic_and() {
+    let a = 1;
+    let b = 1;
+    if a == 1 && b == 1 {
+        print(1);  // Harus dicetak
+    }
+    if a == 1 && b == 0 {
+        print(0);  // Tidak boleh dicetak
+    } else {
+        print(2);  // Harus dicetak
+    }
+}
+
+fn test_basic_or() {
+    let a = 0;
+    let b = 1;
+    if a == 1 || b == 1 {
+        print(3);  // Harus dicetak
+    }
+    if a == 0 || b == 0 {
+        print(4);  // Harus dicetak
+    }
+}
+
+fn test_complex_expressions() {
+    let x = 5;
+    let y = 10;
+    let z = 15;
+    
+    if x < y && y < z {
+        print(5);  // Harus dicetak
+    }
+    
+    if x > y || y < z {
+        print(6);  // Harus dicetak
+    }
+    
+    if x > y && y < z || z > 0 {
+        print(7);  // Harus dicetak (karena || z > 0 bernilai true)
+    }
+}
+
+fn main() {
+    test_basic_and();
+    test_basic_or();
+    test_complex_expressions();
+}

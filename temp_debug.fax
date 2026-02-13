@@ -1,0 +1,101 @@
+// Edge cases for Fax language compiler testing
+// Each case tests specific boundary conditions or unusual scenarios
+
+// Basic variable declarations
+fn test1() {
+    let x = 0;
+    let y = -1;
+    print(x + y);
+}
+
+fn test2() {
+    let a = 9223372036854775807;  // max i64
+    let b = -9223372036854775808; // min i64
+    print(a + b);
+}
+
+fn test3() {
+    let zero = 0;
+    let result = 10 / (zero + 1);  // avoid division by zero
+    print(result);
+}
+
+// Mutability edge cases
+fn test4() {
+    let mut x = 5;
+    x = 10;
+    x = x * 2;
+    print(x);
+}
+
+fn test5() {
+    let imm = 100;
+    let mut x = imm;
+    x = x + imm;
+    print(x);
+}
+
+// Conditional edge cases
+fn test6() {
+    let cond = 0;
+    if cond == 0 {
+        print(1);
+    } else {
+        print(0);
+    }
+}
+
+fn test7() {
+    let truth = 1;
+    if truth != 0 {
+        print(truth);
+    } else {
+        print(0);
+    }
+}
+
+fn test8() {
+    let neg = -1;
+    if neg < 0 {
+        print(-neg);
+    } else {
+        print(neg);
+    }
+}
+
+// Loop edge cases
+fn test9() {
+    let mut i = 0;
+    while i < 0 {  // never executes
+        print(i);
+        i = i + 1;
+    }
+    print(0);  // verify execution
+}
+
+fn test10() {
+    let mut i = 0;
+    while i < 1 {
+        print(i);
+        i = i + 1;
+    }
+}
+
+fn test11() {
+    let mut i = 5;
+    while i > 0 {
+        print(i);
+        i = i - 1;
+    }
+}
+
+fn test12() {
+    for i in 0..0 {  // empty range
+        print(i);
+    }
+    print(0);
+}
+
+fn test13() {
+    for i in 0..1 {
+fn main() { print(1); }

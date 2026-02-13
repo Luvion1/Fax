@@ -1,0 +1,6 @@
+fn main() {
+    let empty_arr = [];
+    let nested_empty = [[]];
+    let nested_with_values = [[1, 2], [3, 4]];
+    print(1);
+}

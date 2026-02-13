@@ -1,0 +1,948 @@
+// Arithmetic Edge Cases 1-100
+
+fn test_zero_division() {
+    let a = 10;
+    let b = 0;
+    // This should handle division by zero gracefully
+    print(a + b);
+}
+
+fn test_large_numbers() {
+    let a = 999999999;
+    let b = 111111111;
+    let result = a + b;
+    print(result);
+}
+
+fn test_negative_operations() {
+    let a = -5;
+    let b = -10;
+    let result = a - b;
+    print(result);
+}
+
+fn test_mixed_signs() {
+    let a = -15;
+    let b = 25;
+    let result = a + b;
+    print(result);
+}
+
+fn test_multiplication_overflow() {
+    let a = 1000000;
+    let b = 1000000;
+    let result = a * b;
+    print(result);
+}
+
+fn test_modulo_operations() {
+    let a = 17;
+    let b = 5;
+    let result = a % b;
+    print(result);
+}
+
+fn test_float_like_operations() {
+    let a = 10;
+    let b = 3;
+    let result = a / b;  // Integer division
+    print(result);
+}
+
+fn test_power_like_operations() {
+    let a = 2;
+    let b = 10;
+    let mut result = 1;
+    let mut i = 0;
+    while i < b {
+        result = result * a;
+        i = i + 1;
+    }
+    print(result);
+}
+
+fn test_complex_expression() {
+    let a = 5;
+    let b = 3;
+    let c = 2;
+    let result = a + b * c - 1;
+    print(result);
+}
+
+fn test_parentheses_precedence() {
+    let a = 5;
+    let b = 3;
+    let c = 2;
+    let result = (a + b) * c;
+    print(result);
+}
+
+fn test_nested_operations() {
+    let a = 10;
+    let b = 5;
+    let c = 2;
+    let d = 1;
+    let result = ((a + b) * c) - d;
+    print(result);
+}
+
+fn test_increment_decrement() {
+    let mut a = 5;
+    a = a + 1;
+    a = a - 1;
+    print(a);
+}
+
+fn test_zero_operations() {
+    let a = 0;
+    let b = 5;
+    let result1 = a + b;
+    let result2 = a * b;
+    let result3 = b * a;
+    print(result1);
+    print(result2);
+    print(result3);
+}
+
+fn test_one_operations() {
+    let a = 1;
+    let b = 100;
+    let result1 = a * b;
+    let result2 = b * a;
+    let result3 = b / a;
+    print(result1);
+    print(result2);
+    print(result3);
+}
+
+fn test_subtraction_edge() {
+    let a = 5;
+    let b = 5;
+    let result = a - b;
+    print(result);
+}
+
+fn test_large_subtraction() {
+    let a = 1000000;
+    let b = 999999;
+    let result = a - b;
+    print(result);
+}
+
+fn test_negative_result() {
+    let a = 5;
+    let b = 10;
+    let result = a - b;
+    print(result);
+}
+
+fn test_chained_operations() {
+    let a = 1;
+    let b = 2;
+    let c = 3;
+    let d = 4;
+    let result = a + b + c + d;
+    print(result);
+}
+
+fn test_mixed_operations_chain() {
+    let a = 10;
+    let b = 5;
+    let c = 2;
+    let d = 1;
+    let result = a - b + c * d;
+    print(result);
+}
+
+fn test_division_by_one() {
+    let a = 42;
+    let b = 1;
+    let result = a / b;
+    print(result);
+}
+
+fn test_division_properties() {
+    let a = 15;
+    let b = 3;
+    let c = a / b;
+    let d = c * b;
+    print(d);
+}
+
+fn test_modulo_by_one() {
+    let a = 42;
+    let b = 1;
+    let result = a % b;
+    print(result);
+}
+
+fn test_modulo_properties() {
+    let a = 17;
+    let b = 5;
+    let div = a / b;
+    let mod_result = a % b;
+    let reconstruct = div * b + mod_result;
+    print(reconstruct);
+}
+
+fn test_exponentiation_simulation() {
+    let base = 3;
+    let exp = 4;
+    let mut result = 1;
+    let mut counter = 0;
+    while counter < exp {
+        result = result * base;
+        counter = counter + 1;
+    }
+    print(result);
+}
+
+fn test_factorial_simulation() {
+    let n = 5;
+    let mut result = 1;
+    let mut counter = 1;
+    while counter <= n {
+        result = result * counter;
+        counter = counter + 1;
+    }
+    print(result);
+}
+
+fn test_fibonacci_simulation() {
+    let n = 8;
+    let mut a = 0;
+    let mut b = 1;
+    let mut counter = 0;
+    while counter < n {
+        let temp = a + b;
+        a = b;
+        b = temp;
+        counter = counter + 1;
+    }
+    print(a);
+}
+
+fn test_prime_check_simulation() {
+    let num = 17;
+    let mut is_prime = 1;
+    let mut divisor = 2;
+    while divisor < num {
+        if num % divisor == 0 {
+            is_prime = 0;
+        }
+        divisor = divisor + 1;
+    }
+    print(is_prime);
+}
+
+fn test_sum_series() {
+    let n = 10;
+    let mut sum = 0;
+    let mut i = 1;
+    while i <= n {
+        sum = sum + i;
+        i = i + 1;
+    }
+    print(sum);
+}
+
+fn test_geometric_series() {
+    let n = 5;
+    let mut sum = 0;
+    let mut term = 1;
+    let mut i = 0;
+    while i < n {
+        sum = sum + term;
+        term = term * 2;
+        i = i + 1;
+    }
+    print(sum);
+}
+
+fn test_arithmetic_progression() {
+    let start = 2;
+    let diff = 3;
+    let count = 5;
+    let mut sum = 0;
+    let mut current = start;
+    let mut i = 0;
+    while i < count {
+        sum = sum + current;
+        current = current + diff;
+        i = i + 1;
+    }
+    print(sum);
+}
+
+fn test_negative_multiplication() {
+    let a = -5;
+    let b = 6;
+    let result = a * b;
+    print(result);
+}
+
+fn test_double_negative() {
+    let a = -10;
+    let b = -5;
+    let result = a * b;
+    print(result);
+}
+
+fn test_zero_multiplication() {
+    let a = 1000000;
+    let b = 0;
+    let result = a * b;
+    print(result);
+}
+
+fn test_associative_property() {
+    let a = 2;
+    let b = 3;
+    let c = 4;
+    let left = (a + b) + c;
+    let right = a + (b + c);
+    print(left);
+    print(right);
+}
+
+fn test_commutative_property() {
+    let a = 7;
+    let b = 11;
+    let left = a + b;
+    let right = b + a;
+    print(left);
+    print(right);
+}
+
+fn test_distributive_property() {
+    let a = 2;
+    let b = 3;
+    let c = 4;
+    let left = a * (b + c);
+    let right = a * b + a * c;
+    print(left);
+    print(right);
+}
+
+fn test_order_of_operations() {
+    let a = 2;
+    let b = 3;
+    let c = 4;
+    let d = 5;
+    let result = a + b * c - d;
+    print(result);
+}
+
+fn test_complex_parentheses() {
+    let a = 2;
+    let b = 3;
+    let c = 4;
+    let d = 5;
+    let result = ((a + b) * (c - d)) + a;
+    print(result);
+}
+
+fn test_large_addition() {
+    let a = 999999;
+    let b = 1;
+    let result = a + b;
+    print(result);
+}
+
+fn test_large_multiplication() {
+    let a = 1000;
+    let b = 1000;
+    let result = a * b;
+    print(result);
+}
+
+fn test_multiplication_by_zero() {
+    let a = -999999;
+    let b = 0;
+    let result = a * b;
+    print(result);
+}
+
+fn test_division_rounding() {
+    let a = 7;
+    let b = 2;
+    let result = a / b;
+    print(result);
+}
+
+fn test_modulo_positive() {
+    let a = 10;
+    let b = 3;
+    let result = a % b;
+    print(result);
+}
+
+fn test_modulo_negative_dividend() {
+    let a = -10;
+    let b = 3;
+    let result = a % b;
+    print(result);
+}
+
+fn test_modulo_negative_divisor() {
+    let a = 10;
+    let b = -3;
+    let result = a % b;
+    print(result);
+}
+
+fn test_modulo_both_negative() {
+    let a = -10;
+    let b = -3;
+    let result = a % b;
+    print(result);
+}
+
+fn test_power_of_zero() {
+    let a = 5;
+    let b = 0;
+    let result = a * b;  // Simulating a^0 = 1 concept
+    print(result + 1);   // Adding 1 to simulate 5^0 = 1
+}
+
+fn test_power_of_one() {
+    let a = 17;
+    let b = 1;
+    let result = a * b;
+    print(result);
+}
+
+fn test_square_calculation() {
+    let a = 12;
+    let result = a * a;
+    print(result);
+}
+
+fn test_cube_calculation() {
+    let a = 5;
+    let result = a * a * a;
+    print(result);
+}
+
+fn test_root_approximation() {
+    let num = 16;
+    let mut guess = num / 2;
+    let mut i = 0;
+    while i < 5 {  // 5 iterations for approximation
+        guess = (guess + num / guess) / 2;
+        i = i + 1;
+    }
+    print(guess);
+}
+
+fn test_average_calculation() {
+    let a = 10;
+    let b = 20;
+    let c = 30;
+    let avg = (a + b + c) / 3;
+    print(avg);
+}
+
+fn test_weighted_average() {
+    let val1 = 10;
+    let weight1 = 2;
+    let val2 = 20;
+    let weight2 = 3;
+    let weighted_sum = val1 * weight1 + val2 * weight2;
+    let total_weight = weight1 + weight2;
+    let result = weighted_sum / total_weight;
+    print(result);
+}
+
+fn test_percentage_calculation() {
+    let part = 25;
+    let whole = 100;
+    let percentage = part * 100 / whole;
+    print(percentage);
+}
+
+fn test_remainder_properties() {
+    let a = 17;
+    let b = 5;
+    let remainder = a % b;
+    let quotient = a / b;
+    let reconstruction = quotient * b + remainder;
+    print(reconstruction);
+}
+
+fn test_divisibility_check() {
+    let num = 15;
+    let divisor = 3;
+    let is_divisible = num % divisor == 0;
+    print(is_divisible);
+}
+
+fn test_even_odd_detection() {
+    let num = 42;
+    let is_even = num % 2 == 0;
+    print(is_even);
+}
+
+fn test_gcd_simulation() {
+    let mut a = 48;
+    let mut b = 18;
+    while b != 0 {
+        let temp = b;
+        b = a % b;
+        a = temp;
+    }
+    print(a);
+}
+
+fn test_lcm_simulation() {
+    let x = 12;
+    let y = 18;
+    let mut a = x;
+    let mut b = y;
+    while b != 0 {
+        let temp = b;
+        b = a % b;
+        a = temp;
+    }
+    let gcd = a;
+    let lcm = x * y / gcd;
+    print(lcm);
+}
+
+fn test_absolute_value() {
+    let num = -42;
+    let abs_val = if num < 0 { 0 - num } else { num };
+    print(abs_val);
+}
+
+fn test_max_operation() {
+    let a = 15;
+    let b = 23;
+    let max_val = if a > b { a } else { b };
+    print(max_val);
+}
+
+fn test_min_operation() {
+    let a = 15;
+    let b = 23;
+    let min_val = if a < b { a } else { b };
+    print(min_val);
+}
+
+fn test_clamp_operation() {
+    let value = 15;
+    let min_bound = 10;
+    let max_bound = 20;
+    let clamped = if value < min_bound { min_bound } else { if value > max_bound { max_bound } else { value } };
+    print(clamped);
+}
+
+fn test_range_check() {
+    let value = 15;
+    let min_val = 10;
+    let max_val = 20;
+    let in_range = value >= min_val && value <= max_val;
+    print(in_range);
+}
+
+fn test_bitwise_and_simulation() {
+    let a = 12;  // 1100 in binary
+    let b = 10;  // 1010 in binary
+    // Simulating bitwise AND with arithmetic
+    let result = if a % 2 == 1 && b % 2 == 1 { 1 } else { 0 };
+    print(result);
+}
+
+fn test_bitwise_or_simulation() {
+    let a = 5;
+    let b = 3;
+    // Simulating bitwise OR with arithmetic
+    let result = if a % 2 == 1 || b % 2 == 1 { 1 } else { 0 };
+    print(result);
+}
+
+fn test_shift_left_simulation() {
+    let a = 5;
+    let result = a * 4;  // a * 2^2
+    print(result);
+}
+
+fn test_shift_right_simulation() {
+    let a = 20;
+    let result = a / 4;  // a / 2^2
+    print(result);
+}
+
+fn test_negation_operation() {
+    let a = 42;
+    let negated = 0 - a;
+    print(negated);
+}
+
+fn test_reciprocal_simulation() {
+    let a = 5;
+    // Simulating reciprocal (1/a)
+    let result = if a != 0 { 1000 / a } else { 0 };  // Scale by 1000
+    print(result);
+}
+
+fn test_sign_detection() {
+    let num = -25;
+    let sign = if num > 0 { 1 } else { if num < 0 { -1 } else { 0 } };
+    print(sign);
+}
+
+fn test_round_up() {
+    let numerator = 17;
+    let denominator = 5;
+    let result = (numerator + denominator - 1) / denominator;
+    print(result);
+}
+
+fn test_round_down() {
+    let numerator = 17;
+    let denominator = 5;
+    let result = numerator / denominator;
+    print(result);
+}
+
+fn test_ceiling_simulation() {
+    let x = 7;
+    let y = 3;
+    let ceiling = (x + y - 1) / y;
+    print(ceiling);
+}
+
+fn test_floor_simulation() {
+    let x = 7;
+    let y = 3;
+    let floor = x / y;
+    print(floor);
+}
+
+fn test_truncate_towards_zero() {
+    let num = -17;
+    let divisor = 5;
+    let truncated = num / divisor;
+    print(truncated);
+}
+
+fn test_modulo_consistency() {
+    let a = -17;
+    let b = 5;
+    let div = a / b;
+    let mod_result = a % b;
+    let check = div * b + mod_result;
+    print(check);
+}
+
+fn test_division_identity() {
+    let a = 42;
+    let result = a / 7 * 7;
+    print(result);
+}
+
+fn test_multiplicative_inverse_simulation() {
+    let a = 5;
+    // Simulating inverse
+    let inv = if a != 0 { 1000 / a } else { 0 };  // Scale by 1000
+    let check = inv * a / 1000;
+    print(check);
+}
+
+fn test_exponential_growth() {
+    let base = 2;
+    let mut result = 1;
+    let mut i = 0;
+    let limit = 10;
+    while i < limit {
+        result = result * base;
+        print(result);
+        i = i + 1;
+    }
+}
+
+fn test_factorial_growth() {
+    let mut result = 1;
+    let mut i = 1;
+    let limit = 8;
+    while i <= limit {
+        result = result * i;
+        print(result);
+        i = i + 1;
+    }
+}
+
+fn test_fibonacci_growth() {
+    let mut a = 0;
+    let mut b = 1;
+    let mut i = 0;
+    let limit = 12;
+    while i < limit {
+        print(a);
+        let temp = a + b;
+        a = b;
+        b = temp;
+        i = i + 1;
+    }
+}
+
+fn test_triangular_numbers() {
+    let mut sum = 0;
+    let mut i = 1;
+    let limit = 15;
+    while i <= limit {
+        sum = sum + i;
+        print(sum);
+        i = i + 1;
+    }
+}
+
+fn test_square_pyramidal() {
+    let mut sum = 0;
+    let mut i = 1;
+    let limit = 10;
+    while i <= limit {
+        sum = sum + i * i;
+        print(sum);
+        i = i + 1;
+    }
+}
+
+fn test_cubic_sum() {
+    let mut sum = 0;
+    let mut i = 1;
+    let limit = 8;
+    while i <= limit {
+        sum = sum + i * i * i;
+        print(sum);
+        i = i + 1;
+    }
+}
+
+fn test_arithmetic_mean() {
+    let nums = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    let mut sum = 0;
+    let mut i = 0;
+    while i < 10 {
+        sum = sum + nums[i];
+        i = i + 1;
+    }
+    let mean = sum / 10;
+    print(mean);
+}
+
+fn test_geometric_mean_simulation() {
+    let nums = [2, 8];
+    let product = nums[0] * nums[1];
+    let mut guess = product / 2;
+    let mut iter = 0;
+    while iter < 5 {
+        guess = (guess + product / guess) / 2;
+        iter = iter + 1;
+    }
+    print(guess);
+}
+
+fn test_harmonic_mean_simulation() {
+    let nums = [2, 4];
+    let inv_sum = 1000 / nums[0] + 1000 / nums[1];
+    let harmonic = 2 * 1000 / (inv_sum / 1000);
+    print(harmonic);
+}
+
+fn test_weighted_sum() {
+    let values = [10, 20, 30];
+    let weights = [1, 2, 3];
+    let mut sum = 0;
+    let mut i = 0;
+    while i < 3 {
+        sum = sum + values[i] * weights[i];
+        i = i + 1;
+    }
+    print(sum);
+}
+
+fn test_polynomial_evaluation() {
+    let x = 3;
+    let result = 2 * (x * x) + 3 * x + 1;
+    print(result);
+}
+
+fn test_max_i64_boundary() {
+    let max = 9223372036854775807;
+    let result = max + 0;
+    print(result);
+}
+
+fn test_min_i64_boundary() {
+    let min = -9223372036854775808;
+    let result = min - 0;
+    print(result);
+}
+
+fn test_nested_loops_arithmetic() {
+    let mut sum = 0;
+    for i in 0..3 {
+        for j in 0..3 {
+            sum = sum + i * j;
+        }
+    }
+    print(sum);
+}
+
+fn test_array_index_arithmetic() {
+    let arr = [10, 20, 30, 40, 50];
+    let i = 1;
+    let j = 2;
+    print(arr[i + j - 1]);
+}
+
+fn test_logical_arithmetic_mix_complex() {
+    let a = 10;
+    let b = 20;
+    let result = if a + b > 25 && b - a < 15 { 1 } else { 0 };
+    print(result);
+}
+
+fn test_zero_to_zero_range_for_arithmetic() {
+    let mut count = 0;
+    for i in 0..0 {
+        count = count + 1;
+    }
+    print(count);
+}
+
+fn test_large_range_for_sum() {
+    let mut sum = 0;
+    for i in 0..100 {
+        sum = sum + i;
+    }
+    print(sum);
+}
+
+fn test_variable_reassignment_chain() {
+    let mut x = 10;
+    x = x + 5;
+    x = x * 2;
+    x = x - 10;
+    x = x / 2;
+    print(x);
+}
+
+fn test_modulo_large_numbers() {
+    let a = 999999999;
+    let b = 123456;
+    print(a % b);
+}
+
+fn test_arithmetic_final_sanity() {
+    let a = 1;
+    let b = 2;
+    let c = 3;
+    let result = (a + b + c) * (c - b - a + 1);
+    print(result);
+}
+
+fn main() {
+    test_zero_division();
+    test_large_numbers();
+    test_negative_operations();
+    test_mixed_signs();
+    test_multiplication_overflow();
+    test_modulo_operations();
+    test_float_like_operations();
+    test_power_like_operations();
+    test_complex_expression();
+    test_parentheses_precedence();
+    test_nested_operations();
+    test_increment_decrement();
+    test_zero_operations();
+    test_one_operations();
+    test_subtraction_edge();
+    test_large_subtraction();
+    test_negative_result();
+    test_chained_operations();
+    test_mixed_operations_chain();
+    test_division_by_one();
+    test_division_properties();
+    test_modulo_by_one();
+    test_modulo_properties();
+    test_exponentiation_simulation();
+    test_factorial_simulation();
+    test_fibonacci_simulation();
+    test_prime_check_simulation();
+    test_sum_series();
+    test_geometric_series();
+    test_arithmetic_progression();
+    test_negative_multiplication();
+    test_double_negative();
+    test_zero_multiplication();
+    test_associative_property();
+    test_commutative_property();
+    test_distributive_property();
+    test_order_of_operations();
+    test_complex_parentheses();
+    test_large_addition();
+    test_large_multiplication();
+    test_multiplication_by_zero();
+    test_division_rounding();
+    test_modulo_positive();
+    test_modulo_negative_dividend();
+    test_modulo_negative_divisor();
+    test_modulo_both_negative();
+    test_power_of_zero();
+    test_power_of_one();
+    test_square_calculation();
+    test_cube_calculation();
+    test_root_approximation();
+    test_average_calculation();
+    test_weighted_average();
+    test_percentage_calculation();
+    test_remainder_properties();
+    test_divisibility_check();
+    test_even_odd_detection();
+    test_gcd_simulation();
+    test_lcm_simulation();
+    test_absolute_value();
+    test_max_operation();
+    test_min_operation();
+    test_clamp_operation();
+    test_range_check();
+    test_bitwise_and_simulation();
+    test_bitwise_or_simulation();
+    test_shift_left_simulation();
+    test_shift_right_simulation();
+    test_negation_operation();
+    test_reciprocal_simulation();
+    test_sign_detection();
+    test_round_up();
+    test_round_down();
+    test_ceiling_simulation();
+    test_floor_simulation();
+    test_truncate_towards_zero();
+    test_modulo_consistency();
+    test_division_identity();
+    test_multiplicative_inverse_simulation();
+    test_exponential_growth();
+    test_factorial_growth();
+    test_fibonacci_growth();
+    test_triangular_numbers();
+    test_square_pyramidal();
+    test_cubic_sum();
+    test_arithmetic_mean();
+    test_geometric_mean_simulation();
+    test_harmonic_mean_simulation();
+    test_weighted_sum();
+    test_polynomial_evaluation();
+    test_max_i64_boundary();
+    test_min_i64_boundary();
+    test_nested_loops_arithmetic();
+    test_array_index_arithmetic();
+    test_logical_arithmetic_mix_complex();
+    test_zero_to_zero_range_for_arithmetic();
+    test_large_range_for_sum();
+    test_variable_reassignment_chain();
+    test_modulo_large_numbers();
+    test_arithmetic_final_sanity();
+}

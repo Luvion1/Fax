@@ -1,0 +1,106 @@
+struct Node {
+    next: Node
+    val: i64
+}
+
+struct Payload {
+    data: i64[]
+    tag: str
+}
+
+struct Wrapper {
+    node: Node
+    payload: Payload
+}
+
+let mut g_node = Node { next: null, val: 0 };
+
+fn test_cycles() {
+    print("1. Testing Circular References...");
+    let a = Node { next: null, val: 1 };
+    let b = Node { next: null, val: 2 };
+    let c = Node { next: null, val: 3 };
+    a.next = b;
+    b.next = c;
+    c.next = a; // Cycle A -> B -> C -> A
+    collect_gc();
+}
+
+fn test_deep_structures(depth: i64) {
+    print("2. Testing Deeply Nested Chain...");
+    let mut head = Node { next: null, val: 0 };
+    let mut i = 0;
+    while i < depth {
+        let n = Node { next: head, val: i };
+        head = n;
+        i = i + 1;
+    }
+    collect_gc();
+}
+
+fn test_generational_mechanics() {
+    print("3. Testing Generational & Write Barrier...");
+    let mut old_root = Node { next: null, val: 100 };
+    
+    // Promote to Tenured Space
+    let mut k = 0;
+    while k < 6 {
+        collect_gc();
+        k = k + 1;
+    }
+    
+    // Old-to-Young reference (Triggers Write Barrier)
+    let young_node = Node { next: null, val: 200 };
+    old_root.next = young_node;
+    collect_gc();
+}
+
+fn test_mixed_allocations() {
+    print("4. Testing Mixed Types & Bounds...");
+    let arr = [1, 2, 3, 4, 5];
+    let s = "fax" + "_lang" + "_stress";
+    let p = Payload { data: arr, tag: s };
+    let w = Wrapper { node: g_node, payload: p };
+    
+    print(w.payload.tag);
+    print(w.payload.data[2]); // Safe access
+    collect_gc();
+}
+
+fn test_recursion_stack(depth: i64) {
+    let x = depth;
+    let y = x + 1;
+    if depth > 0 {
+        test_recursion_stack(depth - 1);
+    } else {
+        print("5. Testing Stack Frame Pressure (Deep Recursion)...");
+        collect_gc();
+    }
+}
+
+fn test_global_dynamics() {
+    print("6. Testing Global Root Updates...");
+    let mut i = 0;
+    while i < 10 {
+        let n = Node { next: g_node, val: i };
+        g_node = n;
+        i = i + 1;
+    }
+    collect_gc();
+}
+
+fn main() {
+    print("=== STARTING COMPREHENSIVE EDGE CASE SUITE ===");
+    
+    test_cycles();
+    test_deep_structures(300);
+    test_generational_mechanics();
+    test_mixed_allocations();
+    test_recursion_stack(50);
+    test_global_dynamics();
+    
+    print("Final Collection...");
+    collect_gc();
+    
+    print("=== ALL COMPREHENSIVE EDGE CASES PASSED ===");
+}

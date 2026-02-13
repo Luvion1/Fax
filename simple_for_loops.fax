@@ -1,0 +1,17 @@
+fn test12() {
+    for i in 0..0 {  // empty range
+        print(i);
+    }
+    print(0);
+}
+
+fn test13() {
+    for i in 0..1 {
+        print(i);
+    }
+}
+
+fn main() {
+    test12();
+    test13();
+}

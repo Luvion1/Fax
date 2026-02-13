@@ -1,0 +1,15 @@
+// Test case to isolate parser issue - two functions with simple expressions
+fn test1() {
+    let x = 5;
+    print(x);
+}
+
+fn test2() {
+    let y = 10;
+    print(y);
+}
+
+fn main() {
+    test1();
+    test2();
+}

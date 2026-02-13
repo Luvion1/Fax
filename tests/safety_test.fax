@@ -1,0 +1,10 @@
+fn main() {
+    let arr = [10, 20, 30];
+    print(arr[0]);
+    print(arr[1]);
+    print(arr[2]);
+    
+    print("Testing bounds check...");
+    // This should trigger a runtime error
+    print(arr[3]);
+}

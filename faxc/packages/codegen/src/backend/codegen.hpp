@@ -29,6 +29,7 @@ class Codegen {
 
     bool isPointerType(const std::string& type);
     bool isStringType(const std::string& type);
+    bool isLLVMPointer(const std::string& reg);
     std::string ensurePointer(Info info, int level);
     std::string mangle(const std::string& name);
     std::string resolve(const std::string& name);
@@ -50,6 +51,13 @@ class Codegen {
     void emitFunction(const json& node);
     void collect(const json& node, std::vector<std::string>& pointers);
     void emitPrint(const json& node, int level);
+
+    // Safety Checks
+    std::string emitBoundsCheck(const std::string& arr, const std::string& idx, int level);
+    void emitNullCheck(const std::string& ptr, int level);
+    std::string emitOverflowCheck(const std::string& op, const std::string& left, const std::string& right, int level);
+    bool needsBoundsCheck(const json& node);
+    bool needsNullCheck(const json& node);
 
 public:
     Codegen(const json& data);

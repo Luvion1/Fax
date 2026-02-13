@@ -1,0 +1,982 @@
+// Concurrency and Threading Edge Cases 701-800
+
+fn test_single_thread_execution() {
+    let result = compute_task(10);
+    print(result);
+}
+
+fn compute_task(input: int) -> int {
+    return input * 2;
+}
+
+fn test_concurrent_task_simulation() {
+    let task1 = compute_task(5);
+    let task2 = compute_task(10);
+    print(task1);
+    print(task2);
+}
+
+fn test_race_condition_simulation() {
+    let shared_counter = 0;
+    let result1 = increment_counter(shared_counter);
+    let result2 = increment_counter(shared_counter);
+    print(result1);
+    print(result2);
+}
+
+fn increment_counter(counter: int) -> int {
+    return counter + 1;
+}
+
+fn test_lock_simulation() {
+    let mut locked = false;
+    if !locked {
+        locked = true;
+        print(1);  // Critical section
+        locked = false;
+    }
+}
+
+fn test_mutex_simulation() {
+    let mutex = 0;  // 0 = unlocked, 1 = locked
+    if mutex == 0 {
+        // Acquire lock
+        mutex = 1;
+        print(1);  // Critical section
+        mutex = 0;  // Release lock
+    }
+}
+
+fn test_semaphore_simulation() {
+    let mut permits = 2;
+    if permits > 0 {
+        permits = permits - 1;
+        print(1);  // Access resource
+        permits = permits + 1;  // Release resource
+    }
+}
+
+fn test_deadlock_simple_simulation() {
+    let lock_a = false;
+    let lock_b = false;
+    // Thread 1 acquires lock A
+    if !lock_a {
+        lock_a = true;
+        // Thread 1 tries to acquire lock B
+        if !lock_b {
+            lock_b = true;
+            print(1);  // Both locks acquired
+            lock_b = false;
+        }
+        lock_a = false;
+    }
+}
+
+fn test_deadlock_complex_simulation() {
+    let lock1 = false;
+    let lock2 = false;
+    let lock3 = false;
+    // Simulate circular wait condition
+    print(0);  // Deadlock avoided in simulation
+}
+
+fn test_starvation_simulation() {
+    let mut priority_queue = [1, 2, 3, 4, 5];
+    let mut high_priority_tasks = 0;
+    let mut low_priority_tasks = 0;
+    let mut i = 0;
+    while i < len(priority_queue) {
+        if priority_queue[i] <= 2 {
+            high_priority_tasks = high_priority_tasks + 1;
+        } else {
+            low_priority_tasks = low_priority_tasks + 1;
+        }
+        i = i + 1;
+    }
+    print(high_priority_tasks);
+    print(low_priority_tasks);
+}
+
+fn test_livelock_simulation() {
+    let mut state1 = 1;
+    let mut state2 = 2;
+    let mut attempts = 0;
+    while state1 == state2 && attempts < 5 {
+        // Both threads yield to each other
+        if state1 == 1 {
+            state1 = 2;
+        } else {
+            state1 = 1;
+        }
+        attempts = attempts + 1;
+    }
+    print(attempts);
+}
+
+fn test_atomic_operation_simulation() {
+    let mut atomic_counter = 0;
+    // Simulate atomic increment
+    atomic_counter = atomic_counter + 1;
+    print(atomic_counter);
+}
+
+fn test_compare_and_swap_simulation() {
+    let mut value = 10;
+    let expected = 10;
+    let new_value = 20;
+    if value == expected {
+        value = new_value;
+    }
+    print(value);
+}
+
+fn test_memory_barrier_simulation() {
+    let before = 1;
+    // Memory barrier
+    let after = 2;
+    print(before);
+    print(after);
+}
+
+fn test_thread_creation_simulation() {
+    let thread_id = 1;
+    print(thread_id);
+}
+
+fn test_thread_join_simulation() {
+    let thread_status = 1;  // Running
+    if thread_status == 1 {
+        // Wait for thread to complete
+        thread_status = 0;  // Completed
+    }
+    print(thread_status);
+}
+
+fn test_thread_yield_simulation() {
+    let current_time_slice = 100;
+    let remaining = current_time_slice - 10;  // Yield 10 units
+    print(remaining);
+}
+
+fn test_thread_sleep_simulation() {
+    let sleep_duration = 1000;  // ms
+    print(sleep_duration);
+}
+
+fn test_thread_priority_simulation() {
+    let priority = 5;  // Medium priority
+    print(priority);
+}
+
+fn test_thread_affinity_simulation() {
+    let cpu_core = 0;
+    print(cpu_core);
+}
+
+fn test_thread_local_storage_simulation() {
+    let thread_specific = 123;
+    print(thread_specific);
+}
+
+fn test_future_promise_simulation() {
+    let result_available = true;
+    if result_available {
+        print(42);  // Future result
+    }
+}
+
+fn test_async_await_simulation() {
+    let async_result = async_compute(5);
+    print(async_result);
+}
+
+fn async_compute(input: int) -> int {
+    return input * 3;
+}
+
+fn test_callback_simulation() {
+    callback_function(10, callback_handler);
+}
+
+fn callback_function(value: int, handler: fn(int) -> void) {
+    handler(value * 2);
+}
+
+fn callback_handler(result: int) {
+    print(result);
+}
+
+fn test_channel_communication_simulation() {
+    let channel_capacity = 10;
+    let messages_sent = 5;
+    let messages_received = 5;
+    print(messages_sent);
+    print(messages_received);
+    print(channel_capacity);
+}
+
+fn test_message_passing_simulation() {
+    let message = 100;
+    print(message);
+}
+
+fn test_actor_model_simulation() {
+    let actor_state = 0;
+    let message = 1;
+    actor_state = actor_state + message;
+    print(actor_state);
+}
+
+fn test_fork_join_simulation() {
+    let parent_work = 10;
+    let child_work = 20;
+    let parent_result = parent_work * 2;
+    let child_result = child_work * 2;
+    print(parent_result);
+    print(child_result);
+}
+
+fn test_map_reduce_simulation() {
+    let data = [1, 2, 3, 4, 5];
+    // Map: square each element
+    let mut mapped = [0, 0, 0, 0, 0];
+    let mut i = 0;
+    while i < len(data) {
+        mapped[i] = data[i] * data[i];
+        i = i + 1;
+    }
+    // Reduce: sum all elements
+    let mut sum = 0;
+    i = 0;
+    while i < len(mapped) {
+        sum = sum + mapped[i];
+        i = i + 1;
+    }
+    print(sum);
+}
+
+fn test_pipeline_simulation() {
+    let stage1 = 10;
+    let stage2 = stage1 * 2;
+    let stage3 = stage2 + 5;
+    print(stage3);
+}
+
+fn test_work_stealing_simulation() {
+    let worker1_queue = [1, 2, 3];
+    let worker2_queue = [];
+    if len(worker2_queue) == 0 && len(worker1_queue) > 1 {
+        // Steal work
+        print(1);
+    } else {
+        print(0);
+    }
+}
+
+fn test_thread_pool_simulation() {
+    let pool_size = 4;
+    let active_threads = 2;
+    let idle_threads = pool_size - active_threads;
+    print(pool_size);
+    print(active_threads);
+    print(idle_threads);
+}
+
+fn test_thread_pool_submit_simulation() {
+    let task_queue_size = 5;
+    let max_queue_size = 10;
+    if task_queue_size < max_queue_size {
+        print(1);  // Task accepted
+    } else {
+        print(0);  // Queue full
+    }
+}
+
+fn test_thread_pool_shutdown_simulation() {
+    let running = true;
+    if running {
+        // Process remaining tasks
+        running = false;
+    }
+    print(running);
+}
+
+fn test_coroutine_simulation() {
+    let coroutine_state = 0;
+    if coroutine_state == 0 {
+        coroutine_state = 1;  // Resume
+        print(coroutine_state);
+    }
+}
+
+fn test_generator_simulation() {
+    let mut counter = 0;
+    if counter < 3 {
+        print(counter);
+        counter = counter + 1;
+    }
+}
+
+fn test_fiber_simulation() {
+    let fiber_state = 0;
+    print(fiber_state);
+}
+
+fn test_green_thread_simulation() {
+    let green_thread_id = 100;
+    print(green_thread_id);
+}
+
+fn test_event_loop_simulation() {
+    let events = [1, 2, 3];
+    let mut i = 0;
+    while i < len(events) {
+        print(events[i]);
+        i = i + 1;
+    }
+}
+
+fn test_event_driven_simulation() {
+    let event_type = 1;  // Timer event
+    if event_type == 1 {
+        print(100);  // Timer callback result
+    }
+}
+
+fn test_reactive_programming_simulation() {
+    let stream_value = 5;
+    let processed = stream_value * 2;
+    print(processed);
+}
+
+fn test_observer_pattern_simulation() {
+    let subject_state = 10;
+    print(subject_state);
+}
+
+fn test_publisher_subscriber_simulation() {
+    let message = 200;
+    print(message);
+}
+
+fn test_message_queue_simulation() {
+    let queue_size = 15;
+    let max_size = 100;
+    print(queue_size);
+    print(max_size);
+}
+
+fn test_blocking_queue_simulation() {
+    let queue_items = [1, 2, 3];
+    if len(queue_items) > 0 {
+        print(queue_items[0]);  // Take first item
+    }
+}
+
+fn test_priority_queue_simulation() {
+    let priorities = [3, 1, 4, 1, 5];
+    // Find highest priority (lowest number)
+    let mut min_priority = priorities[0];
+    let mut i = 1;
+    while i < len(priorities) {
+        if priorities[i] < min_priority {
+            min_priority = priorities[i];
+        }
+        i = i + 1;
+    }
+    print(min_priority);
+}
+
+fn test_delayed_queue_simulation() {
+    let delayed_item = 50;
+    let delay_time = 1000;  // ms
+    print(delayed_item);
+    print(delay_time);
+}
+
+fn test_synchronous_execution() {
+    let result1 = sync_task(1);
+    let result2 = sync_task(2);
+    print(result1);
+    print(result2);
+}
+
+fn sync_task(input: int) -> int {
+    return input * 10;
+}
+
+fn test_asynchronous_execution() {
+    let result = async_task(3);
+    print(result);
+}
+
+fn async_task(input: int) -> int {
+    return input * 20;
+}
+
+fn test_parallel_execution_simulation() {
+    let data = [1, 2, 3, 4];
+    let mut results = [0, 0, 0, 0];
+    let mut i = 0;
+    while i < len(data) {
+        results[i] = data[i] * 100;  // Simulate parallel processing
+        i = i + 1;
+    }
+    i = 0;
+    while i < len(results) {
+        print(results[i]);
+        i = i + 1;
+    }
+}
+
+fn test_parallel_map_simulation() {
+    let inputs = [1, 2, 3, 4, 5];
+    let mut outputs = [0, 0, 0, 0, 0];
+    let mut i = 0;
+    while i < len(inputs) {
+        outputs[i] = inputs[i] * inputs[i];  // Square each element
+        i = i + 1;
+    }
+    i = 0;
+    while i < len(outputs) {
+        print(outputs[i]);
+        i = i + 1;
+    }
+}
+
+fn test_parallel_reduce_simulation() {
+    let data = [1, 2, 3, 4, 5];
+    let mut sum = 0;
+    let mut i = 0;
+    while i < len(data) {
+        sum = sum + data[i];
+        i = i + 1;
+    }
+    print(sum);
+}
+
+fn test_parallel_filter_simulation() {
+    let data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    let mut filtered = [0, 0, 0, 0, 0];  // Assume max 5 even numbers
+    let mut count = 0;
+    let mut i = 0;
+    while i < len(data) && count < 5 {
+        if data[i] % 2 == 0 {
+            filtered[count] = data[i];
+            count = count + 1;
+        }
+        i = i + 1;
+    }
+    i = 0;
+    while i < count {
+        print(filtered[i]);
+        i = i + 1;
+    }
+}
+
+fn test_parallel_sort_simulation() {
+    let mut data = [5, 2, 8, 1, 9];
+    // Simple bubble sort to simulate parallel sorting
+    let n = len(data);
+    let mut i = 0;
+    while i < n {
+        let mut j = 0;
+        while j < n - i - 1 {
+            if data[j] > data[j + 1] {
+                let temp = data[j];
+                data[j] = data[j + 1];
+                data[j + 1] = temp;
+            }
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    i = 0;
+    while i < n {
+        print(data[i]);
+        i = i + 1;
+    }
+}
+
+fn test_parallel_merge_simulation() {
+    let arr1 = [1, 3, 5];
+    let arr2 = [2, 4, 6];
+    let mut merged = [0, 0, 0, 0, 0, 0];
+    let mut i = 0;
+    let mut j = 0;
+    let mut k = 0;
+    while i < len(arr1) && j < len(arr2) {
+        if arr1[i] <= arr2[j] {
+            merged[k] = arr1[i];
+            i = i + 1;
+        } else {
+            merged[k] = arr2[j];
+            j = j + 1;
+        }
+        k = k + 1;
+    }
+    while i < len(arr1) {
+        merged[k] = arr1[i];
+        i = i + 1;
+        k = k + 1;
+    }
+    while j < len(arr2) {
+        merged[k] = arr2[j];
+        j = j + 1;
+        k = k + 1;
+    }
+    k = 0;
+    while k < len(merged) {
+        print(merged[k]);
+        k = k + 1;
+    }
+}
+
+fn test_parallel_scan_simulation() {
+    let data = [1, 2, 3, 4, 5];
+    let mut scan_result = [0, 0, 0, 0, 0];
+    scan_result[0] = data[0];
+    let mut i = 1;
+    while i < len(data) {
+        scan_result[i] = scan_result[i-1] + data[i];
+        i = i + 1;
+    }
+    i = 0;
+    while i < len(scan_result) {
+        print(scan_result[i]);
+        i = i + 1;
+    }
+}
+
+fn test_parallel_prefix_sum_simulation() {
+    let data = [1, 2, 3, 4];
+    let mut prefix_sum = [0, 0, 0, 0];
+    prefix_sum[0] = data[0];
+    let mut i = 1;
+    while i < len(data) {
+        prefix_sum[i] = prefix_sum[i-1] + data[i];
+        i = i + 1;
+    }
+    i = 0;
+    while i < len(prefix_sum) {
+        print(prefix_sum[i]);
+        i = i + 1;
+    }
+}
+
+fn test_parallel_histogram_simulation() {
+    let data = [1, 2, 2, 3, 3, 3];
+    let mut histogram = [0, 0, 0, 0];  // For values 0-3
+    let mut i = 0;
+    while i < len(data) {
+        if data[i] < len(histogram) {
+            histogram[data[i]] = histogram[data[i]] + 1;
+        }
+        i = i + 1;
+    }
+    i = 0;
+    while i < len(histogram) {
+        print(histogram[i]);
+        i = i + 1;
+    }
+}
+
+fn test_parallel_matrix_multiply_simulation() {
+    let a = [[1, 2], [3, 4]];
+    let b = [[5, 6], [7, 8]];
+    let mut result = [[0, 0], [0, 0]];
+    let rows_a = 2;
+    let cols_a = 2;
+    let cols_b = 2;
+    let mut i = 0;
+    while i < rows_a {
+        let mut j = 0;
+        while j < cols_b {
+            let mut k = 0;
+            while k < cols_a {
+                result[i][j] = result[i][j] + a[i][k] * b[k][j];
+                k = k + 1;
+            }
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    i = 0;
+    while i < rows_a {
+        let mut j = 0;
+        while j < cols_b {
+            print(result[i][j]);
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+}
+
+fn test_parallel_graph_traversal_simulation() {
+    let graph = [[1, 2], [0, 3], [0, 3], [1, 2]];  // Undirected graph
+    let visited = [false, false, false, false];
+    print(len(graph));  // Number of nodes
+}
+
+fn test_parallel_shortest_path_simulation() {
+    let distances = [0, 1, 4, float_inf()];  // Simulated shortest distances
+    let mut i = 0;
+    while i < len(distances) {
+        if i < 3 {
+            print(distances[i]);
+        } else {
+            print(999);  // Represent infinity
+        }
+        i = i + 1;
+    }
+}
+
+fn float_inf() -> int {
+    return 999999;  // Simulate infinity
+}
+
+fn test_parallel_search_simulation() {
+    let data = [10, 20, 30, 40, 50];
+    let target = 30;
+    let mut found = false;
+    let mut i = 0;
+    while i < len(data) && !found {
+        if data[i] == target {
+            found = true;
+        }
+        i = i + 1;
+    }
+    print(found);
+}
+
+fn test_parallel_binary_search_simulation() {
+    let sorted_data = [1, 3, 5, 7, 9, 11, 13];
+    let target = 7;
+    let mut left = 0;
+    let mut right = len(sorted_data) - 1;
+    let mut found = false;
+    while left <= right && !found {
+        let mid = (left + right) / 2;
+        if sorted_data[mid] == target {
+            found = true;
+        } else if sorted_data[mid] < target {
+            left = mid + 1;
+        } else {
+            right = mid - 1;
+        }
+    }
+    print(found);
+}
+
+fn test_parallel_quick_sort_simulation() {
+    let mut data = [3, 6, 8, 10, 1, 2, 1];
+    // Simple quicksort simulation
+    quicksort_simulation(&mut data, 0, len(data) - 1);
+    let mut i = 0;
+    while i < len(data) {
+        print(data[i]);
+        i = i + 1;
+    }
+}
+
+fn quicksort_simulation(arr: &mut [int], low: int, high: int) {
+    if low < high {
+        let pi = partition_simulation(arr, low, high);
+        quicksort_simulation(arr, low, pi - 1);
+        quicksort_simulation(arr, pi + 1, high);
+    }
+}
+
+fn partition_simulation(arr: &mut [int], low: int, high: int) -> int {
+    let pivot = arr[high];
+    let mut i = low - 1;
+    let mut j = low;
+    while j < high {
+        if arr[j] <= pivot {
+            i = i + 1;
+            // Swap arr[i] and arr[j]
+            let temp = arr[i];
+            arr[i] = arr[j];
+            arr[j] = temp;
+        }
+        j = j + 1;
+    }
+    // Swap arr[i+1] and arr[high]
+    let temp = arr[i + 1];
+    arr[i + 1] = arr[high];
+    arr[high] = temp;
+    return i + 1;
+}
+
+fn test_parallel_mergesort_simulation() {
+    let mut data = [64, 34, 25, 12, 22, 11, 90];
+    mergesort_simulation(&mut data, 0, len(data) - 1);
+    let mut i = 0;
+    while i < len(data) {
+        print(data[i]);
+        i = i + 1;
+    }
+}
+
+fn mergesort_simulation(arr: &mut [int], left: int, right: int) {
+    if left < right {
+        let mid = (left + right) / 2;
+        mergesort_simulation(arr, left, mid);
+        mergesort_simulation(arr, mid + 1, right);
+        merge_simulation(arr, left, mid, right);
+    }
+}
+
+fn merge_simulation(arr: &mut [int], left: int, mid: int, right: int) {
+    let n1 = mid - left + 1;
+    let n2 = right - mid;
+    
+    // Create temporary arrays
+    let mut left_arr = [0, 0, 0, 0, 0, 0, 0];  // Max size needed
+    let mut right_arr = [0, 0, 0, 0, 0, 0, 0];  // Max size needed
+    
+    let mut i = 0;
+    while i < n1 {
+        left_arr[i] = arr[left + i];
+        i = i + 1;
+    }
+    i = 0;
+    while i < n2 {
+        right_arr[i] = arr[mid + 1 + i];
+        i = i + 1;
+    }
+    
+    i = 0;
+    let mut j = 0;
+    let mut k = left;
+    while i < n1 && j < n2 {
+        if left_arr[i] <= right_arr[j] {
+            arr[k] = left_arr[i];
+            i = i + 1;
+        } else {
+            arr[k] = right_arr[j];
+            j = j + 1;
+        }
+        k = k + 1;
+    }
+    
+    while i < n1 {
+        arr[k] = left_arr[i];
+        i = i + 1;
+        k = k + 1;
+    }
+    
+    while j < n2 {
+        arr[k] = right_arr[j];
+        j = j + 1;
+        k = k + 1;
+    }
+}
+
+fn test_concurrent_hashmap_simulation() {
+    let buckets = 16;
+    print(buckets);
+}
+
+fn test_lock_free_data_structure_simulation() {
+    let is_lock_free = true;
+    print(is_lock_free);
+}
+
+fn test_wait_free_algorithm_simulation() {
+    let is_wait_free = false;
+    print(is_wait_free);
+}
+
+fn test_non_blocking_algorithm_simulation() {
+    let is_non_blocking = true;
+    print(is_non_blocking);
+}
+
+fn test_transactional_memory_simulation() {
+    let transaction_success = true;
+    print(transaction_success);
+}
+
+fn test_software_transactional_memory_simulation() {
+    let stm_result = 1;
+    print(stm_result);
+}
+
+fn test_hardware_transactional_memory_simulation() {
+    let htm_result = 2;
+    print(htm_result);
+}
+
+fn test_lock_coupling_simulation() {
+    let coupling_type = 1;  // Exclusive
+    print(coupling_type);
+}
+
+fn test_reader_writer_lock_simulation() {
+    let readers = 3;
+    let writers = 1;
+    print(readers);
+    print(writers);
+}
+
+fn test_read_copy_update_simulation() {
+    let rcu_version = 1;
+    print(rcu_version);
+}
+
+fn test_epoch_based_reclamation_simulation() {
+    let epoch = 100;
+    print(epoch);
+}
+
+fn test_hazard_pointers_simulation() {
+    let hazard_count = 0;
+    print(hazard_count);
+}
+
+fn test_quiescent_state_simulation() {
+    let quiescent = true;
+    print(quiescent);
+}
+
+fn test_concurrent_skip_list_simulation() {
+    let levels = 4;
+    print(levels);
+}
+
+fn test_concurrent_b_tree_simulation() {
+    let degree = 3;
+    print(degree);
+}
+
+fn test_concurrent_hash_table_simulation() {
+    let load_factor = 0.75;
+    print(load_factor);
+}
+
+fn test_concurrent_queue_simulation() {
+    let queue_size = 10;
+    print(queue_size);
+}
+
+fn test_concurrent_stack_simulation() {
+    let stack_size = 5;
+    print(stack_size);
+}
+
+fn test_concurrent_priority_queue_simulation() {
+    let pq_size = 8;
+    print(pq_size);
+}
+
+fn test_work_distribution_simulation() {
+    let tasks = 100;
+    let workers = 4;
+    let tasks_per_worker = tasks / workers;
+    print(tasks_per_worker);
+}
+
+fn test_load_balancing_simulation() {
+    let server_loads = [20, 30, 10, 40];
+    let avg_load = (20 + 30 + 10 + 40) / 4;
+    print(avg_load);
+}
+
+fn test_backpressure_simulation() {
+    let buffer_full = false;
+    if !buffer_full {
+        print(1);  // Accept more data
+    } else {
+        print(0);  // Apply backpressure
+    }
+}
+
+fn main() {
+    test_single_thread_execution();
+    test_concurrent_task_simulation();
+    test_race_condition_simulation();
+    test_lock_simulation();
+    test_mutex_simulation();
+    test_semaphore_simulation();
+    test_deadlock_simple_simulation();
+    test_deadlock_complex_simulation();
+    test_starvation_simulation();
+    test_livelock_simulation();
+    test_atomic_operation_simulation();
+    test_compare_and_swap_simulation();
+    test_memory_barrier_simulation();
+    test_thread_creation_simulation();
+    test_thread_join_simulation();
+    test_thread_yield_simulation();
+    test_thread_sleep_simulation();
+    test_thread_priority_simulation();
+    test_thread_affinity_simulation();
+    test_thread_local_storage_simulation();
+    test_future_promise_simulation();
+    test_async_await_simulation();
+    test_callback_simulation();
+    test_channel_communication_simulation();
+    test_message_passing_simulation();
+    test_actor_model_simulation();
+    test_fork_join_simulation();
+    test_map_reduce_simulation();
+    test_pipeline_simulation();
+    test_work_stealing_simulation();
+    test_thread_pool_simulation();
+    test_thread_pool_submit_simulation();
+    test_thread_pool_shutdown_simulation();
+    test_coroutine_simulation();
+    test_generator_simulation();
+    test_fiber_simulation();
+    test_green_thread_simulation();
+    test_event_loop_simulation();
+    test_event_driven_simulation();
+    test_reactive_programming_simulation();
+    test_observer_pattern_simulation();
+    test_publisher_subscriber_simulation();
+    test_message_queue_simulation();
+    test_blocking_queue_simulation();
+    test_priority_queue_simulation();
+    test_delayed_queue_simulation();
+    test_synchronous_execution();
+    test_asynchronous_execution();
+    test_parallel_execution_simulation();
+    test_parallel_map_simulation();
+    test_parallel_reduce_simulation();
+    test_parallel_filter_simulation();
+    test_parallel_sort_simulation();
+    test_parallel_merge_simulation();
+    test_parallel_scan_simulation();
+    test_parallel_prefix_sum_simulation();
+    test_parallel_histogram_simulation();
+    test_parallel_matrix_multiply_simulation();
+    test_parallel_graph_traversal_simulation();
+    test_parallel_shortest_path_simulation();
+    test_parallel_search_simulation();
+    test_parallel_binary_search_simulation();
+    test_parallel_quick_sort_simulation();
+    test_parallel_mergesort_simulation();
+    test_concurrent_hashmap_simulation();
+    test_lock_free_data_structure_simulation();
+    test_wait_free_algorithm_simulation();
+    test_non_blocking_algorithm_simulation();
+    test_transactional_memory_simulation();
+    test_software_transactional_memory_simulation();
+    test_hardware_transactional_memory_simulation();
+    test_lock_coupling_simulation();
+    test_reader_writer_lock_simulation();
+    test_read_copy_update_simulation();
+    test_epoch_based_reclamation_simulation();
+    test_hazard_pointers_simulation();
+    test_quiescent_state_simulation();
+    test_concurrent_skip_list_simulation();
+    test_concurrent_b_tree_simulation();
+    test_concurrent_hash_table_simulation();
+    test_concurrent_queue_simulation();
+    test_concurrent_stack_simulation();
+    test_concurrent_priority_queue_simulation();
+    test_work_distribution_simulation();
+    test_load_balancing_simulation();
+    test_backpressure_simulation();
+}

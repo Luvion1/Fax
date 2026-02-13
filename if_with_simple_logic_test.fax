@@ -1,0 +1,6 @@
+fn main() {
+    let a = true;
+    if a && true {
+        print(1);
+    }
+}

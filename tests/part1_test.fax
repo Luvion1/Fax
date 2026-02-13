@@ -1,0 +1,86 @@
+// Test case to isolate parser issue - part 1
+fn test1() {
+    let x = 5;
+    print(x);
+}
+
+fn test2() {
+    let x = 0;
+    let y = -1;
+    print(x + y);
+}
+
+fn test3() {
+    let a = 9223372036854775807;  // max i64
+    let b = -9223372036854775808; // min i64
+    print(a + b);
+}
+
+fn test4() {
+    let zero = 0;
+    let result = 10 / (zero + 1);  // avoid division by zero
+    print(result);
+}
+
+fn test5() {
+    let mut x = 5;
+    x = 10;
+    x = x * 2;
+    print(x);
+}
+
+fn test6() {
+    let imm = 100;
+    let mut x = imm;
+    x = x + imm;
+    print(x);
+}
+
+fn test7() {
+    let cond = 0;
+    if cond == 0 {
+        print(1);
+    } else {
+        print(0);
+    }
+}
+
+fn test8() {
+    let truth = 1;
+    if truth != 0 {
+        print(truth);
+    } else {
+        print(0);
+    }
+}
+
+fn test9() {
+    let neg = -1;
+    if neg < 0 {
+        print(-neg);
+    } else {
+        print(neg);
+    }
+}
+
+fn test10() {
+    let mut i = 0;
+    while i < 0 {  // never executes
+        print(i);
+        i = i + 1;
+    }
+    print(0);  // verify execution
+}
+
+fn main() {
+    test1();
+    test2();
+    test3();
+    test4();
+    test5();
+    test6();
+    test7();
+    test8();
+    test9();
+    test10();
+}

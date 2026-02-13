@@ -1,0 +1,149 @@
+// Bagian dari edge_cases.fax setelah test52
+fn test53() {
+    let x = 1;
+    if x != 0 { print(1); } else { print(0); }
+}
+
+fn test54() {
+    let x = 0;
+    if x != 0 { print(0); } else { print(1); }
+}
+
+fn test55() {
+    let a = 5;
+    let b = 3;
+    if a > b { print(1); } else { print(0); }
+}
+
+fn test56() {
+    let a = 2;
+    let b = 8;
+    if a >= b { print(0); } else { print(1); }
+}
+
+fn test57() {
+    let a = 4;
+    let b = 4;
+    if a == b { print(1); } else { print(0); }
+}
+
+fn test58() {
+    let a = 3;
+    let b = 5;
+    if a != b { print(1); } else { print(0); }
+}
+
+fn test59() {
+    let a = 10;
+    let b = 3;
+    let c = a / b;
+    print(c);
+}
+
+fn test60() {
+    let a = 10;
+    let b = 3;
+    let c = a % b;
+    print(c);
+}
+
+fn test61() {
+    let x = 2;
+    let y = 3;
+    let z = 4;
+    let result = x + y * z;
+    print(result);
+}
+
+fn test62() {
+    let x = 15;
+    let y = 4;
+    let z = 2;
+    let result = (x / y) + z;
+    print(result);
+}
+
+fn test63() {
+    let x = 5;
+    let x = x + 1;
+    print(x);
+}
+
+fn test64() {
+    let a = 10;
+    let a = a * 2;
+    let a = a - 5;
+    print(a);
+}
+
+fn test65() {
+    let a = 1;
+    let b = 2;
+    let c = 3;
+    if a < b && b < c {
+        print(1);
+    } else {
+        print(0);
+    }
+}
+
+fn test66() {
+    let x = 5;
+    if x > 0 && x < 10 {
+        print(1);
+    } else {
+        print(0);
+    }
+}
+
+fn test67() {
+    let a = 0;
+    let b = 5;
+    if a == 0 || b == 0 {
+        print(1);
+    } else {
+        print(0);
+    }
+}
+
+fn test68() {
+    let a = 3;
+    let b = 7;
+    if a != b && a < b {
+        print(1);
+    } else {
+        print(0);
+    }
+}
+
+fn test69() {
+    let matrix = [[1, 2], [3, 4]];
+    print(matrix[0][0]);
+    print(matrix[1][1]);
+}
+
+fn test70() {
+    let arr = [[0]];
+    print(arr[0][0]);
+}
+
+fn main() {
+    test53();
+    test54();
+    test55();
+    test56();
+    test57();
+    test58();
+    test59();
+    test60();
+    test61();
+    test62();
+    test63();
+    test64();
+    test65();
+    test66();
+    test67();
+    test68();
+    test69();
+    test70();
+}

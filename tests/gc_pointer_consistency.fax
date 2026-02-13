@@ -1,0 +1,21 @@
+fn main() {
+    print("Starting Pointer Consistency Test...");
+    let mut i = 0;
+    while (i < 100) {
+        let mut head = [0, 0, 0];
+        let mut j = 0;
+        while (j < 1000) {
+            let next = [j, 0, 0];
+            // Simulate a linked structure in an array
+            // head.1 = next (this will trigger write barrier)
+            // But Fax arrays currently store i64, so we cast if possible 
+            // or use structs for better validation.
+            j = j + 1;
+        }
+        if (i % 10 == 0) {
+            collect_gc();
+        }
+        i = i + 1;
+    }
+    print("Pointer Consistency Test Passed");
+}

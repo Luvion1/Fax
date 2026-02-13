@@ -1,0 +1,55 @@
+fn test_logical_and() {
+    let a = 1;
+    let b = 1;
+    if a == 1 && b == 1 {
+        print(1);  // Harus dicetak
+    } else {
+        print(0);
+    }
+    
+    if a == 1 && b == 0 {
+        print(0);
+    } else {
+        print(2);  // Harus dicetak
+    }
+}
+
+fn test_logical_or() {
+    let a = 1;
+    let b = 0;
+    if a == 1 || b == 1 {
+        print(3);  // Harus dicetak
+    } else {
+        print(0);
+    }
+    
+    if a == 0 || b == 0 {
+        print(4);  // Harus dicetak
+    } else {
+        print(0);
+    }
+}
+
+fn test_combined_logic() {
+    let a = 1;
+    let b = 0;
+    let c = 1;
+    
+    if a == 1 && b == 0 || c == 1 {
+        print(5);  // Harus dicetak karena (true && false) || true = true
+    } else {
+        print(0);
+    }
+    
+    if a == 1 || b == 1 && c == 0 {
+        print(6);  // Harus dicetak karena true || (false && false) = true
+    } else {
+        print(0);
+    }
+}
+
+fn main() {
+    test_logical_and();
+    test_logical_or();
+    test_combined_logic();
+}

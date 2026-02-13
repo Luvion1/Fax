@@ -1,0 +1,33 @@
+fn main() {
+    // Test variables
+    let x = 42;
+    let y = 58;
+    let sum = x + y;
+    print(sum);
+
+    // Test conditional
+    if x < y {
+        print("x is less than y");
+    } else {
+        print("x is greater than or equal to y");
+    }
+
+    // Test loop
+    let mut counter = 0;
+    while counter < 3 {
+        print(counter);
+        counter = counter + 1;
+    }
+
+    // Test array
+    let arr = [1, 2, 3, 4, 5];
+    print(arr[2]);  // Should print 3
+
+    // Test function call
+    let result = add(10, 20);
+    print(result);
+}
+
+fn add(a: i64, b: i64) -> i64 {
+    return a + b;
+}

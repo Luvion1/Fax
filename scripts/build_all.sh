@@ -20,7 +20,7 @@ echo "Building Runtime (Zig)..."
 (cd "$ROOT/faxc/packages/runtime" && zig build)
 
 echo "Building Semantic Analyzer (Haskell)..."
-(cd "$ROOT/faxc/packages/sema" && ghc -isrc src/Main.hs -o bin && chmod +x bin)
+(cd "$ROOT/faxc/packages/sema" && ghc -isrc src/Main.hs -o bin/sema_bin && chmod +x bin/sema_bin)
 
 echo "Building Hub (TypeScript)..."
 (cd "$ROOT/faxc/packages/hub" && npm install && npm run build)

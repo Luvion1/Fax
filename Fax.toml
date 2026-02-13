@@ -7,7 +7,7 @@ description = "The Fax Programming Language: A high-performance polyglot system"
 documentation = "https://docs.fax-lang.org"
 readme = "README.md"
 repository = "https://github.com/fax-lang/fax"
-license = "MIT OR Apache-2.0"
+license = "MIT"
 keywords = ["compiler", "polyglot", "zgc", "llvm"]
 
 [dependencies]

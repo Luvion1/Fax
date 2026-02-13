@@ -4,7 +4,7 @@ exports.ParserAdapter = void 0;
 const child_process_1 = require("child_process");
 const fs_1 = require("fs");
 class ParserAdapter {
-    constructor(command = './faxc/packages/parser/zig-out/bin/parser') {
+    constructor(command = '../parser/zig-out/bin/parser') {
         this.command = command;
     }
     async execute(input) {

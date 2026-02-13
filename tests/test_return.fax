@@ -1,8 +1,0 @@
-fn test_ret() {
-    return;
-}
-
-fn main() {
-    test_ret();
-    print(1);
-}

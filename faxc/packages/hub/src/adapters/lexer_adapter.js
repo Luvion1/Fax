@@ -4,33 +4,38 @@ exports.LexerAdapter = void 0;
 const child_process_1 = require("child_process");
 const fs_1 = require("fs");
 class LexerAdapter {
-    constructor(command = './faxc/packages/lexer/target/release/lexer') {
+    constructor(command = '../lexer/target/release/lexer') {
         this.command = command;
     }
     async execute(input) {
-        let tempFilePath;
+        const tempFilePath = `.temp_lexer_input.fax`;
         try {
             if (typeof input === 'string') {
-                // Input is a file path
-                tempFilePath = input;
+                (0, fs_1.writeFileSync)(tempFilePath, input);
             }
             else {
-                // Input is an object, write to temporary file
-                tempFilePath = `.temp_lexer_input.json`;
                 (0, fs_1.writeFileSync)(tempFilePath, JSON.stringify(input));
             }
             const command = `${this.command} "${tempFilePath}"`;
             const result = (0, child_process_1.execSync)(command, { encoding: 'utf8', timeout: 300000 });
+            // Cleanup temp file
+            try {
+                require('fs').unlinkSync(tempFilePath);
+            }
+            catch { }
             // Try to parse the result as JSON
             try {
                 return JSON.parse(result.trim());
             }
             catch {
-                // If parsing fails, return the raw result
                 return result.trim();
             }
         }
         catch (error) {
+            try {
+                require('fs').unlinkSync(tempFilePath);
+            }
+            catch { }
             throw new Error(`Lexer execution failed: ${error.message}`);
         }
     }

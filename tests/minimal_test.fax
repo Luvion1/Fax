@@ -1,0 +1,23 @@
+// Test case to isolate parser issue - minimal functions
+fn test1() {
+    let x = 5;
+    print(x);
+}
+
+fn test2() {
+    let x = 0;
+    let y = -1;
+    print(x + y);
+}
+
+fn test3() {
+    let a = 9223372036854775807;  // max i64
+    let b = -9223372036854775808; // min i64
+    print(a + b);
+}
+
+fn main() {
+    test1();
+    test2();
+    test3();
+}

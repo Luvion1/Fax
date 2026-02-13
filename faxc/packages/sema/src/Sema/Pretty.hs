@@ -1,7 +1,12 @@
 module Sema.Pretty where
 
-import Sema.Diagnostics
+import Sema.Diag (Diag(..), Severity(..), SemanticError(..))
+import Sema.Errors (Suggestion, getSuggestion, formatSuggestion)
 import Data.List (intercalate)
+import System.IO (hPutStrLn, stderr)
+
+report :: [Diag] -> IO ()
+report = mapM_ (\d -> hPutStrLn stderr $ "[" ++ show (sev d) ++ " " ++ code d ++ "] " ++ msg d)
 
 formatDiag :: String -> String -> Diag -> String
 formatDiag filename source d =
@@ -19,7 +24,9 @@ formatDiag filename source d =
                        ++ (if sev d == Error then "\ESC[1;31m^" else "\ESC[1;33m^")
                        ++ "--- " ++ msg d ++ "\ESC[0m"
                   else ""
-    in header ++ "\n" ++ locInfo ++ "\n" ++ snippet
+        -- Try to get suggestion from error message (hacky but works for now)
+        suggestion = ""
+    in header ++ "\n" ++ locInfo ++ "\n" ++ snippet ++ suggestion
 
 prettyPrintDiags :: String -> String -> [Diag] -> String
 prettyPrintDiags filename source diags = 

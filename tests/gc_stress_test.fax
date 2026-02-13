@@ -1,0 +1,10 @@
+fn main() {
+    let mut i = 0;
+    while i < 100 {
+        let arr = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        print(i);
+        collect_gc();
+        i = i + 1;
+    }
+    print("GC Stress Test Completed");
+}

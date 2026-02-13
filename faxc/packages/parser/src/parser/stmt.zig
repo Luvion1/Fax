@@ -133,7 +133,7 @@ pub fn parseFor(self: *Parser) ParseErr!json.Value {
     const name = (try self.expect(.Identifier)).string;
     _ = try self.expectValue("in");
 
-    const start = try Expr.parseExpression(self);
+    const start = try Expr.parseBinary(self, 1);
     _ = try self.expectValue("..");
     const end = try Expr.parseExpression(self);
     _ = try self.expectValue("{");

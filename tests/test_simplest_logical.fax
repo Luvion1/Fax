@@ -1,0 +1,8 @@
+fn test() {
+    let result = true && false;
+    print(result);
+}
+
+fn main() {
+    test();
+}

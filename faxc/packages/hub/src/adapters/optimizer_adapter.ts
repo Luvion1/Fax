@@ -5,7 +5,7 @@ import { writeFileSync } from 'fs';
 export class OptimizerAdapter implements ComponentAdapter {
   private readonly command: string;
 
-  constructor(command: string = './faxc/packages/optimizer/target/release/fax-opt') {
+  constructor(command: string = '../optimizer/target/release/fax-opt') {
     this.command = command;
   }
 

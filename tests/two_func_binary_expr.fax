@@ -1,0 +1,16 @@
+// Test case to isolate parser issue - two functions with binary expression
+fn test1() {
+    let x = 5;
+    print(x);
+}
+
+fn test2() {
+    let x = 0;
+    let y = 1;
+    print(x + y);  // gunakan ekspresi biner
+}
+
+fn main() {
+    test1();
+    test2();
+}

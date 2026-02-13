@@ -1,0 +1,1352 @@
+// Arithmetic Edge Cases 1101-1200
+
+fn test_arithmetic_series_sum() {
+    let start = 1;
+    let end = 100;
+    let sum = (end * (end + 1)) / 2 - ((start - 1) * start) / 2;
+    print(sum);
+}
+
+fn test_geometric_series_sum() {
+    let first_term = 1;
+    let ratio = 2;
+    let terms = 10;
+    let numerator = first_term * (power_int(ratio, terms) - 1);
+    let denominator = ratio - 1;
+    let sum = if denominator != 0 { numerator / denominator } else { -1 };
+    print(sum);
+}
+
+fn power_int(base: int, exp: int) -> int {
+    let mut result = 1;
+    let mut i = 0;
+    while i < exp {
+        result = result * base;
+        i = i + 1;
+    }
+    return result;
+}
+
+fn test_arithmetic_mean_of_series() {
+    let start = 1;
+    let end = 10;
+    let sum = (end * (end + 1)) / 2;
+    let count = end - start + 1;
+    let mean = sum / count;
+    print(mean);
+}
+
+fn test_weighted_mean_of_series() {
+    let values = [1, 2, 3, 4, 5];
+    let weights = [1, 2, 3, 4, 5];
+    let mut weighted_sum = 0;
+    let mut weight_sum = 0;
+    let mut i = 0;
+    while i < len(values) {
+        weighted_sum = weighted_sum + values[i] * weights[i];
+        weight_sum = weight_sum + weights[i];
+        i = i + 1;
+    }
+    let weighted_mean = if weight_sum != 0 { weighted_sum / weight_sum } else { -1 };
+    print(weighted_mean);
+}
+
+fn test_harmonic_mean_calculation() {
+    let values = [2, 4, 1];  // Reciprocals: 1/2, 1/4, 1/1
+    let n = len(values);
+    let mut sum_reciprocals = 0;
+    let mut i = 0;
+    while i < n {
+        sum_reciprocals = sum_reciprocals + (1000 / values[i]);  // Scale by 1000
+        i = i + 1;
+    }
+    let harmonic_mean = if sum_reciprocals != 0 { (n * 1000) / sum_reciprocals } else { -1 };
+    print(harmonic_mean);
+}
+
+fn test_geometric_mean_calculation() {
+    let values = [2, 8];  // Geometric mean = sqrt(2*8) = 4
+    let n = len(values);
+    let mut product = 1;
+    let mut i = 0;
+    while i < n {
+        product = product * values[i];
+        i = i + 1;
+    }
+    // For 2 values, geometric mean is sqrt(product)
+    let mut guess = product / 2;
+    let mut iter = 0;
+    while iter < 5 {
+        guess = (guess + product / guess) / 2;
+        iter = iter + 1;
+    }
+    print(guess);
+}
+
+fn test_quadratic_formula() {
+    // Solve ax^2 + bx + c = 0
+    let a = 1;
+    let b = -5;
+    let c = 6;  // x^2 - 5x + 6 = 0, roots are 2 and 3
+    let discriminant = b * b - 4 * a * c;
+    if discriminant >= 0 {
+        let sqrt_discriminant = approx_sqrt(discriminant);
+        let root1 = (-b + sqrt_discriminant) / (2 * a);
+        let root2 = (-b - sqrt_discriminant) / (2 * a);
+        print(root1);
+        print(root2);
+    } else {
+        print(-1);  // Complex roots
+    }
+}
+
+fn approx_sqrt(n: int) -> int {
+    if n <= 1 {
+        return n;
+    }
+    let mut guess = n / 2;
+    let mut i = 0;
+    while i < 5 {
+        guess = (guess + n / guess) / 2;
+        i = i + 1;
+    }
+    return guess;
+}
+
+fn test_cubic_equation_roots() {
+    // x^3 - 6x^2 + 11x - 6 = 0, roots are 1, 2, 3
+    let a = 1;
+    let b = -6;
+    let c = 11;
+    let d = -6;
+    // For this test, just verify the polynomial at known roots
+    let x = 1;
+    let result = a * x * x * x + b * x * x + c * x + d;
+    print(result);
+}
+
+fn test_synthetic_division() {
+    // Divide x^2 - 5x + 6 by (x - 2)
+    // Coefficients: [1, -5, 6], divisor: 2
+    let coeffs = [1, -5, 6];
+    let divisor = 2;
+    let mut result = [0, 0];
+    result[0] = coeffs[0];  // Leading coefficient
+    result[1] = coeffs[1] + result[0] * divisor;
+    let remainder = coeffs[2] + result[1] * divisor;
+    print(result[0]);
+    print(result[1]);
+    print(remainder);
+}
+
+fn test_polynomial_evaluation_horner() {
+    // Evaluate 2x^3 + 3x^2 + 4x + 5 at x = 2
+    let coeffs = [2, 3, 4, 5];  // 2x^3 + 3x^2 + 4x + 5
+    let x = 2;
+    let mut result = coeffs[0];
+    let mut i = 1;
+    while i < len(coeffs) {
+        result = result * x + coeffs[i];
+        i = i + 1;
+    }
+    print(result);
+}
+
+fn test_binomial_coefficient() {
+    // Calculate C(n, k) = n! / (k! * (n-k)!)
+    let n = 5;
+    let k = 2;
+    let numerator = factorial_calc(n);
+    let denominator = factorial_calc(k) * factorial_calc(n - k);
+    let binomial = if denominator != 0 { numerator / denominator } else { -1 };
+    print(binomial);
+}
+
+fn factorial_calc(n: int) -> int {
+    if n <= 1 {
+        return 1;
+    }
+    return n * factorial_calc(n - 1);
+}
+
+fn test_pascals_triangle_row() {
+    let n = 5;  // Generate row 5 of Pascal's triangle
+    let mut i = 0;
+    while i <= n {
+        let coeff = factorial_calc(n) / (factorial_calc(i) * factorial_calc(n - i));
+        print(coeff);
+        i = i + 1;
+    }
+}
+
+fn test_multinomial_coefficient() {
+    // Calculate multinomial coefficient for (n, k1, k2, k3) where k1+k2+k3=n
+    let n = 6;
+    let k1 = 2;
+    let k2 = 2;
+    let k3 = 2;
+    let numerator = factorial_calc(n);
+    let denominator = factorial_calc(k1) * factorial_calc(k2) * factorial_calc(k3);
+    let multinomial = if denominator != 0 { numerator / denominator } else { -1 };
+    print(multinomial);
+}
+
+fn test_fibonacci_by_formula() {
+    // Using Binet's formula: F(n) = (φ^n - ψ^n) / √5
+    // Where φ = (1+√5)/2 and ψ = (1-√5)/2
+    // For this discrete simulation, use iterative approach
+    let n = 10;
+    let mut a = 0;
+    let mut b = 1;
+    let mut i = 0;
+    while i < n {
+        let temp = a + b;
+        a = b;
+        b = temp;
+        i = i + 1;
+    }
+    print(a);
+}
+
+fn test_lucas_sequence() {
+    // Lucas sequence: L(0)=2, L(1)=1, L(n)=L(n-1)+L(n-2)
+    let n = 8;
+    let mut a = 2;
+    let mut b = 1;
+    let mut i = 0;
+    while i < n {
+        let temp = a + b;
+        a = b;
+        b = temp;
+        i = i + 1;
+    }
+    print(a);
+}
+
+fn test_pell_sequence() {
+    // Pell sequence: P(0)=0, P(1)=1, P(n)=2*P(n-1)+P(n-2)
+    let n = 7;
+    let mut a = 0;
+    let mut b = 1;
+    let mut i = 0;
+    while i < n {
+        let temp = 2 * b + a;
+        a = b;
+        b = temp;
+        i = i + 1;
+    }
+    print(a);
+}
+
+fn test_triangular_numbers() {
+    let n = 10;
+    let triangular = (n * (n + 1)) / 2;
+    print(triangular);
+}
+
+fn test_square_triangular_numbers() {
+    // Find numbers that are both triangular and square
+    let n = 1;  // T_1 = 1 = 1^2
+    let triangular = (n * (n + 1)) / 2;
+    let square = n * n;
+    print(triangular);
+    print(square);
+}
+
+fn test_pentagonal_numbers() {
+    let n = 5;
+    let pentagonal = (n * (3 * n - 1)) / 2;
+    print(pentagonal);
+}
+
+fn test_hexagonal_numbers() {
+    let n = 4;
+    let hexagonal = n * (2 * n - 1);
+    print(hexagonal);
+}
+
+fn test_tetrahedral_numbers() {
+    let n = 4;
+    let tetrahedral = (n * (n + 1) * (n + 2)) / 6;
+    print(tetrahedral);
+}
+
+fn test_catalan_sequence() {
+    // C(n) = (2n)! / ((n+1)! * n!)
+    let n = 4;
+    let numerator = factorial_calc(2 * n);
+    let denominator = factorial_calc(n + 1) * factorial_calc(n);
+    let catalan = if denominator != 0 { numerator / denominator } else { -1 };
+    print(catalan);
+}
+
+fn test_derangement_calculation() {
+    // Number of derangements: !n = n! * sum((-1)^k / k!) for k=0 to n
+    let n = 4;
+    let n_fact = factorial_calc(n);
+    let mut sum = 0;
+    let mut k = 0;
+    while k <= n {
+        let k_fact = factorial_calc(k);
+        let sign = if k % 2 == 0 { 1 } else { -1 };
+        sum = sum + sign * (n_fact / k_fact);  // Multiply by n! and divide by k!
+        k = k + 1;
+    }
+    print(sum);
+}
+
+fn test_stirling_number_first_kind() {
+    // Stirling number of first kind s(n,k) - signed count of permutations with k cycles
+    // For s(4,2): there are 11 permutations of 4 elements with 2 cycles
+    print(11);
+}
+
+fn test_stirling_number_second_kind() {
+    // Stirling number of second kind S(n,k) - number of ways to partition n elements into k non-empty subsets
+    // For S(4,2): there are 7 ways
+    print(7);
+}
+
+fn test_bell_number() {
+    // B(n) = sum of S(n,k) for k=0 to n
+    // B(4) = S(4,0) + S(4,1) + S(4,2) + S(4,3) + S(4,4) = 0 + 1 + 7 + 6 + 1 = 15
+    print(15);
+}
+
+fn test_partitions_number() {
+    // p(n) = number of partitions of n
+    // p(5) = 7
+    print(7);
+}
+
+fn test_eulerian_number() {
+    // A(n,k) = number of permutations of n elements with k ascents
+    // A(3,1) = 4
+    print(4);
+}
+
+fn test_magic_square_sum() {
+    // For an n×n magic square, the magic constant is n(n^2+1)/2
+    let n = 3;
+    let magic_sum = (n * (n * n + 1)) / 2;
+    print(magic_sum);
+}
+
+fn test_perfect_number_generation() {
+    // Perfect numbers are of the form 2^(p-1) * (2^p - 1) where 2^p - 1 is prime
+    let p = 2;  // 2^2 - 1 = 3 (prime), so 2^(2-1) * 3 = 2 * 3 = 6
+    let mersenne = power_int(2, p) - 1;
+    let perfect = power_int(2, p - 1) * mersenne;
+    print(perfect);
+}
+
+fn test_abundant_number_classification() {
+    let n = 12;  // Proper divisors: 1,2,3,4,6. Sum = 16 > 12
+    let mut sum = 0;
+    let mut i = 1;
+    while i < n {
+        if n % i == 0 {
+            sum = sum + i;
+        }
+        i = i + 1;
+    }
+    let is_abundant = if sum > n { 1 } else { 0 };
+    print(is_abundant);
+}
+
+fn test_deficient_number_classification() {
+    let n = 8;  // Proper divisors: 1,2,4. Sum = 7 < 8
+    let mut sum = 0;
+    let mut i = 1;
+    while i < n {
+        if n % i == 0 {
+            sum = sum + i;
+        }
+        i = i + 1;
+    }
+    let is_deficient = if sum < n { 1 } else { 0 };
+    print(is_deficient);
+}
+
+fn test_amicable_pair_generation() {
+    let a = 220;
+    let b = 284;
+    
+    // Sum of proper divisors of a
+    let mut sum_a = 0;
+    let mut i = 1;
+    while i < a {
+        if a % i == 0 {
+            sum_a = sum_a + i;
+        }
+        i = i + 1;
+    }
+    
+    // Sum of proper divisors of b
+    let mut sum_b = 0;
+    i = 1;
+    while i < b {
+        if b % i == 0 {
+            sum_b = sum_b + i;
+        }
+        i = i + 1;
+    }
+    
+    let are_amicable = if sum_a == b && sum_b == a { 1 } else { 0 };
+    print(are_amicable);
+}
+
+fn test_sociable_chain() {
+    // A sociable chain of order 5: 12496 -> 14288 -> 15472 -> 14536 -> 14264 -> 12496
+    // For this test, just verify the first transformation
+    let n = 12496;
+    let mut sum = 0;
+    let mut i = 1;
+    while i < n {
+        if n % i == 0 {
+            sum = sum + i;
+        }
+        i = i + 1;
+    }
+    print(sum);  // Should be 14288
+}
+
+fn test_weird_number() {
+    // A weird number is abundant but not semiperfect
+    // 70 is the smallest weird number: abundant (1+2+5+7+10+14+35 = 74 > 70) but not semiperfect
+    let n = 70;
+    let mut sum = 0;
+    let mut i = 1;
+    while i < n {
+        if n % i == 0 {
+            sum = sum + i;
+        }
+        i = i + 1;
+    }
+    let is_abundant = if sum > n { 1 } else { 0 };
+    print(is_abundant);
+}
+
+fn test_harmonic_divisor_number() {
+    // A number whose divisors have an integer harmonic mean
+    // 6 is harmonic: divisors are 1,2,3,6. Harmonic mean = 4/(1/1+1/2+1/3+1/6) = 4/(4/2) = 2
+    let n = 6;
+    let mut sum_reciprocals_scaled = 0;
+    let mut count = 0;
+    let mut i = 1;
+    while i <= n {
+        if n % i == 0 {
+            sum_reciprocals_scaled = sum_reciprocals_scaled + (n / i);  // Scaled by n
+            count = count + 1;
+        }
+        i = i + 1;
+    }
+    let harmonic_mean_scaled = (count * n) / sum_reciprocals_scaled;
+    print(harmonic_mean_scaled);
+}
+
+fn test_colossally_abundant_number() {
+    // A number n is colossally abundant if for some e > 0, (sigma(n))/(n^(1+e)) >= (sigma(k))/(k^(1+e)) for all k > 1
+    // For this test, just verify properties of a known example
+    print(1);  // Placeholder
+}
+
+fn test_superabundant_number() {
+    // A number n is superabundant if (sigma(n))/n > (sigma(k))/k for all k < n
+    // For n=6: sigma(6)/6 = 12/6 = 2, which is greater than previous ratios
+    let n = 6;
+    let sigma_n = sum_of_divisors(n);
+    let ratio_n = (sigma_n * 100) / n;  // Scaled ratio
+    print(ratio_n);
+}
+
+fn sum_of_divisors(n: int) -> int {
+    let mut sum = 0;
+    let mut i = 1;
+    while i <= n {
+        if n % i == 0 {
+            sum = sum + i;
+        }
+        i = i + 1;
+    }
+    return sum;
+}
+
+fn test_highly_composite_number() {
+    // A number with more divisors than any smaller number
+    // 12 has 6 divisors: 1,2,3,4,6,12 - more than any number less than 12
+    let n = 12;
+    let divisor_count = count_divisors(n);
+    print(divisor_count);
+}
+
+fn count_divisors(n: int) -> int {
+    let mut count = 0;
+    let mut i = 1;
+    while i <= n {
+        if n % i == 0 {
+            count = count + 1;
+        }
+        i = i + 1;
+    }
+    return count;
+}
+
+fn test_rough_number() {
+    // An n-rough number is one whose prime factors are all ≥ n
+    // 11 is 7-rough because its prime factor (11) is ≥ 7
+    let num = 11;
+    let roughness = 7;
+    let is_rough = if num >= roughness { 1 } else { 0 };
+    print(is_rough);
+}
+
+fn test_smooth_number() {
+    // A number whose prime factors are all ≤ B (B-smooth)
+    // 12 = 2^2 * 3 is 3-smooth
+    let num = 12;
+    let smoothness = 3;
+    let is_smooth = if num % 5 != 0 && num % 7 != 0 { 1 } else { 0 };  // Simplified check
+    print(is_smooth);
+}
+
+fn test_sphenic_number() {
+    // A product of three distinct primes
+    // 30 = 2 * 3 * 5
+    let n = 30;
+    let mut count = 0;
+    let mut temp_n = n;
+    let mut p = 2;
+    while p * p <= temp_n {
+        if temp_n % p == 0 {
+            count = count + 1;
+            temp_n = temp_n / p;
+            // Check if divisible by p again (not distinct)
+            if temp_n % p == 0 {
+                count = 100;  // Mark as invalid
+                break;
+            }
+        }
+        p = p + 1;
+    }
+    if temp_n > 1 {
+        count = count + 1;
+    }
+    let is_sphenic = if count == 3 { 1 } else { 0 };
+    print(is_sphenic);
+}
+
+fn test_nice_prime() {
+    // A prime p where (p-1)/2 is also prime (Sophie Germain prime)
+    // 5 is nice because (5-1)/2 = 2 is also prime
+    let p = 5;
+    let is_prime_p = is_prime_func(p);
+    let half_p_minus_1 = (p - 1) / 2;
+    let is_prime_half = is_prime_func(half_p_minus_1);
+    let is_nice = if is_prime_p && is_prime_half { 1 } else { 0 };
+    print(is_nice);
+}
+
+fn is_prime_func(n: int) -> bool {
+    if n <= 1 {
+        return false;
+    }
+    if n <= 3 {
+        return true;
+    }
+    if n % 2 == 0 || n % 3 == 0 {
+        return false;
+    }
+    let mut i = 5;
+    while i * i <= n {
+        if n % i == 0 || n % (i + 2) == 0 {
+            return false;
+        }
+        i = i + 6;
+    }
+    return true;
+}
+
+fn test_safe_prime() {
+    // A prime p where (p-1)/2 is also prime
+    // Same as Sophie Germain prime concept
+    let p = 7;  // (7-1)/2 = 3, which is prime
+    let half_p_minus_1 = (p - 1) / 2;
+    let is_safe = if is_prime_func(p) && is_prime_func(half_p_minus_1) { 1 } else { 0 };
+    print(is_safe);
+}
+
+fn test_wolstenholme_prime() {
+    // A prime p satisfying certain conditions related to Wolstenholme's theorem
+    // Known examples are 16843 and 2124679, too large for this simulation
+    print(0);  // Placeholder
+}
+
+fn test_wieferich_prime() {
+    // A prime p such that p^2 divides 2^(p-1) - 1
+    // Known examples: 1093, 3511
+    let p = 1093;
+    let exp = p - 1;
+    let mut power = 1;
+    let mut base = 2;
+    let mut e = exp;
+    while e > 0 {
+        if e % 2 == 1 {
+            power = (power * base) % (p * p);
+        }
+        e = e / 2;
+        base = (base * base) % (p * p);
+    }
+    let minus_one = if power == 1 { 1 } else { 0 };
+    print(minus_one);
+}
+
+fn test_wall_sun_sun_prime() {
+    // A prime p such that p^2 divides F(p - (p/5)) where F(n) is nth Fibonacci number
+    // No known examples, so return 0
+    print(0);
+}
+
+fn test_palindromic_number() {
+    let n = 121;
+    let reversed = reverse_number(n);
+    let is_palindromic = if n == reversed { 1 } else { 0 };
+    print(is_palindromic);
+}
+
+fn reverse_number(n: int) -> int {
+    let mut rev = 0;
+    let mut temp = n;
+    while temp > 0 {
+        rev = rev * 10 + temp % 10;
+        temp = temp / 10;
+    }
+    return rev;
+}
+
+fn test_lychrel_number_candidate() {
+    // A number that doesn't form a palindrome when repeatedly added to its reverse
+    // 196 is the smallest candidate
+    let n = 196;
+    let mut temp = n;
+    let mut i = 0;
+    while i < 10 {  // Limited iterations for simulation
+        let reversed = reverse_number(temp);
+        if temp == reversed {
+            print(0);  // Forms palindrome
+            return;
+        }
+        temp = temp + reversed;
+        i = i + 1;
+    }
+    print(1);  // Didn't form palindrome in 10 iterations
+}
+
+fn test_repunit() {
+    // A repunit is a number like 11, 111, 1111 with only 1s
+    let digits = 3;
+    let mut repunit = 0;
+    let mut i = 0;
+    while i < digits {
+        repunit = repunit * 10 + 1;
+        i = i + 1;
+    }
+    print(repunit);
+}
+
+fn test_repzero() {
+    // A number like 00, 000, 0000 with only 0s (except leading)
+    let digits = 4;
+    let repzero = 0;
+    print(repzero);
+}
+
+fn test_repdigit() {
+    // A number with repeated digits like 111, 2222
+    let digit = 7;
+    let count = 4;
+    let mut repdigit = 0;
+    let mut i = 0;
+    while i < count {
+        repdigit = repdigit * 10 + digit;
+        i = i + 1;
+    }
+    print(repdigit);
+}
+
+fn test_cyclic_number() {
+    // 142857 is a cyclic number: 142857 × 1 = 142857, 142857 × 2 = 285714, etc.
+    let n = 142857;
+    let doubled = n * 2;
+    print(n);
+    print(doubled);
+}
+
+fn test_parasitic_number() {
+    // A number that when multiplied by n produces a result with same digits shifted
+    // 102564 × 4 = 410256
+    let n = 102564;
+    let multiplier = 4;
+    let result = n * multiplier;
+    print(n);
+    print(result);
+}
+
+fn test_zuckerman_number() {
+    // A number divisible by the product of its digits
+    // 115 is Zuckerman: 1*1*5 = 5, and 115 % 5 = 0
+    let n = 115;
+    let mut product = 1;
+    let mut temp = n;
+    while temp > 0 {
+        let digit = temp % 10;
+        if digit != 0 {  // Avoid multiplication by 0
+            product = product * digit;
+        }
+        temp = temp / 10;
+    }
+    let is_zuckerman = if product != 0 && n % product == 0 { 1 } else { 0 };
+    print(is_zuckerman);
+}
+
+fn test_harshad_number() {
+    // A number divisible by the sum of its digits
+    // 18 is Harshad: 1+8=9, and 18 % 9 = 0
+    let n = 18;
+    let mut digit_sum = 0;
+    let mut temp = n;
+    while temp > 0 {
+        digit_sum = digit_sum + temp % 10;
+        temp = temp / 10;
+    }
+    let is_harshad = if digit_sum != 0 && n % digit_sum == 0 { 1 } else { 0 };
+    print(is_harshad);
+}
+
+fn test_moran_number() {
+    // A number N that divided by the sum of its digits gives a prime
+    // 117: 1+1+7=9, 117/9=13 (prime)
+    let n = 117;
+    let mut digit_sum = 0;
+    let mut temp = n;
+    while temp > 0 {
+        digit_sum = digit_sum + temp % 10;
+        temp = temp / 10;
+    }
+    let quotient = if digit_sum != 0 { n / digit_sum } else { -1 };
+    let is_moran = if quotient > 0 && is_prime_func(quotient) { 1 } else { 0 };
+    print(is_moran);
+}
+
+fn test_keith_number() {
+    // A number in a sequence where each term is sum of previous terms
+    // 197: 1, 9, 7, 17, 33, 57, 107, 197
+    let n = 197;
+    let digits = [1, 9, 7];
+    let mut sequence = [1, 9, 7, 0, 0, 0, 0, 0];
+    let mut i = 3;
+    while i < 8 {
+        sequence[i] = sequence[i-1] + sequence[i-2] + sequence[i-3];
+        if sequence[i] == n {
+            print(1);  // Is Keith number
+            return;
+        }
+        if sequence[i] > n {
+            print(0);  // Not Keith number
+            return;
+        }
+        i = i + 1;
+    }
+    print(0);
+}
+
+fn test_narcissistic_number() {
+    // A number that is the sum of its own digits each raised to the power of the number of digits
+    // 153 = 1^3 + 5^3 + 3^3 = 1 + 125 + 27 = 153
+    let n = 153;
+    let num_digits = count_digits(n);
+    let mut temp = n;
+    let mut sum = 0;
+    while temp > 0 {
+        let digit = temp % 10;
+        sum = sum + power_int(digit, num_digits);
+        temp = temp / 10;
+    }
+    let is_narcissistic = if sum == n { 1 } else { 0 };
+    print(is_narcissistic);
+}
+
+fn count_digits(n: int) -> int {
+    if n == 0 {
+        return 1;
+    }
+    let mut count = 0;
+    let mut temp = n;
+    while temp > 0 {
+        count = count + 1;
+        temp = temp / 10;
+    }
+    return count;
+}
+
+fn test_perfect_digital_invariant() {
+    // A number that is equal to the sum of a fixed power of its digits
+    // Same as narcissistic number
+    test_narcissistic_number();
+}
+
+fn test_munchausen_number() {
+    // A number equal to the sum of its digits raised to each digit's own power
+    // 3435 = 3^3 + 4^4 + 3^3 + 5^5 = 27 + 256 + 27 + 3125 = 3435
+    let n = 3435;
+    let mut temp = n;
+    let mut sum = 0;
+    while temp > 0 {
+        let digit = temp % 10;
+        if digit > 0 {
+            sum = sum + power_int(digit, digit);
+        } else {
+            sum = sum + 0;  // 0^0 is treated as 0 in this context
+        }
+        temp = temp / 10;
+    }
+    let is_munchausen = if sum == n { 1 } else { 0 };
+    print(is_munchausen);
+}
+
+fn test_factorion() {
+    // A number equal to the sum of factorials of its digits
+    // 145 = 1! + 4! + 5! = 1 + 24 + 120 = 145
+    let n = 145;
+    let mut temp = n;
+    let mut sum = 0;
+    while temp > 0 {
+        let digit = temp % 10;
+        sum = sum + factorial_calc(digit);
+        temp = temp / 10;
+    }
+    let is_factorion = if sum == n { 1 } else { 0 };
+    print(is_factorion);
+}
+
+fn test_meertens_number() {
+    // A number that is its own Gödel number
+    // 81312018 = 2^8 * 3^1 * 5^3 * 7^1 * 11^2 * 13^0 * 17^1 * 19^8
+    // Too complex for this simulation, return placeholder
+    print(0);
+}
+
+fn test_vampire_number() {
+    // A number that can be factored into two numbers using its digits
+    // 1260 = 21 × 60
+    let n = 1260;
+    // Check if 1260 can be factored as 21 * 60
+    let f1 = 21;
+    let f2 = 60;
+    let product = f1 * f2;
+    let is_vampire = if product == n { 1 } else { 0 };
+    print(is_vampire);
+}
+
+fn test_untouchable_number() {
+    // A number that cannot be expressed as the sum of proper divisors of any number
+    // 2 and 5 are untouchable
+    let n = 5;
+    let is_untouchable = if n == 2 || n == 5 { 1 } else { 0 };
+    print(is_untouchable);
+}
+
+fn test_weird_number_alt() {
+    // Alternative test for weird numbers
+    test_weird_number();
+}
+
+fn test_friendly_number() {
+    // Two numbers with the same abundancy index (sigma(n)/n)
+    // 6 and 28 both have abundancy index 2
+    let a = 6;
+    let b = 28;
+    let sigma_a = sum_of_divisors(a);
+    let sigma_b = sum_of_divisors(b);
+    let ratio_a = (sigma_a * b);  // Cross multiply to avoid fractions
+    let ratio_b = (sigma_b * a);
+    let are_friendly = if ratio_a == ratio_b { 1 } else { 0 };
+    print(are_friendly);
+}
+
+fn test_solitary_number() {
+    // A number that is not friendly with any other number
+    // Prime numbers are solitary
+    let n = 7;
+    let is_solitary = if is_prime_func(n) { 1 } else { 0 };
+    print(is_solitary);
+}
+
+fn test_sublime_number() {
+    // A number where both the number of divisors and sum of divisors are perfect numbers
+    // Only two known: 12 and a very large number
+    let n = 12;
+    let divisor_count = count_divisors(n);
+    let divisor_sum = sum_of_divisors(n);
+    // Check if both are perfect numbers
+    let is_div_count_perfect = is_perfect_number(divisor_count);
+    let is_div_sum_perfect = is_perfect_number(divisor_sum);
+    let is_sublime = if is_div_count_perfect && is_div_sum_perfect { 1 } else { 0 };
+    print(is_sublime);
+}
+
+fn is_perfect_number(n: int) -> bool {
+    if n <= 1 {
+        return false;
+    }
+    let mut sum = 0;
+    let mut i = 1;
+    while i < n {
+        if n % i == 0 {
+            sum = sum + i;
+        }
+        i = i + 1;
+    }
+    return sum == n;
+}
+
+fn test_practical_number() {
+    // A number n such that all numbers less than n can be expressed as sums of distinct divisors of n
+    // 12 is practical: divisors are 1,2,3,4,6,12
+    let n = 12;
+    let is_practical = 1;  // Simplified
+    print(is_practical);
+}
+
+fn test_ugly_number() {
+    // A number whose prime factors are only 2, 3, or 5
+    // 6 = 2 * 3 is ugly
+    let n = 6;
+    let mut temp = n;
+    while temp % 2 == 0 {
+        temp = temp / 2;
+    }
+    while temp % 3 == 0 {
+        temp = temp / 3;
+    }
+    while temp % 5 == 0 {
+        temp = temp / 5;
+    }
+    let is_ugly = if temp == 1 { 1 } else { 0 };
+    print(is_ugly);
+}
+
+fn test_happy_number() {
+    // A number where repeatedly replacing it with the sum of squares of its digits eventually leads to 1
+    let n = 7;
+    let mut temp = n;
+    let mut seen = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];  // Track seen numbers
+    let mut iteration = 0;
+    while temp != 1 && iteration < 20 {
+        if temp == seen[0] || temp == seen[1] || temp == seen[2] || temp == seen[3] || temp == seen[4] {
+            break;  // Cycle detected
+        }
+        seen[iteration % 5] = temp;
+        let mut sum = 0;
+        let mut num = temp;
+        while num > 0 {
+            let digit = num % 10;
+            sum = sum + digit * digit;
+            num = num / 10;
+        }
+        temp = sum;
+        iteration = iteration + 1;
+    }
+    let is_happy = if temp == 1 { 1 } else { 0 };
+    print(is_happy);
+}
+
+fn test_sad_number() {
+    // A number that is not happy
+    let n = 2;
+    let mut temp = n;
+    let mut seen = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];  // Track seen numbers
+    let mut iteration = 0;
+    while temp != 1 && iteration < 20 {
+        if temp == seen[0] || temp == seen[1] || temp == seen[2] || temp == seen[3] || temp == seen[4] {
+            break;  // Cycle detected
+        }
+        seen[iteration % 5] = temp;
+        let mut sum = 0;
+        let mut num = temp;
+        while num > 0 {
+            let digit = num % 10;
+            sum = sum + digit * digit;
+            num = num / 10;
+        }
+        temp = sum;
+        iteration = iteration + 1;
+    }
+    let is_sad = if temp != 1 { 1 } else { 0 };
+    print(is_sad);
+}
+
+fn test_polite_number() {
+    // A number that can be expressed as sum of consecutive positive integers
+    // All positive integers except powers of 2 are polite
+    let n = 15;  // 15 = 7+8 or 4+5+6 or 1+2+3+4+5
+    let is_polite = if (n & (n - 1)) != 0 { 1 } else { 0 };  // Check if not power of 2
+    print(is_polite);
+}
+
+fn test_impolite_number() {
+    // A power of 2 cannot be expressed as sum of consecutive positive integers
+    let n = 8;  // 8 is a power of 2
+    let is_impolite = if (n & (n - 1)) == 0 { 1 } else { 0 };  // Check if power of 2
+    print(is_impolite);
+}
+
+fn test_economical_number() {
+    // A number where the number of digits in prime factorization is less than digits in the number
+    // 125 = 5^3, written as "5^3" has 3 digits, 125 has 3 digits
+    let n = 125;
+    print(0);  // Placeholder
+}
+
+fn test_frugal_number() {
+    // A number where the number of digits in prime factorization is less than digits in the number
+    // 125 = 5^3, written as "5^3" has 3 digits, 125 has 3 digits (not frugal in this representation)
+    print(0);  // Placeholder
+}
+
+fn test_wasteful_number() {
+    // A number where the number of digits in prime factorization is greater than digits in the number
+    print(0);  // Placeholder
+}
+
+fn test_powerful_number() {
+    // A number where for every prime p dividing n, p^2 also divides n
+    // 36 = 2^2 * 3^2, both primes appear squared
+    let n = 36;
+    let mut temp = n;
+    let mut p = 2;
+    let mut is_powerful = 1;
+    while p * p <= temp {
+        if temp % p == 0 {
+            temp = temp / p;
+            if temp % p != 0 {
+                is_powerful = 0;  // p divides n but p^2 doesn't
+                break;
+            }
+        }
+        p = p + 1;
+    }
+    print(is_powerful);
+}
+
+fn test_achilles_number() {
+    // A powerful number that is not a perfect power
+    // 72 = 2^3 * 3^2 is powerful but not a perfect power
+    let n = 72;
+    let is_powerful = 1;  // From previous function
+    let is_perfect_power = 0;  // Simplified check
+    let is_achilles = if is_powerful && !is_perfect_power { 1 } else { 0 };
+    print(is_achilles);
+}
+
+fn test_strong_achilles_number() {
+    // An Achilles number whose Euler totient is also an Achilles number
+    print(0);  // Placeholder
+}
+
+fn test_knodel_number() {
+    // A number n such that each integer less than n and coprime to n satisfies a^m ≡ 1 (mod n) for some m
+    print(0);  // Placeholder
+}
+
+fn test_cullen_number() {
+    // A number of the form n*2^n + 1
+    // For n=1: 1*2^1 + 1 = 3
+    let n = 1;
+    let cullen = n * power_int(2, n) + 1;
+    print(cullen);
+}
+
+fn test_woodall_number() {
+    // A number of the form n*2^n - 1
+    // For n=2: 2*2^2 - 1 = 7
+    let n = 2;
+    let woodall = n * power_int(2, n) - 1;
+    print(woodall);
+}
+
+fn test_kynea_number() {
+    // A number of the form (2^n + 1)^2 - 2
+    // For n=1: (2^1 + 1)^2 - 2 = 9 - 2 = 7
+    let n = 1;
+    let kynea = power_int(2^n + 1, 2) - 2;
+    print(kynea);
+}
+
+fn test_mersenne_number() {
+    // A number of the form 2^p - 1
+    // For p=3: 2^3 - 1 = 7
+    let p = 3;
+    let mersenne = power_int(2, p) - 1;
+    print(mersenne);
+}
+
+fn test_double_mersenne_number() {
+    // A number of the form 2^(2^p - 1) - 1
+    // For p=2: 2^(2^2 - 1) - 1 = 2^3 - 1 = 7
+    let p = 2;
+    let exp = power_int(2, p) - 1;
+    let double_mersenne = power_int(2, exp) - 1;
+    print(double_mersenne);
+}
+
+fn test_fermat_number() {
+    // A number of the form 2^(2^n) + 1
+    // For n=0: 2^(2^0) + 1 = 2^1 + 1 = 3
+    let n = 0;
+    let exp = power_int(2, power_int(2, n));
+    let fermat = exp + 1;
+    print(fermat);
+}
+
+fn test_proth_number() {
+    // A number of the form k*2^n + 1 where k < 2^n
+    // For k=1, n=2: 1*2^2 + 1 = 5
+    let k = 1;
+    let n = 2;
+    let proth = k * power_int(2, n) + 1;
+    print(proth);
+}
+
+fn test_riesel_number() {
+    // A number k such that k*2^n - 1 is composite for all natural numbers n
+    print(0);  // Placeholder
+}
+
+fn test_sierpinski_number() {
+    // A number k such that k*2^n + 1 is composite for all natural numbers n
+    print(0);  // Placeholder
+}
+
+fn test_primorial_number() {
+    // The product of the first n primes
+    // For n=3: 2*3*5 = 30
+    let n = 3;
+    let mut result = 1;
+    let mut count = 0;
+    let mut candidate = 2;
+    while count < n {
+        if is_prime_func(candidate) {
+            result = result * candidate;
+            count = count + 1;
+        }
+        candidate = candidate + 1;
+    }
+    print(result);
+}
+
+fn test_factorial_prime() {
+    // A prime that is one less or one more than a factorial
+    // 5 = 3! - 1 = 6 - 1
+    let factorial = 6;  // 3!
+    let prime1 = factorial - 1;
+    let prime2 = factorial + 1;
+    let is_prime1 = is_prime_func(prime1);
+    let is_prime2 = is_prime_func(prime2);
+    let is_factorial_prime = if is_prime1 || is_prime2 { 1 } else { 0 };
+    print(is_factorial_prime);
+}
+
+fn test_primorial_prime() {
+    // A prime that is one less or one more than a primorial
+    let primorial = 6;  // 2*3 = 6
+    let prime1 = primorial - 1;
+    let prime2 = primorial + 1;
+    let is_prime1 = is_prime_func(prime1);
+    let is_prime2 = is_prime_func(prime2);
+    let is_primorial_prime = if is_prime1 || is_prime2 { 1 } else { 0 };
+    print(is_primorial_prime);
+}
+
+fn test_wagstaff_prime() {
+    // A prime of the form (2^p + 1)/3 where p is prime
+    // For p=3: (2^3 + 1)/3 = 9/3 = 3
+    let p = 3;
+    let numerator = power_int(2, p) + 1;
+    let wagstaff = if numerator % 3 == 0 { numerator / 3 } else { -1 };
+    let is_wagstaff_prime = if wagstaff > 0 && is_prime_func(wagstaff) { 1 } else { 0 };
+    print(is_wagstaff_prime);
+}
+
+fn test_sophie_germain_prime() {
+    // A prime p where 2p + 1 is also prime
+    let p = 2;
+    let q = 2 * p + 1;
+    let is_sg_prime = if is_prime_func(p) && is_prime_func(q) { 1 } else { 0 };
+    print(is_sg_prime);
+}
+
+fn test_cullen_prime() {
+    // A Cullen number that is also prime
+    let n = 1;
+    let cullen = n * power_int(2, n) + 1;  // This is 3
+    let is_cullen_prime = if is_prime_func(cullen) { 1 } else { 0 };
+    print(is_cullen_prime);
+}
+
+fn test_woodall_prime() {
+    // A Woodall number that is also prime
+    let n = 2;
+    let woodall = n * power_int(2, n) - 1;  // This is 7
+    let is_woodall_prime = if is_prime_func(woodall) { 1 } else { 0 };
+    print(is_woodall_prime);
+}
+
+fn test_kynea_prime() {
+    // A Kynea number that is also prime
+    let n = 1;
+    let kynea = power_int(2^n + 1, 2) - 2;  // This is 7
+    let is_kynea_prime = if is_prime_func(kynea) { 1 } else { 0 };
+    print(is_kynea_prime);
+}
+
+fn test_mersenne_prime() {
+    // A Mersenne number that is also prime
+    let p = 2;
+    let mersenne = power_int(2, p) - 1;  // This is 3
+    let is_mersenne_prime = if is_prime_func(mersenne) { 1 } else { 0 };
+    print(is_mersenne_prime);
+}
+
+fn test_double_mersenne_prime() {
+    // A double Mersenne number that is also prime
+    let p = 2;
+    let exp = power_int(2, p) - 1;
+    let double_mersenne = power_int(2, exp) - 1;  // This is 7
+    let is_double_mersenne_prime = if is_prime_func(double_mersenne) { 1 } else { 0 };
+    print(is_double_mersenne_prime);
+}
+
+fn test_fermat_prime() {
+    // A Fermat number that is also prime
+    let n = 0;
+    let exp = power_int(2, power_int(2, n));
+    let fermat = exp + 1;  // This is 3
+    let is_fermat_prime = if is_prime_func(fermat) { 1 } else { 0 };
+    print(is_fermat_prime);
+}
+
+fn test_proth_prime() {
+    // A Proth number that is also prime
+    let k = 1;
+    let n = 2;
+    let proth = k * power_int(2, n) + 1;  // This is 5
+    let is_proth_prime = if is_prime_func(proth) { 1 } else { 0 };
+    print(is_proth_prime);
+}
+
+fn main() {
+    test_arithmetic_series_sum();
+    test_geometric_series_sum();
+    test_arithmetic_mean_of_series();
+    test_weighted_mean_of_series();
+    test_harmonic_mean_calculation();
+    test_geometric_mean_calculation();
+    test_quadratic_formula();
+    test_cubic_equation_roots();
+    test_synthetic_division();
+    test_polynomial_evaluation_horner();
+    test_binomial_coefficient();
+    test_pascals_triangle_row();
+    test_multinomial_coefficient();
+    test_fibonacci_by_formula();
+    test_lucas_sequence();
+    test_pell_sequence();
+    test_triangular_numbers();
+    test_square_triangular_numbers();
+    test_pentagonal_numbers();
+    test_hexagonal_numbers();
+    test_tetrahedral_numbers();
+    test_catalan_sequence();
+    test_derangement_calculation();
+    test_stirling_number_first_kind();
+    test_stirling_number_second_kind();
+    test_bell_number();
+    test_partitions_number();
+    test_eulerian_number();
+    test_magic_square_sum();
+    test_perfect_number_generation();
+    test_abundant_number_classification();
+    test_deficient_number_classification();
+    test_amicable_pair_generation();
+    test_sociable_chain();
+    test_weird_number();
+    test_harmonic_divisor_number();
+    test_colossally_abundant_number();
+    test_superabundant_number();
+    test_highly_composite_number();
+    test_rough_number();
+    test_smooth_number();
+    test_sphenic_number();
+    test_nice_prime();
+    test_safe_prime();
+    test_wolstenholme_prime();
+    test_wieferich_prime();
+    test_wall_sun_sun_prime();
+    test_palindromic_number();
+    test_lychrel_number_candidate();
+    test_repunit();
+    test_repzero();
+    test_repdigit();
+    test_cyclic_number();
+    test_parasitic_number();
+    test_zuckerman_number();
+    test_harshad_number();
+    test_moran_number();
+    test_keith_number();
+    test_narcissistic_number();
+    test_perfect_digital_invariant();
+    test_munchausen_number();
+    test_factorion();
+    test_meertens_number();
+    test_vampire_number();
+    test_untouchable_number();
+    test_weird_number_alt();
+    test_friendly_number();
+    test_solitary_number();
+    test_sublime_number();
+    test_practical_number();
+    test_ugly_number();
+    test_happy_number();
+    test_sad_number();
+    test_polite_number();
+    test_impolite_number();
+    test_economical_number();
+    test_frugal_number();
+    test_wasteful_number();
+    test_powerful_number();
+    test_achilles_number();
+    test_strong_achilles_number();
+    test_knodel_number();
+    test_cullen_number();
+    test_woodall_number();
+    test_kynea_number();
+    test_mersenne_number();
+    test_double_mersenne_number();
+    test_fermat_number();
+    test_proth_number();
+    test_riesel_number();
+    test_sierpinski_number();
+    test_primorial_number();
+    test_factorial_prime();
+    test_primorial_prime();
+    test_wagstaff_prime();
+    test_sophie_germain_prime();
+    test_cullen_prime();
+    test_woodall_prime();
+    test_kynea_prime();
+    test_mersenne_prime();
+    test_double_mersenne_prime();
+    test_fermat_prime();
+    test_proth_prime();
+}

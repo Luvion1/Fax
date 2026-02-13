@@ -1,0 +1,387 @@
+// Logical Operation Edge Cases 101-200
+
+fn test_true_false_combinations() {
+    let a = true;
+    let b = false;
+    print(a && b);
+    print(a || b);
+    print(!a);
+    print(!b);
+}
+
+fn test_double_negation() {
+    let a = true;
+    let result = !!a;
+    print(result);
+}
+
+fn test_triple_negation() {
+    let a = true;
+    let result = !!!a;
+    print(result);
+}
+
+fn test_complex_boolean_expr1() {
+    let a = true;
+    let b = false;
+    let c = true;
+    let result = a && b || c;
+    print(result);
+}
+
+fn test_complex_boolean_expr2() {
+    let a = true;
+    let b = false;
+    let c = false;
+    let result = a || b && c;
+    print(result);
+}
+
+fn test_operator_precedence_and_or() {
+    let a = true;
+    let b = false;
+    let c = true;
+    let d = false;
+    let result = a || b && c || d;
+    print(result);
+}
+
+fn test_operator_precedence_parens() {
+    let a = true;
+    let b = false;
+    let c = true;
+    let d = false;
+    let result = (a || b) && (c || d);
+    print(result);
+}
+
+fn test_all_true() {
+    let a = true;
+    let b = true;
+    let c = true;
+    let result = a && b && c;
+    print(result);
+}
+
+fn test_all_false() {
+    let a = false;
+    let b = false;
+    let c = false;
+    let result = a || b || c;
+    print(result);
+}
+
+fn test_single_true_in_or() {
+    let a = false;
+    let b = true;
+    let c = false;
+    let result = a || b || c;
+    print(result);
+}
+
+fn test_single_false_in_and() {
+    let a = true;
+    let b = false;
+    let c = true;
+    let result = a && b && c;
+    print(result);
+}
+
+fn test_mixed_logical_comparison() {
+    let a = 5;
+    let b = 3;
+    let result = a > b && b < 10;
+    print(result);
+}
+
+fn test_chained_comparisons() {
+    let a = 5;
+    let b = 10;
+    let c = 15;
+    let result = a < b && b < c;
+    print(result);
+}
+
+fn test_negated_comparison() {
+    let a = 5;
+    let b = 10;
+    let result = !(a > b);
+    print(result);
+}
+
+fn test_complex_mixed_expr() {
+    let a = 5;
+    let b = 3;
+    let c = true;
+    let d = false;
+    let result = a > b && c || d;
+    print(result);
+}
+
+fn test_short_circuit_and_true() {
+    let a = true;
+    let result = a || 5 / 0 > 1;
+    print(result);
+}
+
+fn test_short_circuit_or_true() {
+    let a = true;
+    let result = a || 5 / 0 > 1;
+    print(result);
+}
+
+fn test_logical_precedence_not_vs_and() {
+    let a = false;
+    let b = true;
+    let result = !a && b;
+    print(result);
+}
+
+fn test_logical_precedence_not_vs_or() {
+    let a = false;
+    let b = false;
+    let result = !a || b;
+    print(result);
+}
+
+fn test_complex_precedence() {
+    let a = true;
+    let b = false;
+    let c = true;
+    let result = !a && b || c;
+    print(result);
+}
+
+fn test_complex_precedence_parens() {
+    let a = true;
+    let b = false;
+    let c = true;
+    let result = !(a && b) || c;
+    print(result);
+}
+
+fn test_multiple_ands() {
+    let a = true;
+    let b = true;
+    let c = true;
+    let d = true;
+    let result = a && b && c && d;
+    print(result);
+}
+
+fn test_multiple_ors() {
+    let a = false;
+    let b = false;
+    let c = false;
+    let d = true;
+    let result = a || b || c || d;
+    print(result);
+}
+
+fn test_not_with_comparison() {
+    let a = 5;
+    let b = 10;
+    let result = !(a == b);
+    print(result);
+}
+
+fn test_not_with_less_than() {
+    let a = 5;
+    let b = 10;
+    let result = !(a < b);
+    print(result);
+}
+
+fn test_complex_nested_expr() {
+    let a = 5;
+    let b = 10;
+    let c = 15;
+    let x = true;
+    let y = false;
+    let result = (a < b || x) && (c > b && !y);
+    print(result);
+}
+
+fn test_boolean_reassignment() {
+    let mut flag = true;
+    flag = false;
+    print(flag);
+}
+
+fn test_conditional_assignment() {
+    let a = 5;
+    let b = 10;
+    let result = if a < b { true } else { false };
+    print(result);
+}
+
+fn test_logic_in_condition() {
+    let a = true;
+    let b = false;
+    if a && !b {
+        print(1);
+    } else {
+        print(0);
+    }
+}
+
+fn test_logic_in_else_if() {
+    let a = 5;
+    let b = 10;
+    let c = 15;
+    if a > b {
+        print(1);
+    } else if a < b && b < c {
+        print(2);
+    } else {
+        print(3);
+    }
+}
+
+fn check_condition(x: i64, y: i64) -> bool {
+    return x < y;
+}
+
+fn test_logic_with_functions() {
+    let a = true;
+    let b = check_condition(5, 10);
+    let result = a && b;
+    print(result);
+}
+
+fn test_logic_with_arrays() {
+    let arr = [1, 2, 3];
+    let index = 1;
+    let result = index < 3 && arr[index] > 0;
+    print(result);
+}
+
+fn test_logic_with_while() {
+    let mut i = 0;
+    let limit = 5;
+    while i < limit && i >= 0 {
+        print(i);
+        i = i + 1;
+    }
+}
+
+fn test_logic_with_scope() {
+    let a = true;
+    {
+        let b = false;
+        let result = a && !b;
+        print(result);
+    }
+}
+
+fn test_logic_with_expressions() {
+    let a = 5;
+    let b = 3;
+    let result = a + b > 7 && a - b < 3;
+    print(result);
+}
+
+fn test_logic_with_parens_depth3() {
+    let a = true;
+    let b = false;
+    let c = true;
+    let d = false;
+    let result = (((a || b) && c) || d) && a;
+    print(result);
+}
+
+fn test_logic_with_assignment() {
+    let mut a = true;
+    let b = false;
+    a = a && !b;
+    print(a);
+}
+
+fn return_logic_test(x: bool, y: bool) -> bool {
+    return x && !y || 5 > 3;
+}
+
+fn test_logic_with_return() {
+    let result = return_logic_test(true, false);
+    print(result);
+}
+
+fn param_logic_test(x: bool, y: bool) {
+    let result = x || !y;
+    print(result);
+}
+
+fn test_logic_with_params() {
+    let a = true;
+    let b = false;
+    param_logic_test(a, b);
+}
+
+fn test_logic_with_complex_while() {
+    let mut i = 0;
+    let mut j = 0;
+    while i < 5 && j < 3 {
+        print(i);
+        i = i + 1;
+        j = j + 1;
+    }
+}
+
+fn test_logic_with_multiline_expr() {
+    let a = true;
+    let b = false;
+    let c = true;
+    let result = a && !b || c;
+    print(result);
+}
+
+fn test_tuples_logical() {
+    let pair = (100, 200);
+    print(pair.0);
+    print(pair.1);
+}
+
+fn main() {
+    test_true_false_combinations();
+    test_double_negation();
+    test_triple_negation();
+    test_complex_boolean_expr1();
+    test_complex_boolean_expr2();
+    test_operator_precedence_and_or();
+    test_operator_precedence_parens();
+    test_all_true();
+    test_all_false();
+    test_single_true_in_or();
+    test_single_false_in_and();
+    test_mixed_logical_comparison();
+    test_chained_comparisons();
+    test_negated_comparison();
+    test_complex_mixed_expr();
+    test_short_circuit_and_true();
+    test_short_circuit_or_true();
+    test_logical_precedence_not_vs_and();
+    test_logical_precedence_not_vs_or();
+    test_complex_precedence();
+    test_complex_precedence_parens();
+    test_multiple_ands();
+    test_multiple_ors();
+    test_not_with_comparison();
+    test_not_with_less_than();
+    test_complex_nested_expr();
+    test_boolean_reassignment();
+    test_conditional_assignment();
+    test_logic_in_condition();
+    test_logic_in_else_if();
+    test_logic_with_functions();
+    test_logic_with_arrays();
+    test_logic_with_while();
+    test_logic_with_scope();
+    test_logic_with_expressions();
+    test_logic_with_parens_depth3();
+    test_logic_with_assignment();
+    test_logic_with_return();
+    test_logic_with_params();
+    test_logic_with_complex_while();
+    test_logic_with_multiline_expr();
+    test_tuples_logical();
+}

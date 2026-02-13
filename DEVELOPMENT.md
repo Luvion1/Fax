@@ -58,6 +58,23 @@ Binary Executable
 - **LLVM** 14+ (for codegen)
 - **GCC/Clang** (for C++ compilation)
 
+### Project Structure
+
+The Fax project is organized as follows:
+- `faxc/` - Main compiler components
+  - `packages/` - Individual compiler stages
+    - `lexer/` - Rust-based lexical analyzer
+    - `parser/` - Zig-based parser
+    - `sema/` - Haskell-based semantic analyzer
+    - `optimizer/` - Rust-based optimizer
+    - `codegen/` - C++-based code generator
+    - `runtime/` - Zig-based garbage collector runtime
+    - `hub/` - TypeScript-based orchestration layer
+- `tests/` - Test files and examples
+- `docs/` - Documentation files
+- `examples/` - Example Fax programs
+- `std/` - Standard library
+
 ### Installation on macOS
 
 ```bash

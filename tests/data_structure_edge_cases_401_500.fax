@@ -1,0 +1,968 @@
+// Data Structure and Array Edge Cases 401-500
+
+fn test_empty_array() {
+    let arr = [];
+    print(len(arr));
+}
+
+fn test_single_element_array() {
+    let arr = [42];
+    print(arr[0]);
+    print(len(arr));
+}
+
+fn test_multi_element_array() {
+    let arr = [1, 2, 3, 4, 5];
+    print(arr[0]);
+    print(arr[4]);
+    print(len(arr));
+}
+
+fn test_array_with_zeros() {
+    let arr = [0, 0, 0];
+    print(arr[0]);
+    print(arr[1]);
+    print(arr[2]);
+}
+
+fn test_array_with_negatives() {
+    let arr = [-1, -2, -3];
+    print(arr[0]);
+    print(arr[1]);
+    print(arr[2]);
+}
+
+fn test_array_mixed_positives_negatives() {
+    let arr = [-5, 10, -15, 20];
+    print(arr[0]);
+    print(arr[1]);
+    print(arr[2]);
+    print(arr[3]);
+}
+
+fn test_array_access_in_bounds() {
+    let arr = [10, 20, 30];
+    print(arr[0]);
+    print(arr[1]);
+    print(arr[2]);
+}
+
+fn test_array_access_out_of_bounds_simulation() {
+    let arr = [1, 2, 3];
+    // Accessing arr[3] would be out of bounds
+    // We'll simulate bounds checking
+    let index = 3;
+    if index < len(arr) {
+        print(arr[index]);
+    } else {
+        print(-1);  // Error indicator
+    }
+}
+
+fn test_array_last_element() {
+    let arr = [5, 10, 15, 20];
+    let last_idx = len(arr) - 1;
+    print(arr[last_idx]);
+}
+
+fn test_array_first_element() {
+    let arr = [100, 200, 300];
+    print(arr[0]);
+}
+
+fn test_array_assignment_simulation() {
+    // Since arrays might be immutable, simulating with variables
+    let old_arr = [1, 2, 3];
+    let new_arr = [4, 5, 6];
+    print(new_arr[0]);
+    print(new_arr[1]);
+    print(new_arr[2]);
+}
+
+fn test_array_iteration_simulation() {
+    let arr = [1, 2, 3, 4];
+    let mut i = 0;
+    while i < len(arr) {
+        print(arr[i]);
+        i = i + 1;
+    }
+}
+
+fn test_array_sum_simulation() {
+    let arr = [1, 2, 3, 4, 5];
+    let mut sum = 0;
+    let mut i = 0;
+    while i < len(arr) {
+        sum = sum + arr[i];
+        i = i + 1;
+    }
+    print(sum);
+}
+
+fn test_array_max_simulation() {
+    let arr = [3, 7, 2, 9, 1];
+    let mut max_val = arr[0];
+    let mut i = 1;
+    while i < len(arr) {
+        if arr[i] > max_val {
+            max_val = arr[i];
+        }
+        i = i + 1;
+    }
+    print(max_val);
+}
+
+fn test_array_min_simulation() {
+    let arr = [3, 7, 2, 9, 1];
+    let mut min_val = arr[0];
+    let mut i = 1;
+    while i < len(arr) {
+        if arr[i] < min_val {
+            min_val = arr[i];
+        }
+        i = i + 1;
+    }
+    print(min_val);
+}
+
+fn test_array_search_simulation() {
+    let arr = [10, 20, 30, 40, 50];
+    let target = 30;
+    let mut found = false;
+    let mut i = 0;
+    while i < len(arr) && !found {
+        if arr[i] == target {
+            found = true;
+        }
+        i = i + 1;
+    }
+    print(found);
+}
+
+fn test_array_reverse_simulation() {
+    let arr = [1, 2, 3, 4, 5];
+    let len_val = len(arr);
+    let mut i = len_val - 1;
+    while i >= 0 {
+        print(arr[i]);
+        if i == 0 {
+            break;
+        }
+        i = i - 1;
+    }
+}
+
+fn test_array_contains_simulation() {
+    let arr = [5, 10, 15, 20];
+    let search_val = 15;
+    let mut contains = false;
+    let mut i = 0;
+    while i < len(arr) {
+        if arr[i] == search_val {
+            contains = true;
+        }
+        i = i + 1;
+    }
+    print(contains);
+}
+
+fn test_array_unique_elements_simulation() {
+    let arr = [1, 2, 2, 3, 3, 4];
+    let mut prev = arr[0];
+    print(prev);
+    let mut i = 1;
+    while i < len(arr) {
+        if arr[i] != prev {
+            print(arr[i]);
+            prev = arr[i];
+        }
+        i = i + 1;
+    }
+}
+
+fn test_array_duplicates_simulation() {
+    let arr = [1, 2, 2, 3, 3, 3, 4];
+    let mut count = 1;
+    let mut i = 1;
+    while i < len(arr) {
+        if arr[i] == arr[i-1] {
+            count = count + 1;
+        } else {
+            print(count);
+            count = 1;
+        }
+        i = i + 1;
+    }
+    print(count);
+}
+
+fn test_array_sorted_check_simulation() {
+    let arr = [1, 2, 3, 4, 5];
+    let mut is_sorted = true;
+    let mut i = 1;
+    while i < len(arr) {
+        if arr[i] < arr[i-1] {
+            is_sorted = false;
+        }
+        i = i + 1;
+    }
+    print(is_sorted);
+}
+
+fn test_array_reverse_sorted_check_simulation() {
+    let arr = [5, 4, 3, 2, 1];
+    let mut is_reverse_sorted = true;
+    let mut i = 1;
+    while i < len(arr) {
+        if arr[i] > arr[i-1] {
+            is_reverse_sorted = false;
+        }
+        i = i + 1;
+    }
+    print(is_reverse_sorted);
+}
+
+fn test_array_palindrome_simulation() {
+    let arr = [1, 2, 3, 2, 1];
+    let len_val = len(arr);
+    let mut is_palindrome = true;
+    let mut i = 0;
+    while i < len_val / 2 {
+        if arr[i] != arr[len_val - 1 - i] {
+            is_palindrome = false;
+        }
+        i = i + 1;
+    }
+    print(is_palindrome);
+}
+
+fn test_array_prefix_sum_simulation() {
+    let arr = [1, 2, 3, 4, 5];
+    let mut prefix_sum = 0;
+    let mut i = 0;
+    while i < len(arr) {
+        prefix_sum = prefix_sum + arr[i];
+        print(prefix_sum);
+        i = i + 1;
+    }
+}
+
+fn test_array_running_average_simulation() {
+    let arr = [10, 20, 30, 40, 50];
+    let mut sum = 0;
+    let mut i = 0;
+    while i < len(arr) {
+        sum = sum + arr[i];
+        let avg = sum / (i + 1);
+        print(avg);
+        i = i + 1;
+    }
+}
+
+fn test_array_sliding_window_simulation() {
+    let arr = [1, 2, 3, 4, 5];
+    let window_size = 3;
+    let mut i = 0;
+    while i <= len(arr) - window_size {
+        let sum = arr[i] + arr[i+1] + arr[i+2];
+        print(sum);
+        i = i + 1;
+    }
+}
+
+fn test_array_partition_simulation() {
+    let arr = [1, -2, 3, -4, 5, -6];
+    let mut pos_count = 0;
+    let mut neg_count = 0;
+    let mut i = 0;
+    while i < len(arr) {
+        if arr[i] > 0 {
+            pos_count = pos_count + 1;
+        } else if arr[i] < 0 {
+            neg_count = neg_count + 1;
+        }
+        i = i + 1;
+    }
+    print(pos_count);
+    print(neg_count);
+}
+
+fn test_array_even_odd_separation_simulation() {
+    let arr = [1, 2, 3, 4, 5, 6];
+    let mut i = 0;
+    while i < len(arr) {
+        if arr[i] % 2 == 0 {
+            print(0);  // Even
+        } else {
+            print(1);  // Odd
+        }
+        i = i + 1;
+    }
+}
+
+fn test_array_frequency_count_simulation() {
+    let arr = [1, 2, 2, 3, 3, 3];
+    // Count frequency of value 2
+    let target = 2;
+    let mut count = 0;
+    let mut i = 0;
+    while i < len(arr) {
+        if arr[i] == target {
+            count = count + 1;
+        }
+        i = i + 1;
+    }
+    print(count);
+}
+
+fn test_array_max_consecutive_simulation() {
+    let arr = [1, 1, 0, 1, 1, 1, 0];
+    let mut max_count = 0;
+    let mut current_count = 0;
+    let mut i = 0;
+    while i < len(arr) {
+        if arr[i] == 1 {
+            current_count = current_count + 1;
+            if current_count > max_count {
+                max_count = current_count;
+            }
+        } else {
+            current_count = 0;
+        }
+        i = i + 1;
+    }
+    print(max_count);
+}
+
+fn test_array_rotation_simulation() {
+    let arr = [1, 2, 3, 4, 5];
+    let rotation = 2;
+    let len_val = len(arr);
+    let mut i = rotation;
+    while i < len_val {
+        print(arr[i]);
+        i = i + 1;
+    }
+    i = 0;
+    while i < rotation {
+        print(arr[i]);
+        i = i + 1;
+    }
+}
+
+fn test_array_intersection_simulation() {
+    let arr1 = [1, 2, 3, 4];
+    let arr2 = [3, 4, 5, 6];
+    let mut i = 0;
+    while i < len(arr1) {
+        let mut j = 0;
+        while j < len(arr2) {
+            if arr1[i] == arr2[j] {
+                print(arr1[i]);
+            }
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+}
+
+fn test_array_union_simulation() {
+    let arr1 = [1, 2, 3];
+    let arr2 = [3, 4, 5];
+    let mut i = 0;
+    while i < len(arr1) {
+        print(arr1[i]);
+        i = i + 1;
+    }
+    i = 0;
+    while i < len(arr2) {
+        // Print only elements not in arr1
+        let mut found = false;
+        let mut j = 0;
+        while j < len(arr1) {
+            if arr2[i] == arr1[j] {
+                found = true;
+            }
+            j = j + 1;
+        }
+        if !found {
+            print(arr2[i]);
+        }
+        i = i + 1;
+    }
+}
+
+fn test_array_difference_simulation() {
+    let arr1 = [1, 2, 3, 4];
+    let arr2 = [2, 4, 6, 8];
+    let mut i = 0;
+    while i < len(arr1) {
+        let mut found = false;
+        let mut j = 0;
+        while j < len(arr2) {
+            if arr1[i] == arr2[j] {
+                found = true;
+            }
+            j = j + 1;
+        }
+        if !found {
+            print(arr1[i]);
+        }
+        i = i + 1;
+    }
+}
+
+fn test_array_subset_simulation() {
+    let arr1 = [2, 4];
+    let arr2 = [1, 2, 3, 4, 5];
+    let mut is_subset = true;
+    let mut i = 0;
+    while i < len(arr1) {
+        let mut found = false;
+        let mut j = 0;
+        while j < len(arr2) {
+            if arr1[i] == arr2[j] {
+                found = true;
+            }
+            j = j + 1;
+        }
+        if !found {
+            is_subset = false;
+        }
+        i = i + 1;
+    }
+    print(is_subset);
+}
+
+fn test_array_shuffle_simulation() {
+    let arr = [1, 2, 3, 4, 5];
+    // Simple "shuffle" by printing in different order
+    print(arr[2]);
+    print(arr[0]);
+    print(arr[4]);
+    print(arr[1]);
+    print(arr[3]);
+}
+
+fn test_array_sort_simulation() {
+    let arr = [5, 2, 8, 1, 9];
+    // Bubble sort simulation
+    let mut sorted_arr = [5, 2, 8, 1, 9];
+    let n = len(sorted_arr);
+    let mut i = 0;
+    while i < n {
+        let mut j = 0;
+        while j < n - i - 1 {
+            if sorted_arr[j] > sorted_arr[j + 1] {
+                // Swap
+                let temp = sorted_arr[j];
+                sorted_arr[j] = sorted_arr[j + 1];
+                sorted_arr[j + 1] = temp;
+            }
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    i = 0;
+    while i < n {
+        print(sorted_arr[i]);
+        i = i + 1;
+    }
+}
+
+fn test_array_merge_simulation() {
+    let arr1 = [1, 3, 5];
+    let arr2 = [2, 4, 6];
+    let mut i = 0;
+    let mut j = 0;
+    while i < len(arr1) && j < len(arr2) {
+        if arr1[i] <= arr2[j] {
+            print(arr1[i]);
+            i = i + 1;
+        } else {
+            print(arr2[j]);
+            j = j + 1;
+        }
+    }
+    while i < len(arr1) {
+        print(arr1[i]);
+        i = i + 1;
+    }
+    while j < len(arr2) {
+        print(arr2[j]);
+        j = j + 1;
+    }
+}
+
+fn test_array_zip_simulation() {
+    let arr1 = [1, 2, 3];
+    let arr2 = [4, 5, 6];
+    let min_len = if len(arr1) < len(arr2) { len(arr1) } else { len(arr2) };
+    let mut i = 0;
+    while i < min_len {
+        print(arr1[i] + arr2[i]);  // Summing pairs
+        i = i + 1;
+    }
+}
+
+fn test_array_chunk_simulation() {
+    let arr = [1, 2, 3, 4, 5, 6, 7];
+    let chunk_size = 3;
+    let mut i = 0;
+    while i < len(arr) {
+        let mut j = 0;
+        while j < chunk_size && i + j < len(arr) {
+            print(arr[i + j]);
+            j = j + 1;
+        }
+        print(0);  // Separator
+        i = i + chunk_size;
+    }
+}
+
+fn test_array_flatten_simulation() {
+    let matrix = [[1, 2], [3, 4], [5, 6]];
+    let rows = 3;
+    let cols = 2;
+    let mut i = 0;
+    while i < rows {
+        let mut j = 0;
+        while j < cols {
+            print(matrix[i][j]);
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+}
+
+fn test_matrix_transpose_simulation() {
+    let matrix = [[1, 2, 3], [4, 5, 6]];
+    let rows = 2;
+    let cols = 3;
+    let mut i = 0;
+    while i < cols {
+        let mut j = 0;
+        while j < rows {
+            print(matrix[j][i]);
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+}
+
+fn test_matrix_sum_simulation() {
+    let matrix = [[1, 2], [3, 4]];
+    let rows = 2;
+    let cols = 2;
+    let mut sum = 0;
+    let mut i = 0;
+    while i < rows {
+        let mut j = 0;
+        while j < cols {
+            sum = sum + matrix[i][j];
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    print(sum);
+}
+
+fn test_matrix_row_sum_simulation() {
+    let matrix = [[1, 2, 3], [4, 5, 6]];
+    let rows = 2;
+    let cols = 3;
+    let mut i = 0;
+    while i < rows {
+        let mut row_sum = 0;
+        let mut j = 0;
+        while j < cols {
+            row_sum = row_sum + matrix[i][j];
+            j = j + 1;
+        }
+        print(row_sum);
+        i = i + 1;
+    }
+}
+
+fn test_matrix_column_sum_simulation() {
+    let matrix = [[1, 2], [3, 4], [5, 6]];
+    let rows = 3;
+    let cols = 2;
+    let mut j = 0;
+    while j < cols {
+        let mut col_sum = 0;
+        let mut i = 0;
+        while i < rows {
+            col_sum = col_sum + matrix[i][j];
+            i = i + 1;
+        }
+        print(col_sum);
+        j = j + 1;
+    }
+}
+
+fn test_matrix_diagonal_sum_simulation() {
+    let matrix = [[1, 2, 3], [4, 5, 6], [7, 8, 9]];
+    let size = 3;
+    let mut diag_sum = 0;
+    let mut i = 0;
+    while i < size {
+        diag_sum = diag_sum + matrix[i][i];
+        i = i + 1;
+    }
+    print(diag_sum);
+}
+
+fn test_matrix_trace_simulation() {
+    let matrix = [[1, 2, 3], [0, 4, 5], [0, 0, 6]];
+    let size = 3;
+    let mut trace = 0;
+    let mut i = 0;
+    while i < size {
+        trace = trace + matrix[i][i];
+        i = i + 1;
+    }
+    print(trace);
+}
+
+fn test_sparse_matrix_simulation() {
+    // Representing sparse matrix as array of (row, col, value) tuples
+    let sparse = [[0, 1, 5], [1, 2, 3], [2, 0, 7]];  // 3x3 matrix with 3 non-zero elements
+    let mut i = 0;
+    while i < len(sparse) {
+        print(sparse[i][0]);  // Row
+        print(sparse[i][1]);  // Col
+        print(sparse[i][2]);  // Value
+        i = i + 1;
+    }
+}
+
+fn test_array_map_simulation() {
+    let arr = [1, 2, 3, 4, 5];
+    let mut i = 0;
+    while i < len(arr) {
+        print(arr[i] * 2);  // Map: multiply by 2
+        i = i + 1;
+    }
+}
+
+fn test_array_filter_simulation() {
+    let arr = [1, 2, 3, 4, 5, 6];
+    let mut i = 0;
+    while i < len(arr) {
+        if arr[i] % 2 == 0 {
+            print(arr[i]);  // Filter: even numbers
+        }
+        i = i + 1;
+    }
+}
+
+fn test_array_reduce_simulation() {
+    let arr = [1, 2, 3, 4, 5];
+    let mut result = 0;
+    let mut i = 0;
+    while i < len(arr) {
+        result = result + arr[i];  // Reduce: sum
+        i = i + 1;
+    }
+    print(result);
+}
+
+fn test_array_fold_simulation() {
+    let arr = [1, 2, 3, 4];
+    let mut result = 1;
+    let mut i = 0;
+    while i < len(arr) {
+        result = result * arr[i];  // Fold: product
+        i = i + 1;
+    }
+    print(result);
+}
+
+fn test_array_take_simulation() {
+    let arr = [1, 2, 3, 4, 5];
+    let take_count = 3;
+    let mut i = 0;
+    while i < take_count && i < len(arr) {
+        print(arr[i]);
+        i = i + 1;
+    }
+}
+
+fn test_array_drop_simulation() {
+    let arr = [1, 2, 3, 4, 5];
+    let drop_count = 2;
+    let mut i = drop_count;
+    while i < len(arr) {
+        print(arr[i]);
+        i = i + 1;
+    }
+}
+
+fn test_array_slice_simulation() {
+    let arr = [1, 2, 3, 4, 5, 6];
+    let start = 2;
+    let end = 5;
+    let mut i = start;
+    while i < end && i < len(arr) {
+        print(arr[i]);
+        i = i + 1;
+    }
+}
+
+fn test_array_concatenation_simulation() {
+    let arr1 = [1, 2, 3];
+    let arr2 = [4, 5, 6];
+    let mut i = 0;
+    while i < len(arr1) {
+        print(arr1[i]);
+        i = i + 1;
+    }
+    i = 0;
+    while i < len(arr2) {
+        print(arr2[i]);
+        i = i + 1;
+    }
+}
+
+fn test_array_insert_simulation() {
+    let original = [1, 2, 4, 5];
+    let element = 3;
+    let position = 2;
+    let mut i = 0;
+    while i < len(original) {
+        if i == position {
+            print(element);
+        }
+        print(original[i]);
+        i = i + 1;
+    }
+    if position == len(original) {
+        print(element);
+    }
+}
+
+fn test_array_remove_simulation() {
+    let original = [1, 2, 3, 4, 5];
+    let remove_pos = 2;
+    let mut i = 0;
+    while i < len(original) {
+        if i != remove_pos {
+            print(original[i]);
+        }
+        i = i + 1;
+    }
+}
+
+fn test_array_reverse_in_place_simulation() {
+    let original = [1, 2, 3, 4, 5];
+    let len_val = len(original);
+    let mut i = 0;
+    while i < len_val / 2 {
+        // Print in reverse order to simulate reversal
+        print(original[len_val - 1 - i]);
+        i = i + 1;
+    }
+    if len_val % 2 == 1 {
+        print(original[len_val / 2]);
+    }
+    i = len_val / 2 - 1;
+    while i >= 0 {
+        print(original[len_val - 1 - i]);
+        if i == 0 {
+            break;
+        }
+        i = i - 1;
+    }
+}
+
+fn test_array_unique_simulation() {
+    let arr = [1, 2, 2, 3, 3, 4, 4, 4, 5];
+    let mut prev = null;
+    let mut i = 0;
+    while i < len(arr) {
+        if prev == null || arr[i] != prev {
+            print(arr[i]);
+            prev = arr[i];
+        }
+        i = i + 1;
+    }
+}
+
+fn test_array_duplicate_removal_simulation() {
+    let arr = [1, 1, 2, 2, 3, 3, 4, 5, 5];
+    let mut result = 0;  // Count of unique elements
+    let mut i = 0;
+    while i < len(arr) {
+        if i == 0 || arr[i] != arr[i-1] {
+            result = result + 1;
+        }
+        i = i + 1;
+    }
+    print(result);
+}
+
+fn test_array_group_by_simulation() {
+    let arr = [1, 1, 2, 2, 2, 3, 3];
+    let mut current = arr[0];
+    let mut count = 1;
+    let mut i = 1;
+    while i < len(arr) {
+        if arr[i] == current {
+            count = count + 1;
+        } else {
+            print(current);
+            print(count);
+            current = arr[i];
+            count = 1;
+        }
+        i = i + 1;
+    }
+    print(current);
+    print(count);
+}
+
+fn test_array_run_length_encoding_simulation() {
+    let arr = [1, 1, 1, 2, 2, 3, 4, 4, 4, 4];
+    let mut current = arr[0];
+    let mut count = 1;
+    let mut i = 1;
+    while i < len(arr) {
+        if arr[i] == current {
+            count = count + 1;
+        } else {
+            print(current);
+            print(count);
+            current = arr[i];
+            count = 1;
+        }
+        i = i + 1;
+    }
+    print(current);
+    print(count);
+}
+
+fn test_array_median_simulation() {
+    let arr = [3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5];
+    // Sort first (simplified bubble sort)
+    let mut sorted_arr = [3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5];
+    let n = len(sorted_arr);
+    let mut i = 0;
+    while i < n {
+        let mut j = 0;
+        while j < n - i - 1 {
+            if sorted_arr[j] > sorted_arr[j + 1] {
+                let temp = sorted_arr[j];
+                sorted_arr[j] = sorted_arr[j + 1];
+                sorted_arr[j + 1] = temp;
+            }
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    let median_idx = n / 2;
+    print(sorted_arr[median_idx]);
+}
+
+fn test_array_mode_simulation() {
+    let arr = [1, 2, 2, 3, 3, 3, 4];
+    let mut max_count = 0;
+    let mut mode = arr[0];
+    let mut i = 0;
+    while i < len(arr) {
+        let mut count = 0;
+        let mut j = 0;
+        while j < len(arr) {
+            if arr[j] == arr[i] {
+                count = count + 1;
+            }
+            j = j + 1;
+        }
+        if count > max_count {
+            max_count = count;
+            mode = arr[i];
+        }
+        i = i + 1;
+    }
+    print(mode);
+}
+
+fn test_array_quartiles_simulation() {
+    let arr = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    let n = len(arr);
+    let q1_idx = n / 4;
+    let q2_idx = n / 2;
+    let q3_idx = 3 * n / 4;
+    print(arr[q1_idx]);
+    print(arr[q2_idx]);
+    print(arr[q3_idx]);
+}
+
+fn main() {
+    test_empty_array();
+    test_single_element_array();
+    test_multi_element_array();
+    test_array_with_zeros();
+    test_array_with_negatives();
+    test_array_mixed_positives_negatives();
+    test_array_access_in_bounds();
+    test_array_access_out_of_bounds_simulation();
+    test_array_last_element();
+    test_array_first_element();
+    test_array_assignment_simulation();
+    test_array_iteration_simulation();
+    test_array_sum_simulation();
+    test_array_max_simulation();
+    test_array_min_simulation();
+    test_array_search_simulation();
+    test_array_reverse_simulation();
+    test_array_contains_simulation();
+    test_array_unique_elements_simulation();
+    test_array_duplicates_simulation();
+    test_array_sorted_check_simulation();
+    test_array_reverse_sorted_check_simulation();
+    test_array_palindrome_simulation();
+    test_array_prefix_sum_simulation();
+    test_array_running_average_simulation();
+    test_array_sliding_window_simulation();
+    test_array_partition_simulation();
+    test_array_even_odd_separation_simulation();
+    test_array_frequency_count_simulation();
+    test_array_max_consecutive_simulation();
+    test_array_rotation_simulation();
+    test_array_intersection_simulation();
+    test_array_union_simulation();
+    test_array_difference_simulation();
+    test_array_subset_simulation();
+    test_array_shuffle_simulation();
+    test_array_sort_simulation();
+    test_array_merge_simulation();
+    test_array_zip_simulation();
+    test_array_chunk_simulation();
+    test_array_flatten_simulation();
+    test_matrix_transpose_simulation();
+    test_matrix_sum_simulation();
+    test_matrix_row_sum_simulation();
+    test_matrix_column_sum_simulation();
+    test_matrix_diagonal_sum_simulation();
+    test_matrix_trace_simulation();
+    test_sparse_matrix_simulation();
+    test_array_map_simulation();
+    test_array_filter_simulation();
+    test_array_reduce_simulation();
+    test_array_fold_simulation();
+    test_array_take_simulation();
+    test_array_drop_simulation();
+    test_array_slice_simulation();
+    test_array_concatenation_simulation();
+    test_array_insert_simulation();
+    test_array_remove_simulation();
+    test_array_reverse_in_place_simulation();
+    test_array_unique_simulation();
+    test_array_duplicate_removal_simulation();
+    test_array_group_by_simulation();
+    test_array_run_length_encoding_simulation();
+    test_array_median_simulation();
+    test_array_mode_simulation();
+    test_array_quartiles_simulation();
+}

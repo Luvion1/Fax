@@ -2,7 +2,7 @@ module Sema.Api where
 
 import Sema.Types
 import Sema.Checker
-import Sema.Diagnostics
+import Sema.Diag (Diag(..), Severity(..), SemanticError(..))
 import Sema.Pretty (prettyPrintDiags)
 import Text.ParserCombinators.Parsec
 import Control.Monad (void)

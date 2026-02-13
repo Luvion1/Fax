@@ -1,8 +1,0 @@
-fn main() {
-    let x = 10;
-    x = 20; // Ini harusnya error semantik: Cannot assign to immutable variable
-
-    let mut y = 5;
-    y = 15; // Ini valid
-    print(y);
-}

@@ -1,0 +1,9 @@
+// Test case to isolate parser issue - just one function with simple expression
+fn test1() {
+    let x = 5;
+    print(x);
+}
+
+fn main() {
+    test1();
+}

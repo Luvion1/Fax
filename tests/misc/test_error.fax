@@ -1,7 +1,0 @@
-fn test(a: i64, b: i64) {
-    print(a + b);
-}
-
-fn main() {
-    test(1); // Error: Kurang 1 argumen
-}

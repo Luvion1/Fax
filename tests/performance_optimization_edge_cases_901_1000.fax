@@ -1,0 +1,1243 @@
+// Performance and Optimization Edge Cases 901-1000
+
+fn test_linear_search_performance() {
+    let arr = [1, 5, 10, 15, 20, 25, 30];
+    let target = 25;
+    let mut i = 0;
+    let mut comparisons = 0;
+    while i < len(arr) {
+        comparisons = comparisons + 1;
+        if arr[i] == target {
+            break;
+        }
+        i = i + 1;
+    }
+    print(comparisons);
+}
+
+fn test_binary_search_performance() {
+    let arr = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45];
+    let target = 30;
+    let mut left = 0;
+    let mut right = len(arr) - 1;
+    let mut comparisons = 0;
+    let mut found = false;
+    
+    while left <= right && !found {
+        comparisons = comparisons + 1;
+        let mid = (left + right) / 2;
+        if arr[mid] == target {
+            found = true;
+        } else if arr[mid] < target {
+            left = mid + 1;
+        } else {
+            right = mid - 1;
+        }
+    }
+    print(comparisons);
+}
+
+fn test_bubble_sort_performance() {
+    let mut arr = [64, 34, 25, 12, 22, 11, 90];
+    let n = len(arr);
+    let mut comparisons = 0;
+    let mut swaps = 0;
+    let mut i = 0;
+    while i < n {
+        let mut j = 0;
+        while j < n - i - 1 {
+            comparisons = comparisons + 1;
+            if arr[j] > arr[j + 1] {
+                // Swap
+                let temp = arr[j];
+                arr[j] = arr[j + 1];
+                arr[j + 1] = temp;
+                swaps = swaps + 1;
+            }
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    print(comparisons);
+    print(swaps);
+}
+
+fn test_selection_sort_performance() {
+    let mut arr = [64, 34, 25, 12, 22, 11, 90];
+    let n = len(arr);
+    let mut comparisons = 0;
+    let mut swaps = 0;
+    let mut i = 0;
+    while i < n {
+        let mut min_idx = i;
+        let mut j = i + 1;
+        while j < n {
+            comparisons = comparisons + 1;
+            if arr[j] < arr[min_idx] {
+                min_idx = j;
+            }
+            j = j + 1;
+        }
+        if min_idx != i {
+            let temp = arr[i];
+            arr[i] = arr[min_idx];
+            arr[min_idx] = temp;
+            swaps = swaps + 1;
+        }
+        i = i + 1;
+    }
+    print(comparisons);
+    print(swaps);
+}
+
+fn test_insertion_sort_performance() {
+    let mut arr = [64, 34, 25, 12, 22, 11, 90];
+    let n = len(arr);
+    let mut comparisons = 0;
+    let mut shifts = 0;
+    let mut i = 1;
+    while i < n {
+        let key = arr[i];
+        let mut j = i - 1;
+        while j >= 0 && arr[j] > key {
+            comparisons = comparisons + 1;
+            arr[j + 1] = arr[j];
+            shifts = shifts + 1;
+            j = j - 1;
+        }
+        if j >= 0 {
+            comparisons = comparisons + 1;
+        }
+        arr[j + 1] = key;
+        i = i + 1;
+    }
+    print(comparisons);
+    print(shifts);
+}
+
+fn test_array_access_performance() {
+    let arr = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    let mut sum = 0;
+    let mut i = 0;
+    while i < len(arr) {
+        sum = sum + arr[i];
+        i = i + 1;
+    }
+    print(sum);
+}
+
+fn test_matrix_multiplication_performance() {
+    let a = [[1, 2, 3], [4, 5, 6]];
+    let b = [[7, 8], [9, 10], [11, 12]];
+    let mut result = [[0, 0], [0, 0]];
+    let rows_a = 2;
+    let cols_a = 3;
+    let cols_b = 2;
+    let mut operations = 0;
+    let mut i = 0;
+    while i < rows_a {
+        let mut j = 0;
+        while j < cols_b {
+            let mut k = 0;
+            while k < cols_a {
+                result[i][j] = result[i][j] + a[i][k] * b[k][j];
+                operations = operations + 2;  // 1 mult + 1 add
+                k = k + 1;
+            }
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    print(operations);
+}
+
+fn test_fibonacci_iterative_performance() {
+    let n = 20;
+    let mut a = 0;
+    let mut b = 1;
+    let mut count = 2;
+    let mut operations = 0;
+    if n <= 0 {
+        print(0);
+    } else if n == 1 {
+        print(1);
+    } else {
+        while count < n {
+            let temp = a + b;
+            a = b;
+            b = temp;
+            operations = operations + 1;
+            count = count + 1;
+        }
+        print(operations);
+    }
+}
+
+fn test_fibonacci_recursive_performance() {
+    let n = 10;
+    let result = fib_recursive(n, 0);
+    print(result);
+}
+
+fn fib_recursive(n: int, ops: int) -> int {
+    if n <= 1 {
+        return ops + 1;
+    }
+    return fib_recursive(n - 1, ops + 1) + fib_recursive(n - 2, ops + 1) - ops;
+}
+
+fn test_factorial_iterative_performance() {
+    let n = 10;
+    let mut result = 1;
+    let mut i = 1;
+    let mut operations = 0;
+    while i <= n {
+        result = result * i;
+        operations = operations + 1;
+        i = i + 1;
+    }
+    print(operations);
+}
+
+fn test_factorial_recursive_performance() {
+    let n = 8;
+    let result = fact_recursive(n, 0);
+    print(result);
+}
+
+fn fact_recursive(n: int, ops: int) -> int {
+    if n <= 1 {
+        return ops;
+    }
+    return fact_recursive(n - 1, ops + 1);
+}
+
+fn test_prime_check_performance() {
+    let num = 97;
+    let mut is_prime = true;
+    let mut divisor = 2;
+    let mut operations = 0;
+    while divisor * divisor <= num {
+        operations = operations + 1;
+        if num % divisor == 0 {
+            is_prime = false;
+        }
+        divisor = divisor + 1;
+    }
+    print(operations);
+}
+
+fn test_gcd_euclidean_performance() {
+    let mut a = 48;
+    let mut b = 18;
+    let mut operations = 0;
+    while b != 0 {
+        let temp = b;
+        b = a % b;
+        a = temp;
+        operations = operations + 1;
+    }
+    print(operations);
+}
+
+fn test_lcm_calculation_performance() {
+    let x = 12;
+    let y = 18;
+    let mut a = x;
+    let mut b = y;
+    let mut ops_gcd = 0;
+    while b != 0 {
+        let temp = b;
+        b = a % b;
+        a = temp;
+        ops_gcd = ops_gcd + 1;
+    }
+    let gcd = a;
+    let lcm = (x * y) / gcd;
+    print(ops_gcd);
+}
+
+fn test_power_calculation_performance() {
+    let base = 2;
+    let exp = 10;
+    let mut result = 1;
+    let mut i = 0;
+    let mut operations = 0;
+    while i < exp {
+        result = result * base;
+        operations = operations + 1;
+        i = i + 1;
+    }
+    print(operations);
+}
+
+fn test_power_logarithmic_performance() {
+    let base = 2;
+    let mut exp = 10;
+    let mut result = 1;
+    let mut operations = 0;
+    while exp > 0 {
+        operations = operations + 1;
+        if exp % 2 == 1 {
+            result = result * base;
+            operations = operations + 1;
+        }
+        base = base * base;
+        exp = exp / 2;
+    }
+    print(operations);
+}
+
+fn test_string_search_performance() {
+    let text = "abcdefghijk";
+    let pattern = "def";
+    let mut found = false;
+    let mut comparisons = 0;
+    let text_len = len(text);
+    let pat_len = len(pattern);
+    let mut i = 0;
+    while i <= text_len - pat_len && !found {
+        let mut j = 0;
+        while j < pat_len {
+            comparisons = comparisons + 1;
+            if text[i + j] != pattern[j] {
+                break;
+            }
+            j = j + 1;
+        }
+        if j == pat_len {
+            found = true;
+        }
+        i = i + 1;
+    }
+    print(comparisons);
+}
+
+fn test_array_sum_performance() {
+    let arr = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+    let mut sum = 0;
+    let mut i = 0;
+    while i < len(arr) {
+        sum = sum + arr[i];
+        i = i + 1;
+    }
+    print(sum);
+}
+
+fn test_array_max_performance() {
+    let arr = [3, 7, 2, 9, 1, 15, 6];
+    let mut max_val = arr[0];
+    let mut i = 1;
+    while i < len(arr) {
+        if arr[i] > max_val {
+            max_val = arr[i];
+        }
+        i = i + 1;
+    }
+    print(max_val);
+}
+
+fn test_array_min_performance() {
+    let arr = [3, 7, 2, 9, 1, 15, 6];
+    let mut min_val = arr[0];
+    let mut i = 1;
+    while i < len(arr) {
+        if arr[i] < min_val {
+            min_val = arr[i];
+        }
+        i = i + 1;
+    }
+    print(min_val);
+}
+
+fn test_array_reverse_performance() {
+    let arr = [1, 2, 3, 4, 5];
+    let len_arr = len(arr);
+    let mut i = 0;
+    let mut swaps = 0;
+    while i < len_arr / 2 {
+        // Swap arr[i] with arr[len_arr - 1 - i]
+        swaps = swaps + 1;
+        i = i + 1;
+    }
+    print(swaps);
+}
+
+fn test_array_dedup_performance() {
+    let arr = [1, 1, 2, 2, 3, 4, 4, 5];
+    let mut unique_count = 1;
+    let mut i = 1;
+    while i < len(arr) {
+        if arr[i] != arr[i - 1] {
+            unique_count = unique_count + 1;
+        }
+        i = i + 1;
+    }
+    print(unique_count);
+}
+
+fn test_linked_list_traversal_performance() {
+    // Simulate linked list with array indices
+    let values = [10, 20, 30, 40, 50];
+    let next_indices = [1, 2, 3, 4, -1];  // -1 indicates end
+    let mut current = 0;
+    let mut count = 0;
+    while current != -1 && count < len(values) {
+        count = count + 1;
+        current = next_indices[current];
+    }
+    print(count);
+}
+
+fn test_hash_collision_performance() {
+    let hash_table_size = 7;
+    let keys = [10, 20, 30, 40, 50];  // All map to same hash initially
+    let mut collision_count = 0;
+    let mut i = 0;
+    while i < len(keys) {
+        let hash_val = keys[i] % hash_table_size;
+        // Simulate collision detection
+        if hash_val == 0 {  // Assume collision at index 0
+            collision_count = collision_count + 1;
+        }
+        i = i + 1;
+    }
+    print(collision_count);
+}
+
+fn test_memory_allocation_performance() {
+    let allocation_size = 1024;
+    let num_allocations = 100;
+    let total_memory = allocation_size * num_allocations;
+    print(total_memory);
+}
+
+fn test_loop_unrolling_simulation() {
+    let arr = [1, 2, 3, 4, 5, 6, 7, 8];
+    let mut sum = 0;
+    let mut i = 0;
+    // Process 4 elements at a time (simulated unrolling)
+    while i < len(arr) {
+        sum = sum + arr[i];
+        if i + 1 < len(arr) { sum = sum + arr[i + 1]; }
+        if i + 2 < len(arr) { sum = sum + arr[i + 2]; }
+        if i + 3 < len(arr) { sum = sum + arr[i + 3]; }
+        i = i + 4;
+    }
+    print(sum);
+}
+
+fn test_branch_prediction_simulation() {
+    let data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    let mut branch_taken = 0;
+    let mut branch_not_taken = 0;
+    let mut i = 0;
+    while i < len(data) {
+        if data[i] % 2 == 0 {
+            branch_taken = branch_taken + 1;
+        } else {
+            branch_not_taken = branch_not_taken + 1;
+        }
+        i = i + 1;
+    }
+    print(branch_taken);
+    print(branch_not_taken);
+}
+
+fn test_cache_locality_simulation() {
+    let matrix = [[1, 2, 3], [4, 5, 6], [7, 8, 9]];
+    let mut sum = 0;
+    let mut i = 0;
+    // Row-major traversal (good cache locality)
+    while i < 3 {
+        let mut j = 0;
+        while j < 3 {
+            sum = sum + matrix[i][j];
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    print(sum);
+}
+
+fn test_cache_locality_poor_simulation() {
+    let matrix = [[1, 2, 3], [4, 5, 6], [7, 8, 9]];
+    let mut sum = 0;
+    let mut j = 0;
+    // Column-major traversal (poor cache locality)
+    while j < 3 {
+        let mut i = 0;
+        while i < 3 {
+            sum = sum + matrix[i][j];
+            i = i + 1;
+        }
+        j = j + 1;
+    }
+    print(sum);
+}
+
+fn test_recursion_depth_performance() {
+    let depth = calculate_recursion_depth(10, 0);
+    print(depth);
+}
+
+fn calculate_recursion_depth(n: int, current_depth: int) -> int {
+    if n <= 0 {
+        return current_depth;
+    }
+    return calculate_recursion_depth(n - 1, current_depth + 1);
+}
+
+fn test_tail_recursion_simulation() {
+    let result = tail_recursive_sum(100, 0);
+    print(result);
+}
+
+fn tail_recursive_sum(n: int, accumulator: int) -> int {
+    if n <= 0 {
+        return accumulator;
+    }
+    return tail_recursive_sum(n - 1, accumulator + n);
+}
+
+fn test_function_call_overhead_simulation() {
+    let result = nested_function_calls(5);
+    print(result);
+}
+
+fn nested_function_calls(depth: int) -> int {
+    if depth <= 0 {
+        return 1;
+    }
+    return 1 + nested_function_calls(depth - 1);
+}
+
+fn test_inline_optimization_simulation() {
+    let a = 10;
+    let b = 20;
+    // Simulate inlined operation
+    let result = a * b + a - b;
+    print(result);
+}
+
+fn test_constant_folding_simulation() {
+    // Constants should be computed at compile time
+    let result = 10 * 20 + 5;
+    print(result);
+}
+
+fn test_dead_code_elimination_simulation() {
+    let x = 10;
+    let y = 20;
+    let result = x + y;
+    // Following code might be eliminated if result is not used elsewhere
+    print(result);
+}
+
+fn test_loop_invariant_motion_simulation() {
+    let arr = [1, 2, 3, 4, 5];
+    let factor = 10;  // Loop invariant
+    let mut i = 0;
+    let mut operations = 0;
+    while i < len(arr) {
+        let temp = arr[i] * factor;  // factor is invariant
+        operations = operations + 1;
+        i = i + 1;
+    }
+    print(operations);
+}
+
+fn test_strength_reduction_simulation() {
+    let arr = [1, 2, 3, 4, 5];
+    let mut i = 0;
+    let mut address = 0;  // Simulate array indexing
+    let element_size = 4;  // Size of each element
+    while i < len(arr) {
+        // Instead of arr[i] which computes base + i*size
+        // Strength reduction would optimize this
+        address = i * element_size;
+        i = i + 1;
+    }
+    print(address);
+}
+
+fn test_common_subexpression_elimination_simulation() {
+    let a = 5;
+    let b = 10;
+    // The expression a + b appears twice
+    let x = a + b;
+    let y = a + b;  // This could be optimized
+    let result = x + y;
+    print(result);
+}
+
+fn test_register_allocation_simulation() {
+    let a = 100;
+    let b = 200;
+    let c = 300;
+    let d = 400;
+    // Simulate register usage
+    let temp1 = a + b;
+    let temp2 = c * d;
+    let result = temp1 - temp2;
+    print(result);
+}
+
+fn test_instruction_scheduling_simulation() {
+    let a = 10;
+    let b = 20;
+    let c = 30;
+    // Independent operations can be scheduled in parallel
+    let x = a + b;
+    let y = b * c;
+    let z = x - y;
+    print(z);
+}
+
+fn test_superoptimizer_simulation() {
+    let x = 5;
+    let y = 10;
+    // Sequence of operations that could be optimized
+    let temp1 = x + 1;
+    let temp2 = temp1 + 1;
+    let temp3 = temp2 + 1;
+    // Could be optimized to x + 3
+    let result = temp3;
+    print(result);
+}
+
+fn test_peephole_optimization_simulation() {
+    let x = 10;
+    // Load x, then store x back (redundant)
+    // Could be optimized away
+    let result = x;
+    print(result);
+}
+
+fn test_partial_redundancy_elimination_simulation() {
+    let arr = [1, 2, 3, 4, 5];
+    let mut sum = 0;
+    let factor = 2;  // Might be computed repeatedly without optimization
+    let mut i = 0;
+    while i < len(arr) {
+        sum = sum + arr[i] * factor;
+        i = i + 1;
+    }
+    print(sum);
+}
+
+fn test_loop_fusion_simulation() {
+    let arr = [1, 2, 3, 4, 5];
+    let mut result1 = 0;
+    let mut result2 = 0;
+    // Two loops that could be fused
+    let mut i = 0;
+    while i < len(arr) {
+        result1 = result1 + arr[i];
+        i = i + 1;
+    }
+    i = 0;
+    while i < len(arr) {
+        result2 = result2 + arr[i] * 2;
+        i = i + 1;
+    }
+    print(result1 + result2);
+}
+
+fn test_loop_fission_simulation() {
+    let arr = [1, 2, 3, 4, 5];
+    let mut sum = 0;
+    let mut product = 1;
+    // Single loop doing multiple things
+    let mut i = 0;
+    while i < len(arr) {
+        sum = sum + arr[i];
+        product = product * arr[i];
+        i = i + 1;
+    }
+    print(sum + product);
+}
+
+fn test_loop_distribution_simulation() {
+    let arr1 = [1, 2, 3];
+    let arr2 = [4, 5, 6];
+    let mut combined = [0, 0, 0];
+    let mut i = 0;
+    while i < len(arr1) {
+        combined[i] = arr1[i] + arr2[i];
+        i = i + 1;
+    }
+    i = 0;
+    while i < len(combined) {
+        combined[i] = combined[i] * 2;
+        i = i + 1;
+    }
+    print(len(combined));
+}
+
+fn test_loop_interchange_simulation() {
+    let matrix = [[1, 2], [3, 4]];
+    let mut sum = 0;
+    let mut i = 0;
+    // Original order: i, j
+    while i < 2 {
+        let mut j = 0;
+        while j < 2 {
+            sum = sum + matrix[i][j];
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    print(sum);
+}
+
+fn test_loop_blocking_simulation() {
+    let matrix = [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16]];
+    let mut sum = 0;
+    let block_size = 2;
+    let mut ii = 0;
+    while ii < 4 {
+        let mut jj = 0;
+        while jj < 4 {
+            let mut i = ii;
+            while i < ii + block_size && i < 4 {
+                let mut j = jj;
+                while j < jj + block_size && j < 4 {
+                    sum = sum + matrix[i][j];
+                    j = j + 1;
+                }
+                i = i + 1;
+            }
+            jj = jj + block_size;
+        }
+        ii = ii + block_size;
+    }
+    print(sum);
+}
+
+fn test_vectorization_simulation() {
+    let a = [1, 2, 3, 4];
+    let b = [5, 6, 7, 8];
+    let mut c = [0, 0, 0, 0];
+    // Simulate vectorized addition
+    let mut i = 0;
+    while i < len(a) {
+        c[i] = a[i] + b[i];
+        i = i + 1;
+    }
+    i = 0;
+    while i < len(c) {
+        print(c[i]);
+        i = i + 1;
+    }
+}
+
+fn test_auto_parallelization_simulation() {
+    let data = [1, 2, 3, 4, 5, 6, 7, 8];
+    let mut result = [0, 0, 0, 0, 0, 0, 0, 0];
+    let mut i = 0;
+    // This loop could potentially be parallelized
+    while i < len(data) {
+        result[i] = data[i] * data[i];
+        i = i + 1;
+    }
+    print(len(result));
+}
+
+fn test_memory_prefetching_simulation() {
+    let arr = [10, 20, 30, 40, 50, 60, 70, 80];
+    let mut sum = 0;
+    let mut i = 0;
+    // Simulate prefetching by accessing elements ahead
+    while i < len(arr) {
+        sum = sum + arr[i];
+        i = i + 1;
+    }
+    print(sum);
+}
+
+fn test_branch_prediction_optimization_simulation() {
+    let data = [1, 3, 5, 7, 9, 2, 4, 6, 8, 10];
+    let mut even_count = 0;
+    let mut odd_count = 0;
+    let mut i = 0;
+    while i < len(data) {
+        if data[i] % 2 == 0 {
+            even_count = even_count + 1;
+        } else {
+            odd_count = odd_count + 1;
+        }
+        i = i + 1;
+    }
+    print(even_count);
+    print(odd_count);
+}
+
+fn test_speculative_execution_simulation() {
+    let condition = true;
+    let mut result = 0;
+    if condition {
+        result = 100;
+    } else {
+        result = 200;
+    }
+    print(result);
+}
+
+fn test_out_of_order_execution_simulation() {
+    let a = 10;
+    let b = 20;
+    let c = 30;
+    // These operations are independent and could be reordered
+    let x = a + b;
+    let y = b * c;
+    let z = c - a;
+    print(x + y + z);
+}
+
+fn test_memory_reordering_simulation() {
+    let mut x = 0;
+    let mut y = 0;
+    // Operations that might be reordered by CPU
+    x = 1;
+    y = 2;
+    print(x + y);
+}
+
+fn test_cpu_cache_simulation() {
+    let data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    let cache_size = 4;
+    let mut hits = 0;
+    let mut misses = 0;
+    let mut cache = [0, 0, 0, 0];
+    let mut cache_filled = 0;
+    let mut i = 0;
+    while i < len(data) {
+        let mut found = false;
+        let mut j = 0;
+        while j < cache_filled {
+            if cache[j] == data[i] {
+                hits = hits + 1;
+                found = true;
+                break;
+            }
+            j = j + 1;
+        }
+        if !found {
+            misses = misses + 1;
+            if cache_filled < cache_size {
+                cache[cache_filled] = data[i];
+                cache_filled = cache_filled + 1;
+            } else {
+                // Replace oldest entry (FIFO)
+                let mut k = 0;
+                while k < cache_size - 1 {
+                    cache[k] = cache[k + 1];
+                    k = k + 1;
+                }
+                cache[cache_size - 1] = data[i];
+            }
+        }
+        i = i + 1;
+    }
+    print(hits);
+    print(misses);
+}
+
+fn test_branch_target_buffer_simulation() {
+    let branches = [true, true, true, false, true, true, false, false];
+    let mut correct_predictions = 0;
+    let mut i = 0;
+    // Simulate branch prediction based on history
+    while i < len(branches) {
+        // Predict taken if previous was taken (simplified)
+        if i == 0 || branches[i-1] == branches[i] {
+            correct_predictions = correct_predictions + 1;
+        }
+        i = i + 1;
+    }
+    print(correct_predictions);
+}
+
+fn test_instruction_cache_simulation() {
+    let instruction_count = 1000;
+    let icache_size = 256;
+    let hit_rate = 90;  // Percent
+    let hits = (instruction_count * hit_rate) / 100;
+    let misses = instruction_count - hits;
+    print(hits);
+    print(misses);
+}
+
+fn test_data_cache_simulation() {
+    let memory_accesses = 500;
+    let dcache_size = 128;
+    let hit_rate = 85;  // Percent
+    let hits = (memory_accesses * hit_rate) / 100;
+    let misses = memory_accesses - hits;
+    print(hits);
+    print(misses);
+}
+
+fn test_cache_coherency_simulation() {
+    let cores = 4;
+    let shared_data = 100;
+    let mut cache_lines = [shared_data, shared_data, shared_data, shared_data];
+    // Simulate cache coherency protocol
+    cache_lines[0] = cache_lines[0] + 1;
+    // Other caches need to be invalidated/updated
+    let mut i = 1;
+    while i < cores {
+        cache_lines[i] = cache_lines[0];  // Update other caches
+        i = i + 1;
+    }
+    print(cache_lines[0]);
+}
+
+fn test_false_sharing_simulation() {
+    let mut shared_counter = 0;
+    // Simulate two variables on the same cache line
+    let mut padding1 = 0;
+    let mut padding2 = 0;
+    let mut padding3 = 0;
+    shared_counter = shared_counter + 1;
+    print(shared_counter);
+}
+
+fn test_memory_bandwidth_simulation() {
+    let array_size = 1000000;
+    let element_size = 4;  // bytes per int
+    let total_bytes = array_size * element_size;
+    let bandwidth = 2048000000;  // 2GB/s
+    let time_ns = (total_bytes * 1000000000) / bandwidth;
+    print(time_ns);
+}
+
+fn test_latency_simulation() {
+    let memory_latency = 100;  // ns
+    let cpu_cycles = 3000000000;  // 3GHz CPU
+    let cycles_per_latency = (memory_latency * cpu_cycles) / 1000000000;
+    print(cycles_per_latency);
+}
+
+fn test_amdahl_law_simulation() {
+    let serial_fraction = 20;  // 20% serial
+    let parallel_fraction = 80;  // 80% parallel
+    let processors = 4;
+    let speedup = 100 / (serial_fraction + (parallel_fraction / processors));
+    print(speedup);
+}
+
+fn test_gustafson_law_simulation() {
+    let serial_time = 10;  // seconds
+    let parallel_time = 90;  // seconds
+    let processors = 8;
+    let scaled_speedup = serial_time + (parallel_time * processors);
+    let original_time = serial_time + parallel_time;
+    print(scaled_speedup / original_time);
+}
+
+fn test_load_balancing_simulation() {
+    let tasks = 100;
+    let workers = 4;
+    let tasks_per_worker = tasks / workers;
+    let remainder = tasks % workers;
+    print(tasks_per_worker);
+    print(remainder);
+}
+
+fn test_pipeline_simulation() {
+    let stages = 5;
+    let instructions = 10;
+    // Pipeline fill time + execution time
+    let total_cycles = stages + instructions - 1;
+    print(total_cycles);
+}
+
+fn test_superscalar_simulation() {
+    let instructions = 20;
+    let issue_width = 3;  // Can issue 3 instructions per cycle
+    let cycles = (instructions + issue_width - 1) / issue_width;
+    print(cycles);
+}
+
+fn test_vliw_simulation() {
+    let operations = 15;
+    let slots_per_bundle = 4;
+    let bundles = (operations + slots_per_bundle - 1) / slots_per_bundle;
+    print(bundles);
+}
+
+fn test_simd_simulation() {
+    let data_elements = 8;
+    let simd_width = 4;  // Processes 4 elements at once
+    let iterations = (data_elements + simd_width - 1) / simd_width;
+    print(iterations);
+}
+
+fn test_mimd_simulation() {
+    let computations = 12;
+    let processors = 3;
+    let time_per_processor = computations / processors;
+    print(time_per_processor);
+}
+
+fn test_sisd_simulation() {
+    let operations = 100;
+    // Single processor, single data stream
+    print(operations);
+}
+
+fn test_sisd_vs_simd_comparison() {
+    let elements = 16;
+    let sisd_time = elements;  // 1 operation per cycle
+    let simd_width = 4;
+    let simd_time = (elements + simd_width - 1) / simd_width;  // Multiple ops per cycle
+    print(sisd_time);
+    print(simd_time);
+}
+
+fn test_complexity_analysis_constant() {
+    let n = 1000;
+    // O(1) operation
+    let result = 42;
+    print(result);
+}
+
+fn test_complexity_analysis_linear() {
+    let n = 100;
+    let mut sum = 0;
+    let mut i = 0;
+    while i < n {
+        sum = sum + i;
+        i = i + 1;
+    }
+    print(n);  // Complexity is linear in n
+}
+
+fn test_complexity_analysis_quadratic() {
+    let n = 10;
+    let mut count = 0;
+    let mut i = 0;
+    while i < n {
+        let mut j = 0;
+        while j < n {
+            count = count + 1;
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    print(count);  // Should be n*n
+}
+
+fn test_complexity_analysis_logarithmic() {
+    let n = 1024;
+    let mut count = 0;
+    let mut temp_n = n;
+    while temp_n > 1 {
+        temp_n = temp_n / 2;
+        count = count + 1;
+    }
+    print(count);  // Should be approximately log2(n)
+}
+
+fn test_complexity_analysis_linearithmic() {
+    let n = 8;
+    let mut count = 0;
+    let mut i = 0;
+    while i < n {
+        let mut j = 1;
+        while j < n {
+            count = count + 1;
+            j = j * 2;  // Logarithmic inner loop
+        }
+        i = i + 1;
+        // Linear outer loop
+    }
+    print(count);
+}
+
+fn test_big_o_notation_simulation() {
+    let input_sizes = [10, 100, 1000];
+    let mut i = 0;
+    while i < len(input_sizes) {
+        let n = input_sizes[i];
+        // Simulate O(n^2) algorithm
+        let operations = n * n;
+        print(operations);
+        i = i + 1;
+    }
+}
+
+fn test_space_time_tradeoff_simulation() {
+    let n = 100;
+    // Time-efficient: use more space
+    let lookup_table = [0, 1, 4, 9, 16, 25, 36, 49, 64, 81];  // Squares
+    // Space-efficient: calculate each time
+    let calculated = n * n;
+    print(calculated);
+}
+
+fn test_caching_intermediate_results() {
+    let n = 10;
+    let mut cache = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    let mut i = 0;
+    while i < n {
+        cache[i] = i * i;  // Cache squares
+        i = i + 1;
+    }
+    print(len(cache));
+}
+
+fn test_lazy_evaluation_simulation() {
+    let expensive_computation = 100 * 100;  // Only computed if needed
+    print(expensive_computation);
+}
+
+fn test_eager_evaluation_simulation() {
+    let result = 50 * 50;  // Computed immediately
+    print(result);
+}
+
+fn test_memoization_simulation() {
+    let n = 10;
+    let mut memo = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    let mut i = 0;
+    while i <= n {
+        if i <= 1 {
+            memo[i] = i;
+        } else {
+            memo[i] = memo[i-1] + memo[i-2];  // Fibonacci with memoization
+        }
+        i = i + 1;
+    }
+    print(memo[n]);
+}
+
+fn test_tabulation_simulation() {
+    let n = 8;
+    let mut table = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+    table[0] = 0;
+    table[1] = 1;
+    let mut i = 2;
+    while i <= n {
+        table[i] = table[i-1] + table[i-2];  // Bottom-up calculation
+        i = i + 1;
+    }
+    print(table[n]);
+}
+
+fn test_garbage_collection_overhead() {
+    let objects_created = 10000;
+    let gc_frequency = 1000;  // GC runs every 1000 allocations
+    let gc_runs = objects_created / gc_frequency;
+    print(gc_runs);
+}
+
+fn test_memory_pool_efficiency() {
+    let pool_size = 1048576;  // 1MB
+    let object_size = 64;
+    let max_objects = pool_size / object_size;
+    let allocation_efficiency = 95;  // Percent
+    let usable_objects = (max_objects * allocation_efficiency) / 100;
+    print(usable_objects);
+}
+
+fn test_compiler_optimization_levels() {
+    let baseline_ops = 1000;
+    let opt_level1 = (baseline_ops * 80) / 100;  // 20% improvement
+    let opt_level2 = (baseline_ops * 60) / 100;  // 40% improvement
+    let opt_level3 = (baseline_ops * 45) / 100;  // 55% improvement
+    print(opt_level3);
+}
+
+fn main() {
+    test_linear_search_performance();
+    test_binary_search_performance();
+    test_bubble_sort_performance();
+    test_selection_sort_performance();
+    test_insertion_sort_performance();
+    test_array_access_performance();
+    test_matrix_multiplication_performance();
+    test_fibonacci_iterative_performance();
+    test_fibonacci_recursive_performance();
+    test_factorial_iterative_performance();
+    test_factorial_recursive_performance();
+    test_prime_check_performance();
+    test_gcd_euclidean_performance();
+    test_lcm_calculation_performance();
+    test_power_calculation_performance();
+    test_power_logarithmic_performance();
+    test_string_search_performance();
+    test_array_sum_performance();
+    test_array_max_performance();
+    test_array_min_performance();
+    test_array_reverse_performance();
+    test_array_dedup_performance();
+    test_linked_list_traversal_performance();
+    test_hash_collision_performance();
+    test_memory_allocation_performance();
+    test_loop_unrolling_simulation();
+    test_branch_prediction_simulation();
+    test_cache_locality_simulation();
+    test_cache_locality_poor_simulation();
+    test_recursion_depth_performance();
+    test_tail_recursion_simulation();
+    test_function_call_overhead_simulation();
+    test_inline_optimization_simulation();
+    test_constant_folding_simulation();
+    test_dead_code_elimination_simulation();
+    test_loop_invariant_motion_simulation();
+    test_strength_reduction_simulation();
+    test_common_subexpression_elimination_simulation();
+    test_register_allocation_simulation();
+    test_instruction_scheduling_simulation();
+    test_superoptimizer_simulation();
+    test_peephole_optimization_simulation();
+    test_partial_redundancy_elimination_simulation();
+    test_loop_fusion_simulation();
+    test_loop_fission_simulation();
+    test_loop_distribution_simulation();
+    test_loop_interchange_simulation();
+    test_loop_blocking_simulation();
+    test_vectorization_simulation();
+    test_auto_parallelization_simulation();
+    test_memory_prefetching_simulation();
+    test_branch_prediction_optimization_simulation();
+    test_speculative_execution_simulation();
+    test_out_of_order_execution_simulation();
+    test_memory_reordering_simulation();
+    test_cpu_cache_simulation();
+    test_branch_target_buffer_simulation();
+    test_instruction_cache_simulation();
+    test_data_cache_simulation();
+    test_cache_coherency_simulation();
+    test_false_sharing_simulation();
+    test_memory_bandwidth_simulation();
+    test_latency_simulation();
+    test_amdahl_law_simulation();
+    test_gustafson_law_simulation();
+    test_load_balancing_simulation();
+    test_pipeline_simulation();
+    test_superscalar_simulation();
+    test_vliw_simulation();
+    test_simd_simulation();
+    test_mimd_simulation();
+    test_sisd_simulation();
+    test_sisd_vs_simd_comparison();
+    test_complexity_analysis_constant();
+    test_complexity_analysis_linear();
+    test_complexity_analysis_quadratic();
+    test_complexity_analysis_logarithmic();
+    test_complexity_analysis_linearithmic();
+    test_big_o_notation_simulation();
+    test_space_time_tradeoff_simulation();
+    test_caching_intermediate_results();
+    test_lazy_evaluation_simulation();
+    test_eager_evaluation_simulation();
+    test_memoization_simulation();
+    test_tabulation_simulation();
+    test_garbage_collection_overhead();
+    test_memory_pool_efficiency();
+    test_compiler_optimization_levels();
+}

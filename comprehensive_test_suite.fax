@@ -1,0 +1,875 @@
+// Comprehensive Test Suite for Fax Language
+// This file includes various test cases to validate the Fax compiler and runtime
+
+fn main() {
+    print("Starting comprehensive test suite...");
+    
+    // Run all test categories
+    test_arithmetic_edge_cases();
+    test_logical_edge_cases();
+    test_variable_scope_edge_cases();
+    test_control_flow_edge_cases();
+    test_data_structure_edge_cases();
+    test_string_char_edge_cases();
+    test_memory_pointer_edge_cases();
+    test_concurrency_edge_cases();
+    test_error_handling_edge_cases();
+    test_performance_edge_cases();
+    
+    print("Comprehensive test suite completed.");
+}
+
+fn test_arithmetic_edge_cases() {
+    print("Testing arithmetic edge cases...");
+    
+    // Test 1: Zero division handling
+    let a = 10;
+    let b = 0;
+    if b != 0 {
+        print(a / b);
+    } else {
+        print(-1);  // Error indicator
+    }
+    
+    // Test 2: Large number operations
+    let large1 = 999999;
+    let large2 = 1000001;
+    let result = large1 + large2;
+    print(result);
+    
+    // Test 3: Negative operations
+    let neg1 = -5;
+    let neg2 = -10;
+    let neg_result = neg1 - neg2;
+    print(neg_result);
+    
+    // Test 4: Mixed positive/negative
+    let mixed1 = -15;
+    let mixed2 = 25;
+    let mixed_result = mixed1 + mixed2;
+    print(mixed_result);
+    
+    // Test 5: Multiplication overflow simulation
+    let mult1 = 1000000;
+    let mult2 = 1000000;
+    let mult_result = mult1 * mult2;
+    print(mult_result);
+    
+    // Test 6: Modulo operations
+    let mod1 = 17;
+    let mod2 = 5;
+    let mod_result = mod1 % mod2;
+    print(mod_result);
+    
+    // Test 7: Float-like operations (integer division)
+    let div1 = 10;
+    let div2 = 3;
+    let div_result = div1 / div2;
+    print(div_result);
+    
+    // Test 8: Power-like operations (simulation)
+    let base = 2;
+    let exp = 10;
+    let mut power_result = 1;
+    let mut i = 0;
+    while i < exp {
+        power_result = power_result * base;
+        i = i + 1;
+    }
+    print(power_result);
+    
+    // Test 9: Complex expression
+    let expr_a = 5;
+    let expr_b = 3;
+    let expr_c = 2;
+    let expr_result = expr_a + expr_b * expr_c - 1;
+    print(expr_result);
+    
+    // Test 10: Parentheses precedence
+    let paren_a = 5;
+    let paren_b = 3;
+    let paren_c = 2;
+    let paren_result = (paren_a + paren_b) * paren_c;
+    print(paren_result);
+    
+    print("Arithmetic edge cases completed.");
+}
+
+fn test_logical_edge_cases() {
+    print("Testing logical edge cases...");
+    
+    // Test 1: True/false combinations
+    let a = true;
+    let b = false;
+    print(a && b);
+    print(a || b);
+    print(!a);
+    print(!b);
+    
+    // Test 2: Double negation
+    let double_neg = true;
+    let result = !!double_neg;
+    print(result);
+    
+    // Test 3: Triple negation
+    let triple_neg = true;
+    let triple_result = !!!triple_neg;
+    print(triple_result);
+    
+    // Test 4: Complex boolean expression 1
+    let bool_a = true;
+    let bool_b = false;
+    let bool_c = true;
+    let complex_result1 = bool_a && bool_b || bool_c;
+    print(complex_result1);
+    
+    // Test 5: Complex boolean expression 2
+    let bool_d = true;
+    let bool_e = false;
+    let bool_f = false;
+    let complex_result2 = bool_d || bool_e && bool_f;
+    print(complex_result2);
+    
+    // Test 6: Operator precedence and/or
+    let prec_a = true;
+    let prec_b = false;
+    let prec_c = true;
+    let prec_d = false;
+    let prec_result = prec_a || prec_b && prec_c || prec_d;
+    print(prec_result);
+    
+    // Test 7: Operator precedence with parentheses
+    let par_a = true;
+    let par_b = false;
+    let par_c = true;
+    let par_d = false;
+    let par_result = (par_a || par_b) && (par_c || par_d);
+    print(par_result);
+    
+    // Test 8: All true in AND
+    let all_true_a = true;
+    let all_true_b = true;
+    let all_true_c = true;
+    let all_true_result = all_true_a && all_true_b && all_true_c;
+    print(all_true_result);
+    
+    // Test 9: All false in OR
+    let all_false_a = false;
+    let all_false_b = false;
+    let all_false_c = false;
+    let all_false_result = all_false_a || all_false_b || all_false_c;
+    print(all_false_result);
+    
+    // Test 10: Single true in OR
+    let single_true_a = false;
+    let single_true_b = true;
+    let single_true_c = false;
+    let single_true_result = single_true_a || single_true_b || single_true_c;
+    print(single_true_result);
+    
+    print("Logical edge cases completed.");
+}
+
+fn test_variable_scope_edge_cases() {
+    print("Testing variable scope edge cases...");
+    
+    // Test 1: Variable shadowing
+    let x = 5;
+    {
+        let x = 10;  // This shadows the outer x
+        print(x);    // Should print 10
+    }
+    print(x);        // Should print 5
+    
+    // Test 2: Variable assignment
+    let mut var_assign = 5;
+    var_assign = 10;
+    print(var_assign);
+    
+    // Test 3: Variable swap simulation
+    let mut swap_a = 5;
+    let mut swap_b = 10;
+    let temp = swap_a;
+    swap_a = swap_b;
+    swap_b = temp;
+    print(swap_a);
+    print(swap_b);
+    
+    // Test 4: Nested scopes
+    let scope_x = 1;
+    {
+        let scope_y = 2;
+        {
+            let scope_z = 3;
+            print(scope_x + scope_y + scope_z);
+        }
+        print(scope_x + scope_y);
+    }
+    print(scope_x);
+    
+    // Test 5: Same name different scopes
+    let same_name_a = 1;
+    {
+        let same_name_a = 2;  // Shadows outer
+        print(same_name_a);
+    }
+    print(same_name_a);
+    
+    // Test 6: Large numbers
+    let big_num = 999999999;
+    print(big_num);
+    
+    // Test 7: Negative numbers
+    let neg_num = -42;
+    print(neg_num);
+    
+    // Test 8: Zero
+    let zero_num = 0;
+    print(zero_num);
+    
+    // Test 9: One
+    let one_num = 1;
+    print(one_num);
+    
+    // Test 10: Operations
+    let op_a = 10;
+    let op_b = 5;
+    let sum = op_a + op_b;
+    let diff = op_a - op_b;
+    let prod = op_a * op_b;
+    let quot = op_a / op_b;
+    print(sum);
+    print(diff);
+    print(prod);
+    print(quot);
+    
+    print("Variable scope edge cases completed.");
+}
+
+fn test_control_flow_edge_cases() {
+    print("Testing control flow edge cases...");
+    
+    // Test 1: Simple if
+    let if_x = 5;
+    if if_x > 0 {
+        print(1);
+    }
+    
+    // Test 2: If-else
+    let ifel_x = -5;
+    if ifel_x > 0 {
+        print(1);
+    } else {
+        print(0);
+    }
+    
+    // Test 3: If-elif-else
+    let iefe_x = 0;
+    if iefe_x > 0 {
+        print(1);
+    } else if iefe_x < 0 {
+        print(-1);
+    } else {
+        print(0);
+    }
+    
+    // Test 4: Nested ifs
+    let nest_a = 5;
+    let nest_b = 10;
+    if nest_a > 0 {
+        if nest_b > 0 {
+            print(1);
+        } else {
+            print(0);
+        }
+    } else {
+        print(-1);
+    }
+    
+    // Test 5: Chained conditions
+    let chain_a = 5;
+    let chain_b = 10;
+    let chain_c = 15;
+    if chain_a < chain_b && chain_b < chain_c {
+        print(1);
+    } else {
+        print(0);
+    }
+    
+    // Test 6: Complex condition
+    let compl_a = 5;
+    let compl_b = 10;
+    let compl_c = 15;
+    if (compl_a < compl_b || compl_b > compl_c) && (compl_c > compl_a) {
+        print(1);
+    } else {
+        print(0);
+    }
+    
+    // Test 7: Empty if block
+    let empif_x = 5;
+    if empif_x > 0 {
+        // Empty block
+    }
+    print(1);
+    
+    // Test 8: Empty else block
+    let empel_x = -5;
+    if empel_x > 0 {
+        print(1);
+    } else {
+        // Empty else
+    }
+    print(0);
+    
+    // Test 9: Multiple elif
+    let multelif_x = 2;
+    if multelif_x == 0 {
+        print(0);
+    } else if multelif_x == 1 {
+        print(1);
+    } else if multelif_x == 2 {
+        print(2);
+    } else if multelif_x == 3 {
+        print(3);
+    } else {
+        print(-1);
+    }
+    
+    // Test 10: If as expression simulation
+    let expr_a = 5;
+    let expr_b = 10;
+    let max_val = if expr_a > expr_b { expr_a } else { expr_b };
+    print(max_val);
+    
+    print("Control flow edge cases completed.");
+}
+
+fn test_data_structure_edge_cases() {
+    print("Testing data structure edge cases...");
+    
+    // Test 1: Empty array
+    let empty_arr = [];
+    print(len(empty_arr));
+    
+    // Test 2: Single element array
+    let single_arr = [42];
+    print(single_arr[0]);
+    print(len(single_arr));
+    
+    // Test 3: Multi-element array
+    let multi_arr = [1, 2, 3, 4, 5];
+    print(multi_arr[0]);
+    print(multi_arr[4]);
+    print(len(multi_arr));
+    
+    // Test 4: Array with zeros
+    let zero_arr = [0, 0, 0];
+    print(zero_arr[0]);
+    print(zero_arr[1]);
+    print(zero_arr[2]);
+    
+    // Test 5: Array with negatives
+    let neg_arr = [-1, -2, -3];
+    print(neg_arr[0]);
+    print(neg_arr[1]);
+    print(neg_arr[2]);
+    
+    // Test 6: Mixed positives/negatives
+    let mix_arr = [-5, 10, -15, 20];
+    print(mix_arr[0]);
+    print(mix_arr[1]);
+    print(mix_arr[2]);
+    print(mix_arr[3]);
+    
+    // Test 7: In bounds access
+    let inb_arr = [10, 20, 30];
+    print(inb_arr[0]);
+    print(inb_arr[1]);
+    print(inb_arr[2]);
+    
+    // Test 8: Out of bounds simulation
+    let outb_arr = [1, 2, 3];
+    let outb_idx = 3;
+    if outb_idx < len(outb_arr) {
+        print(outb_arr[outb_idx]);
+    } else {
+        print(-1);  // Error indicator
+    }
+    
+    // Test 9: Last element
+    let last_arr = [5, 10, 15, 20];
+    let last_idx = len(last_arr) - 1;
+    print(last_arr[last_idx]);
+    
+    // Test 10: First element
+    let first_arr = [100, 200, 300];
+    print(first_arr[0]);
+    
+    print("Data structure edge cases completed.");
+}
+
+fn test_string_char_edge_cases() {
+    print("Testing string/character edge cases...");
+    
+    // Test 1: Empty string
+    let empty_str = "";
+    print(len(empty_str));
+    
+    // Test 2: Single character string
+    let single_str = "a";
+    print(len(single_str));
+    print(single_str[0]);
+    
+    // Test 3: Multi-character string
+    let multi_str = "hello";
+    print(len(multi_str));
+    print(multi_str[0]);
+    print(multi_str[4]);
+    
+    // Test 4: String with spaces
+    let space_str = "hello world";
+    print(len(space_str));
+    
+    // Test 5: String with special characters
+    let special_str = "!@#$%^&*()";
+    print(len(special_str));
+    
+    // Test 6: String with numbers
+    let num_str = "12345";
+    print(len(num_str));
+    
+    // Test 7: String with mixed content
+    let mix_str = "abc123!@#";
+    print(len(mix_str));
+    
+    // Test 8: String comparison (simulated)
+    let cmp_str1 = "test";
+    let cmp_str2 = "test";
+    let equal = compare_strings(cmp_str1, cmp_str2);
+    print(equal);
+    
+    // Test 9: String comparison (different)
+    let cmp2_str1 = "test";
+    let cmp2_str2 = "testing";
+    let equal2 = compare_strings(cmp2_str1, cmp2_str2);
+    print(equal2);
+    
+    // Test 10: Index access
+    let idx_str = "abcdef";
+    print(idx_str[0]);
+    print(idx_str[3]);
+    print(idx_str[5]);
+    
+    print("String/character edge cases completed.");
+}
+
+fn compare_strings(s1: str, s2: str) -> bool {
+    let len1 = len(s1);
+    let len2 = len(s2);
+    if len1 != len2 {
+        return false;
+    }
+    let mut i = 0;
+    while i < len1 {
+        if s1[i] != s2[i] {
+            return false;
+        }
+        i = i + 1;
+    }
+    return true;
+}
+
+fn test_memory_pointer_edge_cases() {
+    print("Testing memory/pointer edge cases...");
+    
+    // Test 1: Null pointer simulation
+    let null_ptr = null;
+    if null_ptr == null {
+        print(1);
+    } else {
+        print(0);
+    }
+    
+    // Test 2: Safe dereference simulation
+    let safe_val = 42;
+    print(safe_val);
+    
+    // Test 3: Bounds checking simulation
+    let bound_arr = [0, 0, 0, 0, 0];  // Size 5
+    let bound_idx = 10;  // Beyond bounds
+    if bound_idx < len(bound_arr) {
+        print(bound_arr[bound_idx]);
+    } else {
+        print(-1);  // Overflow detected
+    }
+    
+    // Test 4: Memory alignment simulation
+    let addr = 1000;
+    let align = 8;
+    let aligned_addr = (addr + align - 1) / align * align;
+    print(aligned_addr);
+    
+    // Test 5: Memory pool simulation
+    let pool_size = 4096;
+    let chunk_size = 256;
+    let chunks = pool_size / chunk_size;
+    print(chunks);
+    
+    // Test 6: Reference counting simulation
+    let obj = 1;
+    let ref1 = obj;
+    let ref2 = obj;
+    let ref_count = 3;  // Original + 2 refs
+    print(ref_count);
+    
+    // Test 7: Memory protection simulation
+    let readable = true;
+    let writable = false;
+    let executable = true;
+    print(readable);
+    print(writable);
+    print(executable);
+    
+    // Test 8: Atomic operation simulation
+    let mut atomic_counter = 0;
+    atomic_counter = atomic_counter + 1;
+    print(atomic_counter);
+    
+    // Test 9: Memory fence simulation
+    let before = 1;
+    // Memory fence
+    let after = 2;
+    print(before);
+    print(after);
+    
+    // Test 10: Cache line simulation
+    let cache_line_size = 64;
+    let data_size = 100;
+    let lines_needed = (data_size + cache_line_size - 1) / cache_line_size;
+    print(lines_needed);
+    
+    print("Memory/pointer edge cases completed.");
+}
+
+fn test_concurrency_edge_cases() {
+    print("Testing concurrency edge cases...");
+    
+    // Test 1: Single thread execution
+    let single_result = compute_task(10);
+    print(single_result);
+    
+    // Test 2: Concurrent task simulation
+    let con_task1 = compute_task(5);
+    let con_task2 = compute_task(10);
+    print(con_task1);
+    print(con_task2);
+    
+    // Test 3: Lock simulation
+    let mut lock_sim = false;
+    if !lock_sim {
+        lock_sim = true;
+        print(1);  // Critical section
+        lock_sim = false;
+    }
+    
+    // Test 4: Semaphore simulation
+    let mut sem_permits = 2;
+    if sem_permits > 0 {
+        sem_permits = sem_permits - 1;
+        print(1);  // Access resource
+        sem_permits = sem_permits + 1;  // Release resource
+    }
+    
+    // Test 5: Atomic operation simulation
+    let mut atom_counter = 0;
+    atom_counter = atom_counter + 1;
+    print(atom_counter);
+    
+    // Test 6: Compare and swap simulation
+    let mut cas_value = 10;
+    let cas_expected = 10;
+    let cas_new = 20;
+    if cas_value == cas_expected {
+        cas_value = cas_new;
+    }
+    print(cas_value);
+    
+    // Test 7: Thread creation simulation
+    let thread_id = 1;
+    print(thread_id);
+    
+    // Test 8: Thread join simulation
+    let thread_stat = 1;  // Running
+    if thread_stat == 1 {
+        thread_stat = 0;  // Completed
+    }
+    print(thread_stat);
+    
+    // Test 9: Priority simulation
+    let priority = 5;  // Medium priority
+    print(priority);
+    
+    // Test 10: Channel communication simulation
+    let chan_capacity = 10;
+    let msgs_sent = 5;
+    let msgs_rcvd = 5;
+    print(msgs_sent);
+    print(msgs_rcvd);
+    print(chan_capacity);
+    
+    print("Concurrency edge cases completed.");
+}
+
+fn compute_task(input: int) -> int {
+    return input * 2;
+}
+
+fn test_error_handling_edge_cases() {
+    print("Testing error handling edge cases...");
+    
+    // Test 1: No error occurs
+    let no_err_result = safe_operation(10, 5);
+    print(no_err_result);
+    
+    // Test 2: Division by zero simulation
+    let div_a = 10;
+    let div_b = 0;
+    if div_b == 0 {
+        print(-1);  // Error indicator
+    } else {
+        print(div_a / div_b);
+    }
+    
+    // Test 3: Null pointer dereference simulation
+    let null_ptr = null;
+    if null_ptr == null {
+        print(-1);  // Error indicator
+    } else {
+        print(1);  // Success
+    }
+    
+    // Test 4: Array out of bounds simulation
+    let arr = [1, 2, 3];
+    let idx = 5;
+    if idx < len(arr) {
+        print(arr[idx]);
+    } else {
+        print(-1);  // Error indicator
+    }
+    
+    // Test 5: Negative array index simulation
+    let neg_arr = [10, 20, 30];
+    let neg_idx = -1;
+    if neg_idx >= 0 && neg_idx < len(neg_arr) {
+        print(neg_arr[neg_idx]);
+    } else {
+        print(-1);  // Error indicator
+    }
+    
+    // Test 6: Integer overflow simulation
+    let ov_a = 2147483647;  // Max int value
+    let ov_b = 1;
+    if ov_a > 2147483647 - ov_b {
+        print(-1);  // Overflow detected
+    } else {
+        print(ov_a + ov_b);
+    }
+    
+    // Test 7: Integer underflow simulation
+    let uv_a = -2147483648;  // Min int value
+    let uv_b = 1;
+    if uv_a < -2147483648 + uv_b {
+        print(-1);  // Underflow detected
+    } else {
+        print(uv_a - uv_b);
+    }
+    
+    // Test 8: Buffer overflow simulation
+    let buf = [0, 0, 0, 0, 0];  // Size 5
+    let write_pos = 10;  // Beyond bounds
+    if write_pos < len(buf) {
+        print(1);  // Safe
+    } else {
+        print(-1);  // Buffer overflow
+    }
+    
+    // Test 9: Invalid argument simulation
+    let arg = -5;
+    if arg < 0 {
+        print(-1);  // Invalid argument
+    } else {
+        print(arg);  // Valid argument
+    }
+    
+    // Test 10: Out of memory simulation
+    let mem_avail = false;
+    if !mem_avail {
+        print(-1);  // Out of memory
+    } else {
+        print(1);  // Memory available
+    }
+    
+    print("Error handling edge cases completed.");
+}
+
+fn safe_operation(a: int, b: int) -> int {
+    return a / b;
+}
+
+fn test_performance_edge_cases() {
+    print("Testing performance edge cases...");
+    
+    // Test 1: Linear search performance
+    let lin_arr = [1, 5, 10, 15, 20, 25, 30];
+    let lin_target = 25;
+    let mut lin_i = 0;
+    let mut lin_comparisons = 0;
+    while lin_i < len(lin_arr) {
+        lin_comparisons = lin_comparisons + 1;
+        if lin_arr[lin_i] == lin_target {
+            break;
+        }
+        lin_i = lin_i + 1;
+    }
+    print(lin_comparisons);
+    
+    // Test 2: Binary search performance
+    let bin_arr = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45];
+    let bin_target = 30;
+    let mut bin_left = 0;
+    let mut bin_right = len(bin_arr) - 1;
+    let mut bin_comparisons = 0;
+    let mut bin_found = false;
+    
+    while bin_left <= bin_right && !bin_found {
+        bin_comparisons = bin_comparisons + 1;
+        let bin_mid = (bin_left + bin_right) / 2;
+        if bin_arr[bin_mid] == bin_target {
+            bin_found = true;
+        } else if bin_arr[bin_mid] < bin_target {
+            bin_left = bin_mid + 1;
+        } else {
+            bin_right = bin_mid - 1;
+        }
+    }
+    print(bin_comparisons);
+    
+    // Test 3: Array access performance
+    let acc_arr = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    let mut acc_sum = 0;
+    let mut acc_i = 0;
+    while acc_i < len(acc_arr) {
+        acc_sum = acc_sum + acc_arr[acc_i];
+        acc_i = acc_i + 1;
+    }
+    print(acc_sum);
+    
+    // Test 4: Matrix multiplication performance
+    let mat_a = [[1, 2, 3], [4, 5, 6]];
+    let mat_b = [[7, 8], [9, 10], [11, 12]];
+    let mut mat_result = [[0, 0], [0, 0]];
+    let mat_rows_a = 2;
+    let mat_cols_a = 3;
+    let mat_cols_b = 2;
+    let mut mat_operations = 0;
+    let mut mat_i = 0;
+    while mat_i < mat_rows_a {
+        let mut mat_j = 0;
+        while mat_j < mat_cols_b {
+            let mut mat_k = 0;
+            while mat_k < mat_cols_a {
+                mat_result[mat_i][mat_j] = mat_result[mat_i][mat_j] + mat_a[mat_i][mat_k] * mat_b[mat_k][mat_j];
+                mat_operations = mat_operations + 2;  // 1 mult + 1 add
+                mat_k = mat_k + 1;
+            }
+            mat_j = mat_j + 1;
+        }
+        mat_i = mat_i + 1;
+    }
+    print(mat_operations);
+    
+    // Test 5: Fibonacci iterative performance
+    let fib_n = 20;
+    let mut fib_a = 0;
+    let mut fib_b = 1;
+    let mut fib_count = 2;
+    let mut fib_operations = 0;
+    if fib_n <= 0 {
+        print(0);
+    } else if fib_n == 1 {
+        print(1);
+    } else {
+        while fib_count < fib_n {
+            let temp = fib_a + fib_b;
+            fib_a = fib_b;
+            fib_b = temp;
+            fib_operations = fib_operations + 1;
+            fib_count = fib_count + 1;
+        }
+        print(fib_operations);
+    }
+    
+    // Test 6: Factorial iterative performance
+    let fact_n = 10;
+    let mut fact_result = 1;
+    let mut fact_i = 1;
+    let mut fact_operations = 0;
+    while fact_i <= fact_n {
+        fact_result = fact_result * fact_i;
+        fact_operations = fact_operations + 1;
+        fact_i = fact_i + 1;
+    }
+    print(fact_operations);
+    
+    // Test 7: Prime check performance
+    let prime_num = 97;
+    let mut prime_is_prime = true;
+    let mut prime_divisor = 2;
+    let mut prime_operations = 0;
+    while prime_divisor * prime_divisor <= prime_num {
+        prime_operations = prime_operations + 1;
+        if prime_num % prime_divisor == 0 {
+            prime_is_prime = false;
+        }
+        prime_divisor = prime_divisor + 1;
+    }
+    print(prime_operations);
+    
+    // Test 8: GCD Euclidean performance
+    let mut gcd_a = 48;
+    let mut gcd_b = 18;
+    let mut gcd_operations = 0;
+    while gcd_b != 0 {
+        let temp = gcd_b;
+        gcd_b = gcd_a % gcd_b;
+        gcd_a = temp;
+        gcd_operations = gcd_operations + 1;
+    }
+    print(gcd_operations);
+    
+    // Test 9: Power calculation performance
+    let pow_base = 2;
+    let pow_exp = 10;
+    let mut pow_result = 1;
+    let mut pow_i = 0;
+    let mut pow_operations = 0;
+    while pow_i < pow_exp {
+        pow_result = pow_result * pow_base;
+        pow_operations = pow_operations + 1;
+        pow_i = pow_i + 1;
+    }
+    print(pow_operations);
+    
+    // Test 10: Array sum performance
+    let sum_arr = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+    let mut sum_total = 0;
+    let mut sum_i = 0;
+    while sum_i < len(sum_arr) {
+        sum_total = sum_total + sum_arr[sum_i];
+        sum_i = sum_i + 1;
+    }
+    print(sum_total);
+    
+    print("Performance edge cases completed.");
+}

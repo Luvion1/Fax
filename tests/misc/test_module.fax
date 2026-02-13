@@ -1,7 +1,0 @@
-module math;
-
-pub fn add(a: i64, b: i64) -> i64 {
-    return a + b;
-}
-
-pub const PI = 3.14159;

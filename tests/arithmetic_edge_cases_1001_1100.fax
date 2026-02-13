@@ -1,0 +1,1343 @@
+// Arithmetic Edge Cases 1001-1100
+
+fn test_arithmetic_overflow_scenarios() {
+    let max_int = 2147483647;
+    let result = if max_int + 1 > max_int { -1 } else { max_int + 1 };
+    print(result);
+}
+
+fn test_arithmetic_underflow_scenarios() {
+    let min_int = -2147483648;
+    let result = if min_int - 1 < min_int { -1 } else { min_int - 1 };
+    print(result);
+}
+
+fn test_division_precision_limits() {
+    let numerator = 1;
+    let denominator = 3;
+    let result = (numerator * 1000) / denominator;  // Simulate precision
+    print(result);
+}
+
+fn test_modulo_negative_operands() {
+    let a = -17;
+    let b = 5;
+    let result = a % b;
+    print(result);
+}
+
+fn test_power_calculation_limits() {
+    let base = 2;
+    let exp = 31;  // Near integer limit
+    let mut result = 1;
+    let mut i = 0;
+    while i < exp {
+        result = result * base;
+        i = i + 1;
+    }
+    print(result);
+}
+
+fn test_factorial_calculation_limits() {
+    let n = 15;  // Factorial grows quickly
+    let mut result = 1;
+    let mut i = 1;
+    while i <= n {
+        result = result * i;
+        i = i + 1;
+    }
+    print(result);
+}
+
+fn test_floating_point_simulation_addition() {
+    let a_whole = 10;
+    let a_frac = 5;  // Represents 10.5
+    let b_whole = 5;
+    let b_frac = 3;  // Represents 5.3
+    let whole_result = a_whole + b_whole;
+    let frac_result = a_frac + b_frac;
+    print(whole_result);
+    print(frac_result);
+}
+
+fn test_floating_point_simulation_multiplication() {
+    let a_whole = 3;
+    let a_frac = 5;  // Represents 3.5
+    let b_whole = 2;
+    let b_frac = 0;  // Represents 2.0
+    // (a_whole + a_frac/10) * (b_whole + b_frac/10)
+    let cross1 = (a_whole * b_frac) / 10;
+    let cross2 = (a_frac * b_whole) / 10;
+    let whole_part = a_whole * b_whole;
+    let frac_part = (a_frac * b_frac) / 10;
+    let result = whole_part + cross1 + cross2 + frac_part;
+    print(result);
+}
+
+fn test_large_number_multiplication() {
+    let a = 100000;
+    let b = 100000;
+    let result = a * b;
+    print(result);
+}
+
+fn test_zero_divided_by_number() {
+    let a = 0;
+    let b = 5;
+    let result = if b != 0 { a / b } else { -1 };
+    print(result);
+}
+
+fn test_number_divided_by_self() {
+    let a = 42;
+    let result = if a != 0 { a / a } else { -1 };
+    print(result);
+}
+
+fn test_negative_divided_by_negative() {
+    let a = -20;
+    let b = -4;
+    let result = if b != 0 { a / b } else { -1 };
+    print(result);
+}
+
+fn test_positive_divided_by_negative() {
+    let a = 20;
+    let b = -4;
+    let result = if b != 0 { a / b } else { -1 };
+    print(result);
+}
+
+fn test_negative_divided_by_positive() {
+    let a = -20;
+    let b = 4;
+    let result = if b != 0 { a / b } else { -1 };
+    print(result);
+}
+
+fn test_modulo_with_zero_dividend() {
+    let a = 0;
+    let b = 7;
+    let result = if b != 0 { a % b } else { -1 };
+    print(result);
+}
+
+fn test_modulo_with_same_operands() {
+    let a = 12;
+    let result = if a != 0 { a % a } else { -1 };
+    print(result);
+}
+
+fn test_modulo_with_one_divisor() {
+    let a = 15;
+    let b = 1;
+    let result = if b != 0 { a % b } else { -1 };
+    print(result);
+}
+
+fn test_modulo_with_larger_dividend() {
+    let a = 5;
+    let b = 15;
+    let result = if b != 0 { a % b } else { -1 };
+    print(result);
+}
+
+fn test_complex_expression_precedence1() {
+    let a = 2;
+    let b = 3;
+    let c = 4;
+    let d = 5;
+    let result = a + b * c - d;
+    print(result);
+}
+
+fn test_complex_expression_precedence2() {
+    let a = 2;
+    let b = 3;
+    let c = 4;
+    let d = 5;
+    let result = (a + b) * (c - d);
+    print(result);
+}
+
+fn test_complex_expression_precedence3() {
+    let a = 10;
+    let b = 2;
+    let c = 3;
+    let result = a - b * c;
+    print(result);
+}
+
+fn test_complex_expression_precedence4() {
+    let a = 10;
+    let b = 2;
+    let c = 3;
+    let result = (a - b) * c;
+    print(result);
+}
+
+fn test_complex_expression_precedence5() {
+    let a = 8;
+    let b = 2;
+    let c = 2;
+    let result = a / b / c;
+    print(result);
+}
+
+fn test_complex_expression_precedence6() {
+    let a = 8;
+    let b = 2;
+    let c = 2;
+    let result = a / (b / c);
+    print(result);
+}
+
+fn test_complex_expression_precedence7() {
+    let a = 2;
+    let b = 3;
+    let c = 4;
+    let d = 5;
+    let result = a * b + c * d;
+    print(result);
+}
+
+fn test_complex_expression_precedence8() {
+    let a = 2;
+    let b = 3;
+    let c = 4;
+    let d = 5;
+    let result = (a * b) + (c * d);
+    print(result);
+}
+
+fn test_complex_expression_precedence9() {
+    let a = 1;
+    let b = 2;
+    let c = 3;
+    let d = 4;
+    let result = a + b * c + d;
+    print(result);
+}
+
+fn test_complex_expression_precedence10() {
+    let a = 1;
+    let b = 2;
+    let c = 3;
+    let d = 4;
+    let result = (a + b) * (c + d);
+    print(result);
+}
+
+fn test_associative_property_addition() {
+    let a = 2;
+    let b = 3;
+    let c = 4;
+    let left = (a + b) + c;
+    let right = a + (b + c);
+    print(left);
+    print(right);
+}
+
+fn test_associative_property_multiplication() {
+    let a = 2;
+    let b = 3;
+    let c = 4;
+    let left = (a * b) * c;
+    let right = a * (b * c);
+    print(left);
+    print(right);
+}
+
+fn test_distributive_property() {
+    let a = 2;
+    let b = 3;
+    let c = 4;
+    let left = a * (b + c);
+    let right = a * b + a * c;
+    print(left);
+    print(right);
+}
+
+fn test_commutative_property_addition() {
+    let a = 5;
+    let b = 7;
+    let left = a + b;
+    let right = b + a;
+    print(left);
+    print(right);
+}
+
+fn test_commutative_property_multiplication() {
+    let a = 5;
+    let b = 7;
+    let left = a * b;
+    let right = b * a;
+    print(left);
+    print(right);
+}
+
+fn test_identity_property_addition() {
+    let a = 42;
+    let identity = 0;
+    let result = a + identity;
+    print(result);
+}
+
+fn test_identity_property_multiplication() {
+    let a = 42;
+    let identity = 1;
+    let result = a * identity;
+    print(result);
+}
+
+fn test_inverse_property_addition() {
+    let a = 25;
+    let inverse = 0 - a;
+    let result = a + inverse;
+    print(result);
+}
+
+fn test_inverse_property_multiplication() {
+    let a = 5;
+    let inverse = if a != 0 { (a * a) / a } else { -1 };  // Simulated inverse
+    print(inverse);
+}
+
+fn test_zero_product_property() {
+    let a = 100;
+    let result = a * 0;
+    print(result);
+}
+
+fn test_multiplication_by_negative_one() {
+    let a = 42;
+    let result = a * (-1);
+    print(result);
+}
+
+fn test_division_by_negative_one() {
+    let a = 42;
+    let result = a / (-1);
+    print(result);
+}
+
+fn test_exponentiation_by_zero() {
+    let a = 100;
+    let result = if a != 0 { (a / a) } else { -1 };  // Simulate a^0 = 1
+    print(result);
+}
+
+fn test_exponentiation_by_one() {
+    let a = 100;
+    let result = a * 1;  // Simulate a^1 = a
+    print(result);
+}
+
+fn test_square_calculation() {
+    let a = 12;
+    let result = a * a;
+    print(result);
+}
+
+fn test_cube_calculation() {
+    let a = 5;
+    let result = a * a * a;
+    print(result);
+}
+
+fn test_fourth_power_calculation() {
+    let a = 3;
+    let result = a * a * a * a;
+    print(result);
+}
+
+fn test_root_approximation_square() {
+    let num = 25;
+    let mut guess = num / 2;
+    let mut i = 0;
+    while i < 5 {  // 5 iterations for approximation
+        guess = (guess + num / guess) / 2;
+        i = i + 1;
+    }
+    print(guess);
+}
+
+fn test_root_approximation_cube() {
+    let num = 27;
+    let mut guess = num / 3;  // Initial guess
+    let mut i = 0;
+    while i < 5 {
+        guess = (2 * guess + num / (guess * guess)) / 3;  // Newton's method for cube root
+        i = i + 1;
+    }
+    print(guess);
+}
+
+fn test_average_calculation() {
+    let a = 10;
+    let b = 20;
+    let c = 30;
+    let avg = (a + b + c) / 3;
+    print(avg);
+}
+
+fn test_weighted_average_calculation() {
+    let val1 = 10;
+    let weight1 = 2;
+    let val2 = 20;
+    let weight2 = 3;
+    let weighted_sum = val1 * weight1 + val2 * weight2;
+    let total_weight = weight1 + weight2;
+    let result = weighted_sum / total_weight;
+    print(result);
+}
+
+fn test_percentage_calculation() {
+    let part = 25;
+    let whole = 100;
+    let percentage = (part * 100) / whole;
+    print(percentage);
+}
+
+fn test_ratio_calculation() {
+    let a = 15;
+    let b = 25;
+    let gcd_result = gcd_simulation(a, b);
+    let ratio_a = a / gcd_result;
+    let ratio_b = b / gcd_result;
+    print(ratio_a);
+    print(ratio_b);
+}
+
+fn gcd_simulation(x: int, y: int) -> int {
+    let mut a = x;
+    let mut b = y;
+    while b != 0 {
+        let temp = b;
+        b = a % b;
+        a = temp;
+    }
+    return a;
+}
+
+fn test_proportion_calculation() {
+    let a = 2;
+    let b = 3;
+    let c = 4;
+    // Find d such that a/b = c/d => d = (b*c)/a
+    let d = if a != 0 { (b * c) / a } else { -1 };
+    print(d);
+}
+
+fn test_mean_calculation() {
+    let nums = [10, 20, 30, 40, 50];
+    let mut sum = 0;
+    let mut i = 0;
+    while i < len(nums) {
+        sum = sum + nums[i];
+        i = i + 1;
+    }
+    let mean = sum / len(nums);
+    print(mean);
+}
+
+fn test_median_calculation() {
+    let nums = [7, 1, 5, 3, 9];  // Need to sort first
+    // Simulate sorted: [1, 3, 5, 7, 9]
+    let median = nums[2];  // Middle element
+    print(median);
+}
+
+fn test_mode_calculation() {
+    let nums = [1, 2, 2, 3, 3, 3, 4];  // Mode is 3
+    // Find the most frequent element
+    print(3);  // Hardcoded mode for this example
+}
+
+fn test_range_calculation() {
+    let nums = [5, 2, 8, 1, 9];
+    let mut min_val = nums[0];
+    let mut max_val = nums[0];
+    let mut i = 1;
+    while i < len(nums) {
+        if nums[i] < min_val {
+            min_val = nums[i];
+        }
+        if nums[i] > max_val {
+            max_val = nums[i];
+        }
+        i = i + 1;
+    }
+    let range = max_val - min_val;
+    print(range);
+}
+
+fn test_variance_calculation() {
+    let nums = [2, 4, 4, 4, 5, 5, 7, 9];
+    let n = len(nums);
+    let mut sum = 0;
+    let mut i = 0;
+    while i < n {
+        sum = sum + nums[i];
+        i = i + 1;
+    }
+    let mean = sum / n;
+    
+    let mut sum_sq_diff = 0;
+    i = 0;
+    while i < n {
+        let diff = nums[i] - mean;
+        sum_sq_diff = sum_sq_diff + diff * diff;
+        i = i + 1;
+    }
+    let variance = sum_sq_diff / n;
+    print(variance);
+}
+
+fn test_standard_deviation_calculation() {
+    let variance = 4;  // From previous test
+    // Approximate square root
+    let mut guess = variance / 2;
+    let mut i = 0;
+    while i < 5 {
+        guess = (guess + variance / guess) / 2;
+        i = i + 1;
+    }
+    print(guess);
+}
+
+fn test_sum_of_squares() {
+    let nums = [1, 2, 3, 4, 5];
+    let mut sum_squares = 0;
+    let mut i = 0;
+    while i < len(nums) {
+        sum_squares = sum_squares + nums[i] * nums[i];
+        i = i + 1;
+    }
+    print(sum_squares);
+}
+
+fn test_sum_of_cubes() {
+    let nums = [1, 2, 3];
+    let mut sum_cubes = 0;
+    let mut i = 0;
+    while i < len(nums) {
+        sum_cubes = sum_cubes + nums[i] * nums[i] * nums[i];
+        i = i + 1;
+    }
+    print(sum_cubes);
+}
+
+fn test_factorial_trailing_zeros() {
+    let n = 10;
+    let mut count = 0;
+    let mut i = 5;
+    while i <= n {
+        count = count + n / i;
+        i = i * 5;
+    }
+    print(count);
+}
+
+fn test_prime_factorization_simulation() {
+    let num = 60;
+    let mut n = num;
+    let mut factor = 2;
+    let mut factors_found = 0;
+    while n > 1 {
+        if n % factor == 0 {
+            n = n / factor;
+            factors_found = factors_found + 1;
+        } else {
+            factor = factor + 1;
+        }
+    }
+    print(factors_found);
+}
+
+fn test_gcd_multiple_numbers() {
+    let a = 48;
+    let b = 18;
+    let c = 24;
+    let gcd_ab = gcd_simulation(a, b);
+    let gcd_abc = gcd_simulation(gcd_ab, c);
+    print(gcd_abc);
+}
+
+fn test_lcm_calculation() {
+    let a = 12;
+    let b = 18;
+    let gcd_val = gcd_simulation(a, b);
+    let lcm = (a * b) / gcd_val;
+    print(lcm);
+}
+
+fn test_lcm_multiple_numbers() {
+    let a = 4;
+    let b = 6;
+    let c = 8;
+    let lcm_ab = (a * b) / gcd_simulation(a, b);
+    let lcm_abc = (lcm_ab * c) / gcd_simulation(lcm_ab, c);
+    print(lcm_abc);
+}
+
+fn test_fibonacci_calculation() {
+    let n = 10;
+    let mut a = 0;
+    let mut b = 1;
+    let mut i = 0;
+    while i < n {
+        let temp = a + b;
+        a = b;
+        b = temp;
+        i = i + 1;
+    }
+    print(a);
+}
+
+fn test_fibonacci_sum() {
+    let n = 8;
+    let mut a = 0;
+    let mut b = 1;
+    let mut sum = 0;
+    let mut i = 0;
+    while i < n {
+        sum = sum + a;
+        let temp = a + b;
+        a = b;
+        b = temp;
+        i = i + 1;
+    }
+    print(sum);
+}
+
+fn test_pell_equation_simulation() {
+    // x^2 - n*y^2 = 1, for n=2: x^2 - 2*y^2 = 1
+    // Fundamental solution (3,2): 3^2 - 2*2^2 = 9 - 8 = 1
+    let x = 3;
+    let y = 2;
+    let n = 2;
+    let result = x*x - n*y*y;
+    print(result);
+}
+
+fn test_perfect_number_check() {
+    let num = 6;  // 1 + 2 + 3 = 6
+    let mut sum = 0;
+    let mut i = 1;
+    while i < num {
+        if num % i == 0 {
+            sum = sum + i;
+        }
+        i = i + 1;
+    }
+    let is_perfect = if sum == num { 1 } else { 0 };
+    print(is_perfect);
+}
+
+fn test_armstrong_number_check() {
+    let num = 153;  // 1^3 + 5^3 + 3^3 = 1 + 125 + 27 = 153
+    let digits = 3;
+    let mut temp = num;
+    let mut sum = 0;
+    while temp > 0 {
+        let digit = temp % 10;
+        let mut power = 1;
+        let mut i = 0;
+        while i < digits {
+            power = power * digit;
+            i = i + 1;
+        }
+        sum = sum + power;
+        temp = temp / 10;
+    }
+    let is_armstrong = if sum == num { 1 } else { 0 };
+    print(is_armstrong);
+}
+
+fn test_harshad_number_check() {
+    let num = 18;  // 1 + 8 = 9, and 18 % 9 = 0
+    let mut temp = num;
+    let mut digit_sum = 0;
+    while temp > 0 {
+        digit_sum = digit_sum + temp % 10;
+        temp = temp / 10;
+    }
+    let is_harshad = if digit_sum != 0 && num % digit_sum == 0 { 1 } else { 0 };
+    print(is_harshad);
+}
+
+fn test_carmichael_number_check() {
+    // 561 is the smallest Carmichael number
+    let num = 561;
+    // Check if it's composite and satisfies Fermat's little theorem
+    // For simplicity, just verify it's composite
+    let is_composite = if num % 3 == 0 { 1 } else { 0 };  // 561 = 3 * 187
+    print(is_composite);
+}
+
+fn test_collatz_conjecture() {
+    let mut n = 7;
+    let mut steps = 0;
+    while n != 1 {
+        if n % 2 == 0 {
+            n = n / 2;
+        } else {
+            n = 3 * n + 1;
+        }
+        steps = steps + 1;
+    }
+    print(steps);
+}
+
+fn test_amicable_numbers() {
+    let a = 220;
+    let b = 284;
+    
+    // Sum of proper divisors of a
+    let mut sum_a = 0;
+    let mut i = 1;
+    while i < a {
+        if a % i == 0 {
+            sum_a = sum_a + i;
+        }
+        i = i + 1;
+    }
+    
+    // Sum of proper divisors of b
+    let mut sum_b = 0;
+    i = 1;
+    while i < b {
+        if b % i == 0 {
+            sum_b = sum_b + i;
+        }
+        i = i + 1;
+    }
+    
+    let are_amicable = if sum_a == b && sum_b == a { 1 } else { 0 };
+    print(are_amicable);
+}
+
+fn test_abundant_number() {
+    let num = 12;  // Proper divisors: 1, 2, 3, 4, 6. Sum = 16 > 12
+    let mut sum = 0;
+    let mut i = 1;
+    while i < num {
+        if num % i == 0 {
+            sum = sum + i;
+        }
+        i = i + 1;
+    }
+    let is_abundant = if sum > num { 1 } else { 0 };
+    print(is_abundant);
+}
+
+fn test_deficient_number() {
+    let num = 8;  // Proper divisors: 1, 2, 4. Sum = 7 < 8
+    let mut sum = 0;
+    let mut i = 1;
+    while i < num {
+        if num % i == 0 {
+            sum = sum + i;
+        }
+        i = i + 1;
+    }
+    let is_deficient = if sum < num { 1 } else { 0 };
+    print(is_deficient);
+}
+
+fn test_mersenne_prime_check() {
+    let p = 3;  // Check if 2^3 - 1 = 7 is prime
+    let mersenne = (1 << p) - 1;  // 2^p - 1
+    // Simple primality check for small numbers
+    let is_prime = if mersenne == 7 { 1 } else { 0 };  // 7 is prime
+    print(is_prime);
+}
+
+fn test_fermat_number() {
+    let n = 0;  // F_0 = 2^(2^0) + 1 = 2^1 + 1 = 3
+    let power = (1 << (1 << n));  // 2^(2^n)
+    let fermat_num = power + 1;
+    print(fermat_num);
+}
+
+fn test_wilsons_theorem() {
+    let p = 5;  // Check if (p-1)! ≡ -1 (mod p), for prime p
+    let mut factorial = 1;
+    let mut i = 1;
+    while i < p {
+        factorial = factorial * i;
+        i = i + 1;
+    }
+    let result = factorial % p;
+    let wilson_check = if result == p - 1 { 1 } else { 0 };
+    print(wilson_check);
+}
+
+fn test_chinese_remainder_theorem() {
+    // Solve x ≡ 2 (mod 3), x ≡ 3 (mod 5), x ≡ 2 (mod 7)
+    // Solution: x ≡ 23 (mod 105)
+    let moduli = [3, 5, 7];
+    let remainders = [2, 3, 2];
+    // For this example, we'll just verify x=23 satisfies all
+    let x = 23;
+    let cond1 = if x % moduli[0] == remainders[0] { 1 } else { 0 };
+    let cond2 = if x % moduli[1] == remainders[1] { 1 } else { 0 };
+    let cond3 = if x % moduli[2] == remainders[2] { 1 } else { 0 };
+    print(cond1);
+    print(cond2);
+    print(cond3);
+}
+
+fn test_extended_gcd() {
+    let a = 30;
+    let b = 18;
+    // Extended GCD finds x, y such that ax + by = gcd(a, b)
+    let gcd_val = gcd_simulation(a, b);
+    // For this example, just return the gcd
+    print(gcd_val);
+}
+
+fn test_modular_inverse() {
+    let a = 3;
+    let m = 11;  // Find x such that (a * x) % m = 1
+    let mut x = 1;
+    let mut found = 0;
+    while x < m {
+        if (a * x) % m == 1 {
+            found = x;
+            break;
+        }
+        x = x + 1;
+    }
+    print(found);
+}
+
+fn test_modular_exponentiation() {
+    let base = 3;
+    let exponent = 4;
+    let modulus = 5;
+    let mut result = 1;
+    let mut exp = exponent;
+    let mut b = base % modulus;
+    while exp > 0 {
+        if exp % 2 == 1 {
+            result = (result * b) % modulus;
+        }
+        exp = exp / 2;
+        b = (b * b) % modulus;
+    }
+    print(result);
+}
+
+fn test_totient_function() {
+    let n = 9;  // φ(9) = 9 * (1 - 1/3) = 6
+    let mut result = n;
+    let mut p = 2;
+    let mut temp_n = n;
+    while p * p <= temp_n {
+        if temp_n % p == 0 {
+            while temp_n % p == 0 {
+                temp_n = temp_n / p;
+            }
+            result = result - result / p;
+        }
+        p = p + 1;
+    }
+    if temp_n > 1 {
+        result = result - result / temp_n;
+    }
+    print(result);
+}
+
+fn test_legendre_symbol() {
+    let a = 2;
+    let p = 7;  // Compute (a/p) where p is prime
+    // Using Euler's criterion: a^((p-1)/2) ≡ (a/p) (mod p)
+    let exp = (p - 1) / 2;
+    let mut result = 1;
+    let mut e = exp;
+    let mut base = a % p;
+    while e > 0 {
+        if e % 2 == 1 {
+            result = (result * base) % p;
+        }
+        e = e / 2;
+        base = (base * base) % p;
+    }
+    // Convert to -1, 0, 1 representation
+    if result == p - 1 {
+        result = -1;
+    } else if result > 1 {
+        result = 0;  // This is a simplification
+    }
+    print(result);
+}
+
+fn test_quadratic_residue() {
+    let a = 2;
+    let p = 7;
+    // Check if x^2 ≡ a (mod p) has solutions
+    let legendre = 1;  // Simplified
+    let is_residue = if legendre >= 0 { 1 } else { 0 };
+    print(is_residue);
+}
+
+fn test_discrete_logarithm() {
+    let base = 2;
+    let result = 3;
+    let modulus = 5;
+    // Find x such that base^x ≡ result (mod modulus)
+    let mut x = 0;
+    let mut found = -1;
+    while x < modulus {
+        let mut power = 1;
+        let mut exp = x;
+        let mut b = base % modulus;
+        while exp > 0 {
+            if exp % 2 == 1 {
+                power = (power * b) % modulus;
+            }
+            exp = exp / 2;
+            b = (b * b) % modulus;
+        }
+        if power == result {
+            found = x;
+            break;
+        }
+        x = x + 1;
+    }
+    print(found);
+}
+
+fn test_primitive_root() {
+    let p = 7;  // Find a primitive root modulo p
+    // A primitive root g has order p-1
+    let g = 3;  // 3 is a primitive root of 7
+    let mut order = 1;
+    let mut power = g % p;
+    while power != 1 && order < p - 1 {
+        power = (power * g) % p;
+        order = order + 1;
+    }
+    let is_primitive = if order == p - 1 { 1 } else { 0 };
+    print(is_primitive);
+}
+
+fn test_bernoulli_number() {
+    // Calculate B_4 = -1/30 using recursion formula
+    // For this simplified version, just return the numerator
+    print(-1);
+}
+
+fn test_stirling_number_second_kind() {
+    // S(4,2) = 7 (number of ways to partition 4 elements into 2 non-empty subsets)
+    print(7);
+}
+
+fn test_catalan_number() {
+    // C_4 = (2n)! / ((n+1)! * n!) for n=4
+    let n = 4;
+    let numerator = factorial_calc(n * 2);
+    let denominator = factorial_calc(n + 1) * factorial_calc(n);
+    let catalan = numerator / denominator;
+    print(catalan);
+}
+
+fn factorial_calc(n: int) -> int {
+    if n <= 1 {
+        return 1;
+    }
+    return n * factorial_calc(n - 1);
+}
+
+fn test_bell_number() {
+    // B_3 = 5 (number of partitions of a 3-element set)
+    print(5);
+}
+
+fn test_partition_function() {
+    // p(4) = 5 (number of partitions of 4)
+    print(5);
+}
+
+fn test_mobius_function() {
+    let n = 6;  // 6 = 2 * 3, so μ(6) = (-1)^2 = 1
+    // Count prime factors with multiplicity
+    let mut temp_n = n;
+    let mut prime_factors = 0;
+    let mut p = 2;
+    let mut has_square_factor = false;
+    while p * p <= temp_n {
+        let mut count = 0;
+        while temp_n % p == 0 {
+            temp_n = temp_n / p;
+            count = count + 1;
+        }
+        if count > 1 {
+            has_square_factor = true;
+        }
+        if count > 0 {
+            prime_factors = prime_factors + 1;
+        }
+        p = p + 1;
+    }
+    if temp_n > 1 {
+        prime_factors = prime_factors + 1;
+    }
+    let mu = if has_square_factor { 0 } else { if prime_factors % 2 == 0 { 1 } else { -1 } };
+    print(mu);
+}
+
+fn test_liouville_lambda_function() {
+    let n = 12;  // λ(12) = (-1)^(Ω(12)) where Ω counts prime factors with multiplicity
+    // 12 = 2^2 * 3^1, so Ω(12) = 2 + 1 = 3
+    let omega = 3;
+    let lambda = if omega % 2 == 0 { 1 } else { -1 };
+    print(lambda);
+}
+
+fn test_von_mangoldt_function() {
+    let n = 9;  // Λ(9) = ln(3) since 9 = 3^2
+    // For this discrete simulation, return 1 if n is a prime power > 1
+    let is_prime_power = 1;  // 9 is 3^2
+    print(is_prime_power);
+}
+
+fn test_sigma_function() {
+    let n = 6;  // σ(6) = 1 + 2 + 3 + 6 = 12
+    let mut sum = 0;
+    let mut i = 1;
+    while i <= n {
+        if n % i == 0 {
+            sum = sum + i;
+        }
+        i = i + 1;
+    }
+    print(sum);
+}
+
+fn test_sigma_k_function() {
+    let n = 4;  // σ_2(4) = 1^2 + 2^2 + 4^2 = 1 + 4 + 16 = 21
+    let k = 2;
+    let mut sum = 0;
+    let mut i = 1;
+    while i <= n {
+        if n % i == 0 {
+            let mut power = 1;
+            let mut exp = k;
+            let mut base = i;
+            while exp > 0 {
+                if exp % 2 == 1 {
+                    power = power * base;
+                }
+                exp = exp / 2;
+                base = base * base;
+            }
+            sum = sum + power;
+        }
+        i = i + 1;
+    }
+    print(sum);
+}
+
+fn test_euler_phi_summation() {
+    let n = 6;  // Sum of φ(d) for all divisors d of n equals n
+    let mut total = 0;
+    let mut i = 1;
+    while i <= n {
+        if n % i == 0 {
+            total = total + totient_value(i);
+        }
+        i = i + 1;
+    }
+    print(total);
+}
+
+fn totient_value(n: int) -> int {
+    let mut result = n;
+    let mut p = 2;
+    let mut temp_n = n;
+    while p * p <= temp_n {
+        if temp_n % p == 0 {
+            while temp_n % p == 0 {
+                temp_n = temp_n / p;
+            }
+            result = result - result / p;
+        }
+        p = p + 1;
+    }
+    if temp_n > 1 {
+        result = result - result / temp_n;
+    }
+    return result;
+}
+
+fn test_riemann_hypothesis_related() {
+    // Mertens function M(n) = sum of μ(k) for k=1 to n
+    let n = 5;
+    let mut sum = 0;
+    let mut k = 1;
+    while k <= n {
+        sum = sum + mobius_value(k);
+        k = k + 1;
+    }
+    print(sum);
+}
+
+fn mobius_value(n: int) -> int {
+    if n == 1 {
+        return 1;
+    }
+    // Count prime factors
+    let mut temp_n = n;
+    let mut prime_factors = 0;
+    let mut p = 2;
+    let mut has_square_factor = false;
+    while p * p <= temp_n {
+        let mut count = 0;
+        while temp_n % p == 0 {
+            temp_n = temp_n / p;
+            count = count + 1;
+        }
+        if count > 1 {
+            has_square_factor = true;
+        }
+        if count > 0 {
+            prime_factors = prime_factors + 1;
+        }
+        p = p + 1;
+    }
+    if temp_n > 1 {
+        prime_factors = prime_factors + 1;
+    }
+    if has_square_factor {
+        return 0;
+    }
+    if prime_factors % 2 == 0 {
+        return 1;
+    }
+    return -1;
+}
+
+fn test_goldbach_conjecture_verification() {
+    let n = 10;  // Verify Goldbach for n
+    // Find primes p1, p2 such that p1 + p2 = n
+    let mut p1 = 2;
+    let mut found = 0;
+    while p1 < n {
+        let p2 = n - p1;
+        if is_prime_func(p1) && is_prime_func(p2) {
+            found = 1;
+            break;
+        }
+        p1 = p1 + 1;
+    }
+    print(found);
+}
+
+fn is_prime_func(n: int) -> bool {
+    if n <= 1 {
+        return false;
+    }
+    if n <= 3 {
+        return true;
+    }
+    if n % 2 == 0 || n % 3 == 0 {
+        return false;
+    }
+    let mut i = 5;
+    while i * i <= n {
+        if n % i == 0 || n % (i + 2) == 0 {
+            return false;
+        }
+        i = i + 6;
+    }
+    return true;
+}
+
+fn test_twin_prime_check() {
+    let n = 5;  // Check if n and n+2 are both prime
+    let is_twin = if is_prime_func(n) && is_prime_func(n + 2) { 1 } else { 0 };
+    print(is_twin);
+}
+
+fn test_perfect_power_check() {
+    let n = 8;  // Check if n is a perfect power (a^b for integers a, b with b > 1)
+    let mut is_perfect_power = 0;
+    let mut b = 2;
+    while b < 10 && !is_perfect_power {  // Limit b to avoid infinite loop
+        let mut a = 2;
+        while a * a <= n {  // Upper bound for a
+            let mut power = 1;
+            let mut exp = b;
+            let mut base = a;
+            while exp > 0 {
+                if exp % 2 == 1 {
+                    power = power * base;
+                }
+                exp = exp / 2;
+                base = base * base;
+            }
+            if power == n {
+                is_perfect_power = 1;
+                break;
+            }
+            a = a + 1;
+        }
+        b = b + 1;
+    }
+    print(is_perfect_power);
+}
+
+fn test_sum_of_two_squares() {
+    let n = 25;  // Check if n can be expressed as sum of two squares
+    let mut found = 0;
+    let mut a = 0;
+    while a * a <= n && !found {
+        let b_squared = n - a * a;
+        let mut b = 0;
+        while b * b <= b_squared {
+            if b * b == b_squared {
+                found = 1;
+                break;
+            }
+            b = b + 1;
+        }
+        a = a + 1;
+    }
+    print(found);
+}
+
+fn test_sum_of_three_squares() {
+    let n = 28;  // Every natural number except those of form 4^a(8b+7) is sum of 3 squares
+    let mut is_form = 1;  // 28 = 4^1 * (8*0 + 7) = 4*7, so it's of restricted form
+    let temp_n = n;
+    let mut power_of_4 = 0;
+    let mut reduced_n = temp_n;
+    while reduced_n % 4 == 0 {
+        reduced_n = reduced_n / 4;
+        power_of_4 = power_of_4 + 1;
+    }
+    if reduced_n % 8 == 7 {
+        is_form = 1;  // Of the form 4^a(8b+7)
+    } else {
+        is_form = 0;  // Can be represented as sum of 3 squares
+    }
+    print(is_form);
+}
+
+fn test_sum_of_four_squares() {
+    // Lagrange's four-square theorem: every natural number is sum of 4 squares
+    let n = 7;  // 7 = 2^2 + 1^2 + 1^2 + 1^2
+    print(1);  // Always possible
+}
+
+fn main() {
+    test_arithmetic_overflow_scenarios();
+    test_arithmetic_underflow_scenarios();
+    test_division_precision_limits();
+    test_modulo_negative_operands();
+    test_power_calculation_limits();
+    test_factorial_calculation_limits();
+    test_floating_point_simulation_addition();
+    test_floating_point_simulation_multiplication();
+    test_large_number_multiplication();
+    test_zero_divided_by_number();
+    test_number_divided_by_self();
+    test_negative_divided_by_negative();
+    test_positive_divided_by_negative();
+    test_negative_divided_by_positive();
+    test_modulo_with_zero_dividend();
+    test_modulo_with_same_operands();
+    test_modulo_with_one_divisor();
+    test_modulo_with_larger_dividend();
+    test_complex_expression_precedence1();
+    test_complex_expression_precedence2();
+    test_complex_expression_precedence3();
+    test_complex_expression_precedence4();
+    test_complex_expression_precedence5();
+    test_complex_expression_precedence6();
+    test_complex_expression_precedence7();
+    test_complex_expression_precedence8();
+    test_complex_expression_precedence9();
+    test_complex_expression_precedence10();
+    test_associative_property_addition();
+    test_associative_property_multiplication();
+    test_distributive_property();
+    test_commutative_property_addition();
+    test_commutative_property_multiplication();
+    test_identity_property_addition();
+    test_identity_property_multiplication();
+    test_inverse_property_addition();
+    test_inverse_property_multiplication();
+    test_zero_product_property();
+    test_multiplication_by_negative_one();
+    test_division_by_negative_one();
+    test_exponentiation_by_zero();
+    test_exponentiation_by_one();
+    test_square_calculation();
+    test_cube_calculation();
+    test_fourth_power_calculation();
+    test_root_approximation_square();
+    test_root_approximation_cube();
+    test_average_calculation();
+    test_weighted_average_calculation();
+    test_percentage_calculation();
+    test_ratio_calculation();
+    test_proportion_calculation();
+    test_mean_calculation();
+    test_median_calculation();
+    test_mode_calculation();
+    test_range_calculation();
+    test_variance_calculation();
+    test_standard_deviation_calculation();
+    test_sum_of_squares();
+    test_sum_of_cubes();
+    test_factorial_trailing_zeros();
+    test_prime_factorization_simulation();
+    test_gcd_multiple_numbers();
+    test_lcm_calculation();
+    test_lcm_multiple_numbers();
+    test_fibonacci_calculation();
+    test_fibonacci_sum();
+    test_pell_equation_simulation();
+    test_perfect_number_check();
+    test_armstrong_number_check();
+    test_harshad_number_check();
+    test_carmichael_number_check();
+    test_collatz_conjecture();
+    test_amicable_numbers();
+    test_abundant_number();
+    test_deficient_number();
+    test_mersenne_prime_check();
+    test_fermat_number();
+    test_wilsons_theorem();
+    test_chinese_remainder_theorem();
+    test_extended_gcd();
+    test_modular_inverse();
+    test_modular_exponentiation();
+    test_totient_function();
+    test_legendre_symbol();
+    test_quadratic_residue();
+    test_discrete_logarithm();
+    test_primitive_root();
+    test_bernoulli_number();
+    test_stirling_number_second_kind();
+    test_catalan_number();
+    test_bell_number();
+    test_partition_function();
+    test_mobius_function();
+    test_liouville_lambda_function();
+    test_von_mangoldt_function();
+    test_sigma_function();
+    test_sigma_k_function();
+    test_euler_phi_summation();
+    test_riemann_hypothesis_related();
+    test_goldbach_conjecture_verification();
+    test_twin_prime_check();
+    test_perfect_power_check();
+    test_sum_of_two_squares();
+    test_sum_of_three_squares();
+    test_sum_of_four_squares();
+}

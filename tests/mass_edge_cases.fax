@@ -1,0 +1,59 @@
+struct Node {
+    next: Node
+    val: i64
+}
+
+fn test_cycles() {
+    print("Testing Cycles...");
+    let a = Node { next: null, val: 1 };
+    let b = Node { next: null, val: 2 };
+    a.next = b;
+    b.next = a; // Cycle
+    // a and b go out of scope after this
+}
+
+fn test_deep_chain() {
+    print("Testing Deep Chain...");
+    let mut head = Node { next: null, val: 0 };
+    let mut i = 0;
+    while i < 500 {
+        let n = Node { next: head, val: i };
+        head = n;
+        i = i + 1;
+    }
+    collect_gc();
+}
+
+fn test_tenured_to_young() {
+    print("Testing Tenured-to-Young References...");
+    let mut root = Node { next: null, val: 999 };
+    
+    // Promote root to Tenured
+    collect_gc(); collect_gc(); collect_gc(); 
+    collect_gc(); collect_gc(); collect_gc();
+
+    let mut i = 0;
+    while i < 500 {
+        let n = Node { next: null, val: i };
+        root.next = n; // Stress Write Barrier
+        if i == 250 {
+            collect_gc();
+        }
+        i = i + 1;
+    }
+}
+
+fn main() {
+    print("=== MASS EDGE CASES START ===");
+    
+    test_cycles();
+    collect_gc();
+    
+    test_deep_chain();
+    collect_gc();
+    
+    test_tenured_to_young();
+    collect_gc();
+    
+    print("=== ALL MASS EDGE CASES PASSED ===");
+}

@@ -1,0 +1,49 @@
+fn test12() {
+    for i in 0..0 {  // empty range
+        print(i);
+    }
+    print(0);
+}
+
+fn test13() {
+    for i in 0..1 {
+        print(i);
+    }
+}
+
+fn test14() {
+    for i in 5..6 {
+        print(i);
+    }
+}
+
+fn test28() {
+    for i in 0..2 {
+        for j in 0..2 {
+            print(i * 2 + j);
+        }
+    }
+}
+
+fn test95() {
+    for i in 99..100 {
+        print(i);
+    }
+}
+
+fn test96() {
+    let start = 0;
+    let end = 1;
+    for i in start..end {
+        print(i);
+    }
+}
+
+fn main() {
+    test12();
+    test13();
+    test14();
+    test28();
+    test95();
+    test96();
+}

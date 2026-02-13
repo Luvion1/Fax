@@ -1,0 +1,10 @@
+fn test_simple() {
+    let a = 1;
+    let b = 2;
+    let result = a < b && true;
+    print(result);
+}
+
+fn main() {
+    test_simple();
+}

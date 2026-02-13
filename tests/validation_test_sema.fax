@@ -1,0 +1,14 @@
+fn main() {
+    let x = 10;
+    if (true) {
+        let x = 20; // W003: Shadowing Warning
+        print(x);
+    }
+    
+    if (false) {
+        print("This will never print"); // W004: Constant Condition Warning
+    }
+
+    return;
+    print("This is unreachable"); // W002: Unreachable Code Warning
+}

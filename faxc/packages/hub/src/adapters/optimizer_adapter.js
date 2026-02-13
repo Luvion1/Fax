@@ -4,7 +4,7 @@ exports.OptimizerAdapter = void 0;
 const child_process_1 = require("child_process");
 const fs_1 = require("fs");
 class OptimizerAdapter {
-    constructor(command = './faxc/packages/optimizer/target/release/fax-opt') {
+    constructor(command = '../optimizer/target/release/fax-opt') {
         this.command = command;
     }
     async execute(input) {

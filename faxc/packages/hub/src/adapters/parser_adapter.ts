@@ -5,7 +5,7 @@ import { writeFileSync } from 'fs';
 export class ParserAdapter implements ComponentAdapter {
   private readonly command: string;
 
-  constructor(command: string = './faxc/packages/parser/zig-out/bin/parser') {
+  constructor(command: string = '../parser/zig-out/bin/parser') {
     this.command = command;
   }
 

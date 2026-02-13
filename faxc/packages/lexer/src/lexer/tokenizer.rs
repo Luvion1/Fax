@@ -98,7 +98,6 @@ impl<'a> Tokenizer<'a> {
                             v.push(nc);
                         }
                     } else {
-                        // Handle unexpected end of input
                         return Err(LexErr::UntermString {
                             line: l,
                             col: c,
@@ -121,15 +120,13 @@ impl<'a> Tokenizer<'a> {
         let mut has_dot = false;
 
         while let Some(&(_, ch)) = self.peek() {
-            if ch.is_ascii_digit() || ch == '_' || ch == 'e' || ch == 'E' || ch == 'x' || ch == 'b'
-            {
+            if ch.is_ascii_digit() || ch == '_' || ch == 'e' || ch == 'E' || ch == 'x' || ch == 'b' {
                 if let Some(c) = self.next() {
                     v.push(c);
                 } else {
-                    break; // Handle unexpected end of input
+                    break;
                 }
             } else if ch == '.' {
-                // Check if it's a range operator ..
                 if let Some(nc) = self.chars.clone().nth(1) {
                     if nc.1 == '.' {
                         break;
@@ -142,7 +139,7 @@ impl<'a> Tokenizer<'a> {
                 if let Some(c) = self.next() {
                     v.push(c);
                 } else {
-                    break; // Handle unexpected end of input
+                    break;
                 }
             } else {
                 break;
@@ -166,7 +163,7 @@ impl<'a> Tokenizer<'a> {
                 if let Some(c) = self.next() {
                     v.push(c);
                 } else {
-                    break; // Handle unexpected end of input
+                    break;
                 }
             } else {
                 break;
@@ -192,7 +189,10 @@ impl<'a> Tokenizer<'a> {
                 | ('>', '=')
                 | ('-', '>')
                 | (':', ':')
-                | ('.', '.') => {
+                | ('.', '.')
+                | ('&', '&')
+                | ('|', '|')
+                | ('=', '>') => {
                     if let Some(c) = self.next() {
                         v.push(c);
                     }
@@ -204,6 +204,11 @@ impl<'a> Tokenizer<'a> {
         let t = match v.as_str() {
             "::" => TokenType::ScopeResolution,
             "->" => TokenType::ReturnType,
+            ".." => TokenType::Range,
+            "&&" => TokenType::LogicalAnd,
+            "||" => TokenType::LogicalOr,
+            "=>" => TokenType::Arrow,
+            "!" => TokenType::Not,
             "(" => TokenType::LeftParen,
             ")" => TokenType::RightParen,
             "{" => TokenType::LeftBrace,

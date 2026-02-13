@@ -1,0 +1,792 @@
+// Variable and Scope Edge Cases 201-300
+
+fn test_variable_shadowing() {
+    let x = 5;
+    {
+        let x = 10;  // This should shadow the outer x
+        print(x);    // Should print 10
+    }
+    print(x);        // Should print 5
+}
+
+fn test_variable_redeclaration_error() {
+    let x = 5;
+    // let x = 10;  // This would be an error in many languages
+    print(x);
+}
+
+fn test_variable_assignment() {
+    let mut x = 5;
+    x = 10;
+    print(x);
+}
+
+fn test_variable_swap_simulation() {
+    let mut a = 5;
+    let mut b = 10;
+    let temp = a;
+    a = b;
+    b = temp;
+    print(a);
+    print(b);
+}
+
+fn test_variable_scope_nested() {
+    let x = 1;
+    {
+        let y = 2;
+        {
+            let z = 3;
+            print(x + y + z);
+        }
+        print(x + y);
+    }
+    print(x);
+}
+
+fn test_variable_out_of_scope() {
+    let x = 5;
+    {
+        let y = 10;
+        print(x + y);
+    }
+    // y is out of scope here
+    print(x);
+}
+
+fn test_variable_with_same_name_different_scopes() {
+    let a = 1;
+    {
+        let a = 2;
+        print(a);
+    }
+    print(a);
+}
+
+fn test_variable_initialization() {
+    let x = 0;
+    let y = x + 5;
+    print(y);
+}
+
+fn test_variable_unused() {
+    let unused = 42;
+    let used = 24;
+    print(used);
+}
+
+fn test_variable_large_numbers() {
+    let big = 999999999;
+    print(big);
+}
+
+fn test_variable_negative_numbers() {
+    let neg = -42;
+    print(neg);
+}
+
+fn test_variable_zero() {
+    let zero = 0;
+    print(zero);
+}
+
+fn test_variable_one() {
+    let one = 1;
+    print(one);
+}
+
+fn test_variable_operations() {
+    let a = 10;
+    let b = 5;
+    let sum = a + b;
+    let diff = a - b;
+    let prod = a * b;
+    let quot = a / b;
+    print(sum);
+    print(diff);
+    print(prod);
+    print(quot);
+}
+
+fn test_variable_chained_operations() {
+    let a = 1;
+    let b = 2;
+    let c = 3;
+    let d = 4;
+    let result = a + b + c + d;
+    print(result);
+}
+
+fn test_variable_complex_expression() {
+    let a = 10;
+    let b = 5;
+    let c = 2;
+    let result = (a + b) * c - 1;
+    print(result);
+}
+
+fn test_variable_with_function_call() {
+    let x = get_value();
+    print(x);
+}
+
+fn get_value() -> int {
+    return 42;
+}
+
+fn test_variable_with_conditional() {
+    let a = 5;
+    let b = 10;
+    let max_val = if a > b { a } else { b };
+    print(max_val);
+}
+
+fn test_variable_with_loop_counter() {
+    let mut i = 0;
+    while i < 3 {
+        print(i);
+        i = i + 1;
+    }
+}
+
+fn test_variable_with_array_index() {
+    let arr = [10, 20, 30];
+    let index = 1;
+    print(arr[index]);
+}
+
+fn test_variable_with_string_length() {
+    let str = "hello";
+    let len_val = len(str);
+    print(len_val);
+}
+
+fn test_variable_with_boolean() {
+    let flag = true;
+    print(flag);
+}
+
+fn test_variable_with_false() {
+    let flag = false;
+    print(flag);
+}
+
+fn test_variable_with_null() {
+    let nothing = null;
+    // print(nothing);  // May not be printable depending on implementation
+}
+
+fn test_variable_with_undefined_behavior() {
+    // Behavior depends on language specification
+    let x = 5;
+    print(x);
+}
+
+fn test_variable_with_multiple_types_simulation() {
+    let num = 42;
+    let flag = true;
+    print(num);
+    print(flag);
+}
+
+fn test_variable_with_scope_exit() {
+    let x = 1;
+    {
+        let y = 2;
+        print(x + y);
+    }  // y goes out of scope here
+    print(x);
+}
+
+fn test_variable_with_complex_scoping() {
+    let a = 1;
+    {
+        let b = 2;
+        {
+            let c = 3;
+            {
+                let d = 4;
+                print(a + b + c + d);
+            }
+            print(a + b + c);
+        }
+        print(a + b);
+    }
+    print(a);
+}
+
+fn test_variable_with_mutability() {
+    let mut x = 5;
+    print(x);
+    x = x + 1;
+    print(x);
+    x = x * 2;
+    print(x);
+}
+
+fn test_variable_with_const() {
+    let const_val = 100;
+    // const_val = 200;  // Should be an error
+    print(const_val);
+}
+
+fn test_variable_with_let_vs_var_concept() {
+    let immutable = 10;
+    let mut mutable = 20;
+    mutable = mutable + immutable;
+    print(mutable);
+}
+
+fn test_variable_with_lifetime() {
+    let x = create_value();
+    print(x);
+}
+
+fn create_value() -> int {
+    return 123;
+}
+
+fn test_variable_with_closure_simulation() {
+    let x = 10;
+    let y = increment_by_x(5, x);
+    print(y);
+}
+
+fn increment_by_x(value: int, x: int) -> int {
+    return value + x;
+}
+
+fn test_variable_with_recursive_function() {
+    let result = factorial(5);
+    print(result);
+}
+
+fn factorial(n: int) -> int {
+    if n <= 1 {
+        return 1;
+    } else {
+        return n * factorial(n - 1);
+    }
+}
+
+fn test_variable_with_higher_scope_modification() {
+    let mut counter = 0;
+    increment_counter(&mut counter);
+    print(counter);
+}
+
+fn increment_counter(counter: &mut int) {
+    *counter = *counter + 1;
+}
+
+fn test_variable_with_aliasing() {
+    let original = 42;
+    let alias = original;  // Value copy, not reference
+    print(original);
+    print(alias);
+}
+
+fn test_variable_with_complex_data_structures_simulation() {
+    // Simulating complex structures with arrays
+    let matrix = [[1, 2], [3, 4]];
+    print(matrix[0][0]);
+    print(matrix[1][1]);
+}
+
+fn test_variable_with_deep_nesting() {
+    let a = 1;
+    {
+        let b = 2;
+        {
+            let c = 3;
+            {
+                let d = 4;
+                {
+                    let e = 5;
+                    print(a + b + c + d + e);
+                }
+                print(a + b + c + d);
+            }
+            print(a + b + c);
+        }
+        print(a + b);
+    }
+    print(a);
+}
+
+fn test_variable_with_conditional_declaration_simulation() {
+    let condition = true;
+    let value = if condition { 10 } else { 20 };
+    print(value);
+}
+
+fn test_variable_with_loop_variables() {
+    let mut i = 0;
+    while i < 3 {
+        let inner_var = i * 10;
+        print(inner_var);
+        i = i + 1;
+    }
+}
+
+fn test_variable_with_post_loop_access() {
+    let mut i = 0;
+    while i < 3 {
+        i = i + 1;
+    }
+    print(i);  // Should print 3
+}
+
+fn test_variable_with_break_simulation() {
+    let mut i = 0;
+    while i < 10 {
+        if i == 5 {
+            break;
+        }
+        print(i);
+        i = i + 1;
+    }
+    print(i);  // Should print 5
+}
+
+fn test_variable_with_continue_simulation() {
+    let mut i = 0;
+    while i < 5 {
+        i = i + 1;
+        if i == 3 {
+            continue;
+        }
+        print(i);
+    }
+}
+
+fn test_variable_with_nested_loops() {
+    let mut i = 0;
+    while i < 2 {
+        let mut j = 0;
+        while j < 3 {
+            print(i * 10 + j);
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+}
+
+fn test_variable_with_shared_state_simulation() {
+    let mut shared = 0;
+    increment_shared(&mut shared);
+    increment_shared(&mut shared);
+    print(shared);
+}
+
+fn increment_shared(val: &mut int) {
+    *val = *val + 1;
+}
+
+fn test_variable_with_temporary_values() {
+    print(get_temp_value());
+}
+
+fn get_temp_value() -> int {
+    let temp = 99;
+    return temp;
+}
+
+fn test_variable_with_intermediate_calculations() {
+    let a = 5;
+    let b = 10;
+    let intermediate1 = a + b;
+    let intermediate2 = intermediate1 * 2;
+    let final_result = intermediate2 - 5;
+    print(final_result);
+}
+
+fn test_variable_with_unused_intermediates() {
+    let a = 5;
+    let b = 10;
+    let _unused = a * b;
+    let result = a + b;
+    print(result);
+}
+
+fn test_variable_with_large_scope_difference() {
+    let global_like = 100;
+    {
+        {
+            {
+                let local = 1;
+                print(global_like + local);
+            }
+        }
+    }
+}
+
+fn test_variable_with_multiple_assignments_simulation() {
+    let mut a = 0;
+    let mut b = 0;
+    let mut c = 0;
+    a = 1;
+    b = 2;
+    c = 3;
+    print(a + b + c);
+}
+
+fn test_variable_with_chained_assignment_simulation() {
+    let mut a = 0;
+    let mut b = 0;
+    let value = 5;
+    a = value;
+    b = value;
+    print(a);
+    print(b);
+}
+
+fn test_variable_with_function_parameters() {
+    let x = 10;
+    let y = 20;
+    let result = add_values(x, y);
+    print(result);
+}
+
+fn add_values(a: int, b: int) -> int {
+    return a + b;
+}
+
+fn test_variable_with_default_parameters_simulation() {
+    let result1 = multiply_values(5, 2);
+    let result2 = multiply_values(5, 1);  // Assuming second param defaults to 1
+    print(result1);
+    print(result2);
+}
+
+fn multiply_values(a: int, b: int) -> int {
+    return a * b;
+}
+
+fn test_variable_with_optional_parameters_simulation() {
+    let result = calculate_with_option(10, true);
+    print(result);
+}
+
+fn calculate_with_option(value: int, apply_rule: bool) -> int {
+    if apply_rule {
+        return value * 2;
+    } else {
+        return value;
+    }
+}
+
+fn test_variable_with_global_like_behavior() {
+    let result = use_external_value(5);
+    print(result);
+}
+
+fn use_external_value(input: int) -> int {
+    let external_factor = 10;  // Behaving like a module constant
+    return input * external_factor;
+}
+
+fn test_variable_with_environment() {
+    let env_value = 42;
+    process_with_env(env_value);
+}
+
+fn process_with_env(env: int) {
+    print(env);
+}
+
+fn test_variable_with_context() {
+    let context_data = 123;
+    execute_in_context(context_data);
+}
+
+fn execute_in_context(data: int) {
+    print(data);
+}
+
+fn test_variable_with_namespace_simulation() {
+    let main_value = 1;
+    {
+        let main_value = 2;  // Shadowing
+        print(main_value);
+    }
+    print(main_value);
+}
+
+fn test_variable_with_module_simulation() {
+    let module_state = initialize_module();
+    print(module_state);
+}
+
+fn initialize_module() -> int {
+    return 999;
+}
+
+fn test_variable_with_factory_pattern_simulation() {
+    let obj1 = create_object(10);
+    let obj2 = create_object(20);
+    print(obj1);
+    print(obj2);
+}
+
+fn create_object(value: int) -> int {
+    return value * 10;
+}
+
+fn test_variable_with_singleton_simulation() {
+    let instance1 = get_instance();
+    let instance2 = get_instance();
+    print(instance1);
+    print(instance2);
+}
+
+fn get_instance() -> int {
+    return 42;  // Simplified singleton
+}
+
+fn test_variable_with_resource_management_simulation() {
+    let resource = acquire_resource();
+    use_resource(resource);
+    release_resource(resource);
+}
+
+fn acquire_resource() -> int {
+    return 100;
+}
+
+fn use_resource(res: int) {
+    print(res);
+}
+
+fn release_resource(_res: int) {
+    // Resource cleanup
+    print(0);
+}
+
+fn test_variable_with_error_simulation() {
+    let result = safe_operation(10, 2);
+    print(result);
+    let error_result = safe_operation(10, 0);
+    print(error_result);
+}
+
+fn safe_operation(a: int, b: int) -> int {
+    if b == 0 {
+        return -1;  // Error indicator
+    } else {
+        return a / b;
+    }
+}
+
+fn test_variable_with_validation() {
+    let input = 5;
+    if is_valid(input) {
+        process_valid(input);
+    } else {
+        print(-1);
+    }
+}
+
+fn is_valid(value: int) -> bool {
+    return value > 0;
+}
+
+fn process_valid(value: int) {
+    print(value * 2);
+}
+
+fn test_variable_with_constraints() {
+    let input = 15;
+    let constrained = apply_constraint(input, 10, 20);
+    print(constrained);
+}
+
+fn apply_constraint(value: int, min_val: int, max_val: int) -> int {
+    if value < min_val {
+        return min_val;
+    } else if value > max_val {
+        return max_val;
+    } else {
+        return value;
+    }
+}
+
+fn test_variable_with_conversion_simulation() {
+    let int_val = 42;
+    let converted = simulate_type_conversion(int_val);
+    print(converted);
+}
+
+fn simulate_type_conversion(value: int) -> int {
+    // Simulating conversion by performing an operation
+    return value;
+}
+
+fn test_variable_with_formatting_simulation() {
+    let number = 123;
+    let formatted = simulate_format(number);
+    print(formatted);
+}
+
+fn simulate_format(num: int) -> int {
+    // Return the same number to simulate formatting
+    return num;
+}
+
+fn test_variable_with_encoding_simulation() {
+    let raw = 65;  // ASCII for 'A'
+    let encoded = encode_value(raw);
+    print(encoded);
+}
+
+fn encode_value(value: int) -> int {
+    return value + 1;  // Simple encoding
+}
+
+fn test_variable_with_decoding_simulation() {
+    let encoded = 66;
+    let decoded = decode_value(encoded);
+    print(decoded);
+}
+
+fn decode_value(value: int) -> int {
+    return value - 1;  // Simple decoding
+}
+
+fn test_variable_with_serialization_simulation() {
+    let obj = 12345;
+    let serialized = serialize_object(obj);
+    print(serialized);
+}
+
+fn serialize_object(obj: int) -> int {
+    return obj;  // Simplified serialization
+}
+
+fn test_variable_with_deserialization_simulation() {
+    let data = 12345;
+    let deserialized = deserialize_data(data);
+    print(deserialized);
+}
+
+fn deserialize_data(data: int) -> int {
+    return data;  // Simplified deserialization
+}
+
+fn test_variable_with_cache_simulation() {
+    let key = 1;
+    let value = get_cached_value(key);
+    print(value);
+}
+
+fn get_cached_value(key: int) -> int {
+    // Simplified cache lookup
+    return key * 10;
+}
+
+fn test_variable_with_memoization_simulation() {
+    let input = 5;
+    let result = compute_expensive(input);
+    print(result);
+}
+
+fn compute_expensive(n: int) -> int {
+    // Simulate expensive computation
+    return n * n;
+}
+
+fn test_variable_with_lazy_evaluation_simulation() {
+    let result = eager_evaluation(5);
+    print(result);
+}
+
+fn eager_evaluation(x: int) -> int {
+    return x * 2;  // Immediate evaluation
+}
+
+fn test_variable_with_thunk_simulation() {
+    let result = evaluate_now(10);
+    print(result);
+}
+
+fn evaluate_now(x: int) -> int {
+    return x + 5;
+}
+
+fn main() {
+    test_variable_shadowing();
+    test_variable_redeclaration_error();
+    test_variable_assignment();
+    test_variable_swap_simulation();
+    test_variable_scope_nested();
+    test_variable_out_of_scope();
+    test_variable_with_same_name_different_scopes();
+    test_variable_initialization();
+    test_variable_unused();
+    test_variable_large_numbers();
+    test_variable_negative_numbers();
+    test_variable_zero();
+    test_variable_one();
+    test_variable_operations();
+    test_variable_chained_operations();
+    test_variable_complex_expression();
+    test_variable_with_function_call();
+    test_variable_with_conditional();
+    test_variable_with_loop_counter();
+    test_variable_with_array_index();
+    test_variable_with_string_length();
+    test_variable_with_boolean();
+    test_variable_with_false();
+    test_variable_with_null();
+    test_variable_with_undefined_behavior();
+    test_variable_with_multiple_types_simulation();
+    test_variable_with_scope_exit();
+    test_variable_with_complex_scoping();
+    test_variable_with_mutability();
+    test_variable_with_const();
+    test_variable_with_let_vs_var_concept();
+    test_variable_with_lifetime();
+    test_variable_with_closure_simulation();
+    test_variable_with_recursive_function();
+    test_variable_with_higher_scope_modification();
+    test_variable_with_aliasing();
+    test_variable_with_complex_data_structures_simulation();
+    test_variable_with_deep_nesting();
+    test_variable_with_conditional_declaration_simulation();
+    test_variable_with_loop_variables();
+    test_variable_with_post_loop_access();
+    test_variable_with_break_simulation();
+    test_variable_with_continue_simulation();
+    test_variable_with_nested_loops();
+    test_variable_with_shared_state_simulation();
+    test_variable_with_temporary_values();
+    test_variable_with_intermediate_calculations();
+    test_variable_with_unused_intermediates();
+    test_variable_with_large_scope_difference();
+    test_variable_with_multiple_assignments_simulation();
+    test_variable_with_chained_assignment_simulation();
+    test_variable_with_function_parameters();
+    test_variable_with_default_parameters_simulation();
+    test_variable_with_optional_parameters_simulation();
+    test_variable_with_global_like_behavior();
+    test_variable_with_environment();
+    test_variable_with_context();
+    test_variable_with_namespace_simulation();
+    test_variable_with_module_simulation();
+    test_variable_with_factory_pattern_simulation();
+    test_variable_with_singleton_simulation();
+    test_variable_with_resource_management_simulation();
+    test_variable_with_error_simulation();
+    test_variable_with_validation();
+    test_variable_with_constraints();
+    test_variable_with_conversion_simulation();
+    test_variable_with_formatting_simulation();
+    test_variable_with_encoding_simulation();
+    test_variable_with_decoding_simulation();
+    test_variable_with_serialization_simulation();
+    test_variable_with_deserialization_simulation();
+    test_variable_with_cache_simulation();
+    test_variable_with_memoization_simulation();
+    test_variable_with_lazy_evaluation_simulation();
+    test_variable_with_thunk_simulation();
+}

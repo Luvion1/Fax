@@ -1,0 +1,6 @@
+fn main() {
+    let a = true;
+    let b = true;
+    let result = a && b;
+    print(1);
+}

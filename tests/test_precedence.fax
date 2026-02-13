@@ -1,0 +1,5 @@
+fn main() {
+    print(true || false && false); // Harus true (1) karena && lebih tinggi
+    print(false && false || true); // Harus true (1)
+    print(false || true && false); // Harus false (0)
+}

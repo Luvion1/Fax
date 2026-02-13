@@ -1,0 +1,8 @@
+fn test53() {
+    let x = 1;
+    if x { print(1); } else { print(0); }
+}
+
+fn main() {
+    test53();
+}

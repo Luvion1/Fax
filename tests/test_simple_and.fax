@@ -1,0 +1,13 @@
+fn test_and() {
+    let a = 1;
+    let b = 2;
+    if a < b && true {
+        print(1);
+    } else {
+        print(0);
+    }
+}
+
+fn main() {
+    test_and();
+}

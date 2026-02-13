@@ -68,6 +68,8 @@ pub const Parser = struct {
             const t = self.peek();
             const node = if (std.mem.eql(u8, t.value, "const"))
                 try Decl.parseVariable(self, true)
+            else if (std.mem.eql(u8, t.value, "fn"))
+                try Decl.parseFunction(self)
             else
                 try Stmt.parseStatement(self);
             try body.append(node);

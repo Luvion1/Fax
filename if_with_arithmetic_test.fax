@@ -1,0 +1,7 @@
+fn main() {
+    let a = 1;
+    let b = 2;
+    if a + b == 3 {
+        print(1);
+    }
+}

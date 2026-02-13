@@ -1,0 +1,8 @@
+fn test70() {
+    let arr = [[0]];
+    print(arr[0][0]);
+}
+
+fn main() {
+    test70();
+}

@@ -5,7 +5,7 @@ import { writeFileSync } from 'fs';
 export class SemanticAnalyzerAdapter implements ComponentAdapter {
   private readonly command: string;
 
-  constructor(command: string = './faxc/packages/sema/bin/sema') {
+  constructor(command: string = '../sema/bin/sema_bin') {
     this.command = command;
   }
 

@@ -9,18 +9,37 @@ namespace codegen {
 Codegen::Codegen(const json& data) : ast(data) {}
 
 bool Codegen::isPointerType(const std::string& type) {
-    return structMeta.count(type) || type.find("[]") != std::string::npos ||
-           type == "str" || type == "string" || type == "array" || type == "struct";
+    if (type.empty()) return false;
+    if (type.find("ref ") == 0 || type.find("&") == 0) return true;
+    if (type == "str" || type == "string" || type == "array" || type == "struct") return true;
+    if (type.find("[]") != std::string::npos || type.find("tuple") == 0) return true;
+    return structMeta.count(type) > 0;
 }
 
 bool Codegen::isStringType(const std::string& type) {
-    return type == "str" || type == "string";
+    return type == "str" || type == "string" || type == "ref str" || type == "ref string";
+}
+
+bool Codegen::isLLVMPointer(const std::string& reg) {
+    if (reg.empty()) return false;
+    if (reg[0] == '@') return true; // Globals are pointers
+    if (reg[0] != '%') return false;
+    
+    // Check for pointer registers
+    if (reg.find("%tr") == 0 || reg.find("%ar") == 0 || reg.find("%sr") == 0 || 
+        reg.find("%r") == 0 || reg.find("%cp") == 0 || reg.find("%bc") == 0 || 
+        reg.find("%ptr") == 0 || reg.find("%sc") == 0) return true;
+        
+    return false;
 }
 
 std::string Codegen::ensurePointer(Info info, int level) {
-    std::string val = toRegister(info, level);
+    if (info.reg.empty() || info.reg == "0" || info.type == "null") return "null";
+    if (isLLVMPointer(info.reg)) return info.reg;
+    
     int id = lbl++;
-    indent(level); std::cout << "%ptr" << id << " = inttoptr i64 " << val << " to i8*\n";
+    indent(level);
+    std::cout << "%ptr" << id << " = inttoptr i64 " << info.reg << " to i8*\n";
     return "%ptr" + std::to_string(id);
 }
 
@@ -48,10 +67,20 @@ void Codegen::emitHeader() {
     std::cout << "declare i8* @fax_fgc_alloc(i64, i64*, i64)\n";
     std::cout << "declare i8* @fax_fgc_alloc_array(i64, i64, i1)\n";
     std::cout << "declare void @fax_fgc_collect()\n";
+    std::cout << "declare void @fax_fgc_write_barrier(i8*, i8*)\n";
+    std::cout << "declare i8* @fax_fgc_barrier(i8*)\n";
+    std::cout << "declare i8* @fax_fgc_barrier_heal(i8**)\n";
+    std::cout << "declare void @fax_fgc_bounds_check(i8*, i64)\n";
+    std::cout << "declare i64 @fax_fgc_len(i8*)\n";
     std::cout << "declare void @fax_fgc_push_frame(i8*)\n";
     std::cout << "declare void @fax_fgc_pop_frame()\n";
     std::cout << "declare i8* @fax_str_concat(i8*, i8*)\n";
-    std::cout << "declare i64 @printf(i8*, ...)\n\n";
+    std::cout << "declare i64 @fax_str_len(i8*)\n";
+    std::cout << "declare i64 @printf(i8*, ...)\n";
+    std::cout << "declare void @abort()\n";
+    std::cout << "declare {i64, i1} @llvm.sadd.with.overflow.i64(i64, i64)\n";
+    std::cout << "declare {i64, i1} @llvm.ssub.with.overflow.i64(i64, i64)\n";
+    std::cout << "declare {i64, i1} @llvm.smul.with.overflow.i64(i64, i64)\n\n";
     std::cout << "@f_int = private constant [5 x i8] c\"%ld\\0A\\00\"\n";
     std::cout << "@f_str = private constant [4 x i8] c\"%s\\0A\\00\"\n";
     std::cout << "@f_t = private constant [6 x i8] c\"true\\0A\\00\"\n";
@@ -62,30 +91,22 @@ void Codegen::defineGlobal(const json& node) {
     if (!node.contains("name")) return;
     std::string name = node["name"];
     globals.insert(name);
-
     long initialValue = 0;
     if (node.contains("expr")) {
         auto& expr = node["expr"];
         if (expr.is_number()) initialValue = expr.get<long>();
-        else if (expr.is_string()) {
-            try { initialValue = std::stol(expr.get<std::string>()); } catch(...) {}
-        }
-        else if (expr.is_object() && expr.contains("value")) {
-            try { initialValue = std::stol(expr["value"].get<std::string>()); } catch(...) {}
-        }
+        else if (expr.is_string()) { try { initialValue = std::stol(expr.get<std::string>()); } catch(...) {} }
+        else if (expr.is_object() && expr.contains("value")) { try { initialValue = std::stol(expr["value"].get<std::string>()); } catch(...) {} }
     }
     std::cout << "@" << name << " = global i64 " << initialValue << "\n";
 }
 
 void Codegen::process(const json& nodes) {
     if (!nodes.is_array()) return;
-
     for (auto& node : nodes) {
         if (!node.is_object() || !node.contains("type")) continue;
         std::string type = node["type"];
-
         if (type == "StructDeclaration") {
-            if (!node.contains("name")) continue;
             std::string name = node["name"];
             structMeta[name] = {};
             std::vector<int> pmap;
@@ -93,48 +114,29 @@ void Codegen::process(const json& nodes) {
             if (node.contains("fields")) {
                 for (int i = 0; i < (int)node["fields"].size(); ++i) {
                     auto& field = node["fields"][i];
-                    if (field.contains("name")) {
-                        std::string fieldName = field["name"];
-                        structMeta[name][fieldName] = i;
-                        std::string ft = field.contains("type") ? field["type"].get<std::string>() : "i64";
-                        fieldTypes[name][fieldName] = ft;
-                        if (isPointerType(ft)) {
-                            pmap.push_back(i * 8);
-                        }
-                    }
+                    std::string fieldName = field["name"];
+                    structMeta[name][fieldName] = i;
+                    std::string ft = field.value("type", "i64");
+                    fieldTypes[name][fieldName] = ft;
+                    if (isPointerType(ft)) pmap.push_back(i * 8);
                     std::cout << (i > 0 ? ", i64" : "i64");
                 }
             }
             std::cout << " }\n";
             if (!pmap.empty()) {
                 std::cout << "@pmap." << name << " = private constant [" << pmap.size() << " x i64] [";
-                for (size_t i = 0; i < pmap.size(); ++i) {
-                    std::cout << (i > 0 ? ", " : "") << "i64 " << pmap[i];
-                }
+                for (size_t i = 0; i < pmap.size(); ++i) std::cout << (i > 0 ? ", " : "") << "i64 " << pmap[i];
                 std::cout << "]\n";
             }
-        } else if (type == "VariableDeclaration") {
-            defineGlobal(node);
-        }
+        } else if (type == "VariableDeclaration") defineGlobal(node);
     }
-
-    for (auto& node : nodes) {
-        if (node.is_object() && node.value("type", "") == "FunctionDeclaration" && node.contains("name")) {
-            returns[node["name"]] = node.value("returnType", "void");
-        }
-    }
-
-    for (auto& node : nodes) {
-        if (node.is_object() && node.value("type", "") == "FunctionDeclaration") {
-            emitFunction(node);
-        }
-    }
+    for (auto& node : nodes) { if (node.is_object() && node.value("type", "") == "FunctionDeclaration" && node.contains("name")) returns[node["name"]] = node.value("returnType", "void"); }
+    for (auto& node : nodes) { if (node.is_object() && node.value("type", "") == "FunctionDeclaration") emitFunction(node); }
 }
 
 void Codegen::emitStatement(const json& node, int level) {
     if (!node.is_object() || !node.contains("type")) return;
     std::string type = node["type"];
-
     if (type == "VariableDeclaration") defineVariable(node, level);
     else if (type == "IfStatement") emitIf(node, level);
     else if (type == "WhileStatement") emitWhile(node, level);
@@ -143,33 +145,22 @@ void Codegen::emitStatement(const json& node, int level) {
     else if (type == "CallExpression") {
         std::string name = node.value("name", "");
         if (name == "print") emitPrint(node, level);
-        else if (name == "collect_gc") {
-            indent(level); std::cout << "call void @fax_fgc_collect()\n";
-        }
+        else if (name == "collect_gc") { indent(level); std::cout << "call void @fax_fgc_collect()\n"; }
         else emitCall(node, level);
     }
     else if (type == "ReturnStatement") emitReturn(node, level);
-    else if (type == "BreakStatement") {
-        if (!loops.empty()) { indent(level); std::cout << "br label %f" << loops.back().end << "\n"; }
-    }
-    else if (type == "ContinueStatement") {
-        if (!loops.empty()) { indent(level); std::cout << "br label %c" << loops.back().start << "\n"; }
-    }
+    else if (type == "BreakStatement") { if (!loops.empty()) { indent(level); std::cout << "br label %f" << loops.back().end << "\n"; } }
+    else if (type == "ContinueStatement") { if (!loops.empty()) { indent(level); std::cout << "br label %c" << loops.back().start << "\n"; } }
     else if (type == "Block") emitBlock(node, level);
+    else load(node, level);
 }
 
 void Codegen::emitBlock(const json& node, int level) {
     std::map<std::string, size_t> checkpoint;
     for (auto const& [name, ids] : scopes) checkpoint[name] = ids.size();
-
     const json* body = (node.is_object() && node.contains("body")) ? &node["body"] : &node;
-    if (body->is_array()) {
-        for (auto& stmt : *body) emitStatement(stmt, level);
-    }
-
-    for (auto const& [name, size] : checkpoint) {
-        while (scopes[name].size() > size) scopes[name].pop_back();
-    }
+    if (body->is_array()) for (auto& stmt : *body) emitStatement(stmt, level);
+    for (auto const& [name, size] : checkpoint) while (scopes[name].size() > size) scopes[name].pop_back();
 }
 
 Info Codegen::load(const json& node, int level) {
@@ -178,8 +169,7 @@ Info Codegen::load(const json& node, int level) {
         if (!val.empty() && isdigit(val[0])) return {val, "i64"};
         if (symbols.count(val) && symbols[val] == "arg") {
             int id = lbl++;
-            indent(level);
-            std::cout << "%a" << id << " = add i64 %arg_" << val << ", 0\n";
+            indent(level); std::cout << "%a" << id << " = add i64 %arg_" << val << ", 0\n";
             return {"%a" + std::to_string(id), "i64"};
         }
         std::string ptr = resolve(val);
@@ -187,25 +177,20 @@ Info Codegen::load(const json& node, int level) {
         int id = lbl++;
         std::string type = types.count(mangled) ? types[mangled] : "i64";
         if (pointers.count(mangled)) {
-            indent(level);
-            std::cout << "%r" << id << " = load i8*, i8** " << ptr << "\n";
-            return {"%r" + std::to_string(id), pointers[mangled] == "struct" ? types[mangled] : pointers[mangled]};
+            indent(level); std::cout << "%r" << id << " = call i8* @fax_fgc_barrier_heal(i8** " << ptr << ")\n";
+            return {"%r" + std::to_string(id), type};
         }
-        indent(level);
-        std::cout << "%t" << id << " = load i64, i64* " << ptr << "\n";
+        indent(level); std::cout << "%t" << id << " = load i64, i64* " << ptr << "\n";
         return {"%t" + std::to_string(id), type};
     }
-
     if (!node.is_object() || !node.contains("type")) return {"0", "i64"};
     std::string type = node["type"];
-
     if (type == "NumberLiteral") return {node.value("value", "0"), "i64"};
     if (type == "Identifier") {
         std::string val = node.value("value", "");
         if (symbols.count(val) && symbols[val] == "arg") {
             int id = lbl++;
-            indent(level);
-            std::cout << "%a" << id << " = add i64 %arg_" << val << ", 0\n";
+            indent(level); std::cout << "%a" << id << " = add i64 %arg_" << val << ", 0\n";
             return {"%a" + std::to_string(id), "i64"};
         }
         std::string ptr = resolve(val);
@@ -213,72 +198,273 @@ Info Codegen::load(const json& node, int level) {
         int id = lbl++;
         std::string varType = types.count(mangled) ? types[mangled] : "i64";
         if (pointers.count(mangled)) {
-            indent(level);
-            std::cout << "%r" << id << " = load i8*, i8** " << ptr << "\n";
+            indent(level); std::cout << "%r" << id << " = call i8* @fax_fgc_barrier_heal(i8** " << ptr << ")\n";
             return {"%r" + std::to_string(id), varType};
         }
-        indent(level);
-        std::cout << "%t" << id << " = load i64, i64* " << ptr << "\n";
+        indent(level); std::cout << "%t" << id << " = load i64, i64* " << ptr << "\n";
         return {"%t" + std::to_string(id), varType};
     }
-
     if (type == "Boolean") return {node.value("value", "false") == "true" ? "1" : "0", "bool"};
-
     if (type == "NullLiteral") return {"0", "null"};
-
     if (type == "StringLiteral") {
         std::string val = node.value("value", "");
         if (!strings.count(val)) strings[val] = "s" + std::to_string(str++);
         int id = lbl++;
-        indent(level);
-        std::cout << "%p" << id << " = getelementptr [" << (int)val.length()+1 << " x i8], [" << (int)val.length()+1 << " x i8]* @" << strings[val] << ", i32 0, i32 0\n";
+        indent(level); std::cout << "%p" << id << " = getelementptr [" << (int)val.length()+1 << " x i8], [" << (int)val.length()+1 << " x i8]* @" << strings[val] << ", i32 0, i32 0\n";
         return {"%p" + std::to_string(id), "string"};
     }
-
     if ((type == "BinaryExpression" || type == "ComparisonExpression") && node.contains("left") && node.contains("right")) {
-        Info leftInfo = load(node["left"], level);
-        Info rightInfo = load(node["right"], level);
         std::string op = node.value("op", "add");
-        std::string id = std::to_string(lbl++);
-
-        if (op == "add" && isStringType(leftInfo.type) && isStringType(rightInfo.type)) {
-            indent(level);
-            std::cout << "%sc" << id << " = call i8* @fax_str_concat(i8* " << leftInfo.reg << ", i8* " << rightInfo.reg << ")\n";
-            return {"%sc" + id, "string"};
+        if (op == "land" || op == "lor") {
+            int id = lbl++;
+            std::string resultPtr = "%log" + std::to_string(id) + "_ptr";
+            indent(level); std::cout << resultPtr << " = alloca i64\n";
+            Info leftInfo = load(node["left"], level);
+            std::string leftVal = toRegister(leftInfo, level);
+            indent(level); std::cout << "store i64 " << leftVal << ", i64* " << resultPtr << "\n";
+            if (op == "land") {
+                indent(level); std::cout << "%lc" << id << " = icmp ne i64 " << leftVal << ", 0\n";
+                indent(level); std::cout << "br i1 %lc" << id << ", label %lt" << id << ", label %lf" << id << "\n";
+                std::cout << "lt" << id << ":\n";
+                std::string rightVal = toRegister(load(node["right"], level + 1), level + 1);
+                indent(level + 1); std::cout << "store i64 " << rightVal << ", i64* " << resultPtr << "\n";
+                indent(level + 1); std::cout << "br label %lf" << id << "\n";
+                std::cout << "lf" << id << ":\n";
+            } else {
+                indent(level); std::cout << "%lc" << id << " = icmp eq i64 " << leftVal << ", 0\n";
+                indent(level); std::cout << "br i1 %lc" << id << ", label %lt" << id << ", label %lf" << id << "\n";
+                std::cout << "lt" << id << ":\n";
+                std::string rightVal = toRegister(load(node["right"], level + 1), level + 1);
+                indent(level + 1); std::cout << "store i64 " << rightVal << ", i64* " << resultPtr << "\n";
+                indent(level + 1); std::cout << "br label %lf" << id << "\n";
+                std::cout << "lf" << id << ":\n";
+            }
+            int resId = lbl++;
+            indent(level); std::cout << "%lv" << resId << " = load i64, i64* " << resultPtr << "\n";
+            return {"%lv" + std::to_string(resId), "bool"};
+        }
+        std::string leftVal = toRegister(load(node["left"], level), level);
+        std::string rightVal = toRegister(load(node["right"], level), level);
+        
+        // Safety Check: Arithmetic Overflow
+        if (type == "BinaryExpression") {
+            std::string resReg = emitOverflowCheck(op, leftVal, rightVal, level);
+            if (!resReg.empty()) return {resReg, "i64"};
         }
 
-        std::string leftVal = toRegister(leftInfo, level);
-        std::string rightVal = toRegister(rightInfo, level);
-
+        std::string id = std::to_string(lbl++);
         if (type == "ComparisonExpression") {
             std::string cmp = (op == "eq") ? "eq" : (op == "ne") ? "ne" : (op == "slt") ? "slt" : (op == "sgt") ? "sgt" : (op == "sle") ? "sle" : "sge";
-            indent(level);
-            std::cout << "%cmp" << id << " = icmp " << cmp << " i64 " << leftVal << ", " << rightVal << "\n";
-            indent(level);
-            std::cout << "%z" << id << " = zext i1 %cmp" << id << " to i64\n";
+            indent(level); std::cout << "%cmp" << id << " = icmp " << cmp << " i64 " << leftVal << ", " << rightVal << "\n";
+            indent(level); std::cout << "%z" << id << " = zext i1 %cmp" << id << " to i64\n";
             return {"%z" + id, "bool"};
         }
-
-        indent(level);
-        std::cout << "%b" << id << " = " << op << " i64 " << leftVal << ", " << rightVal << "\n";
+        indent(level); std::cout << "%b" << id << " = " << op << " i64 " << leftVal << ", " << rightVal << "\n";
         return {"%b" + id, "i64"};
     }
-
-    if (type == "CallExpression") {
-        std::vector<std::string> args;
-        if (node.contains("args")) {
-            for (auto& arg : node["args"]) args.push_back(toRegister(load(arg, level), level));
+    if (type == "UnaryExpression") {
+        std::string operandVal = toRegister(load(node["operand"], level), level);
+        std::string op = node.value("op", "neg");
+        std::string id = std::to_string(lbl++);
+        if (op == "not") {
+            indent(level); std::cout << "%not" << id << " = icmp eq i64 " << operandVal << ", 0\n";
+            indent(level); std::cout << "%z" << id << " = zext i1 %not" << id << " to i64\n";
+            return {"%z" + id, "bool"};
+        } else {
+            indent(level); std::cout << "%neg" << id << " = sub i64 0, " << operandVal << "\n";
+            return {"%neg" + id, "i64"};
         }
-        std::string name = node.value("name", "");
-        std::string retType = returns.count(name) ? returns[name] : "i64";
-        size_t p = 0;
-        while ((p = name.find("::", p)) != std::string::npos) { name.replace(p, 2, "_"); p += 1; }
+    }
+    if (type == "ReferenceExpression") {
+        const json& operand = node["operand"];
+        if (operand.value("type", "") == "Identifier") {
+            std::string name = operand["value"];
+            std::string ptr = resolve(name);
+            std::string mangled = mangle(name);
+            std::string varType = types.count(mangled) ? types[mangled] : "i64";
+            return {ptr, "ref " + varType};
+        }
+        return {"null", "ptr"};
+    }
+    if (type == "DereferenceExpression") {
+        Info operandInfo = load(node["operand"], level);
+        std::string ptr = operandInfo.reg;
+        
+        // Safety Check: Null Pointer
+        emitNullCheck(ptr, level);
+
         int id = lbl++;
-        indent(level);
-        std::cout << "%ig" << id << " = call i64 @" << name << "(";
+        indent(level); std::cout << "%v" << id << " = load i64, i64* " << ptr << "\n";
+        std::string innerType = "i64";
+        if (operandInfo.type.find("ref ") == 0) innerType = operandInfo.type.substr(4);
+        return {"%v" + std::to_string(id), innerType};
+    }
+    if (type == "IfExpression") {
+        std::string cond = toRegister(load(node["condition"], level), level);
+        int id = lbl++;
+        std::string resPtr = "%ifres" + std::to_string(id);
+        indent(level); std::cout << resPtr << " = alloca i64\n";
+        indent(level); std::cout << "%cb" << id << " = icmp ne i64 " << cond << ", 0\n";
+        indent(level); std::cout << "br i1 %cb" << id << ", label %t" << id << ", label %e" << id << "\nt" << id << ":\n";
+        if (node.contains("then_branch")) {
+            const auto& branch = node["then_branch"];
+            for (size_t i = 0; i < branch.size(); ++i) {
+                if (i == branch.size() - 1) {
+                    std::string val = toRegister(load(branch[i], level + 1), level + 1);
+                    indent(level + 1); std::cout << "store i64 " << val << ", i64* " << resPtr << "\n";
+                } else emitStatement(branch[i], level + 1);
+            }
+        }
+        indent(level + 1); std::cout << "br label %f" << id << "\ne" << id << ":\n";
+        if (node.contains("else_branch")) {
+            const auto& branch = node["else_branch"];
+            for (size_t i = 0; i < branch.size(); ++i) {
+                if (i == branch.size() - 1) {
+                    std::string val = toRegister(load(branch[i], level + 1), level + 1);
+                    indent(level + 1); std::cout << "store i64 " << val << ", i64* " << resPtr << "\n";
+                } else emitStatement(branch[i], level + 1);
+            }
+        }
+        indent(level + 1); std::cout << "br label %f" << id << "\nf" << id << ":\n";
+        int finalId = lbl++;
+        indent(level); std::cout << "%v" << finalId << " = load i64, i64* " << resPtr << "\n";
+        return {"%v" + std::to_string(finalId), "i64"};
+    }
+    if (type == "MatchExpression") {
+        std::string targetVal = toRegister(load(node["target"], level), level);
+        int matchId = lbl++;
+        std::string resPtr = "%matres" + std::to_string(matchId);
+        indent(level); std::cout << resPtr << " = alloca i64\n";
+        std::string endLabel = "me" + std::to_string(matchId);
+        const auto& cases = node["cases"];
+        for (size_t i = 0; i < cases.size(); ++i) {
+            std::string caseLabel = "mc" + std::to_string(matchId) + "_" + std::to_string(i);
+            std::string nextLabel = (i == cases.size() - 1) ? (node["default"].is_null() ? endLabel : "md" + std::to_string(matchId)) : "mc" + std::to_string(matchId) + "_" + std::to_string(i+1);
+            std::string patVal = toRegister(load(cases[i]["pattern"], level), level);
+            indent(level); std::cout << "%cmp" << matchId << "_" << i << " = icmp eq i64 " << targetVal << ", " << patVal << "\n";
+            indent(level); std::cout << "br i1 %cmp" << matchId << "_" << i << ", label %" << caseLabel << ", label %" << nextLabel << "\n";
+            std::cout << caseLabel << ":\n";
+            const auto& body = cases[i]["body"];
+            for (size_t j = 0; j < body.size(); ++j) {
+                if (j == body.size() - 1) {
+                    std::string val = toRegister(load(body[j], level + 1), level + 1);
+                    indent(level + 1); std::cout << "store i64 " << val << ", i64* " << resPtr << "\n";
+                } else emitStatement(body[j], level + 1);
+            }
+            indent(level + 1); std::cout << "br label %" << endLabel << "\n";
+        }
+        if (!node["default"].is_null()) {
+            std::cout << "md" << matchId << ":\n";
+            const auto& defBody = node["default"];
+            for (size_t j = 0; j < defBody.size(); ++j) {
+                if (j == defBody.size() - 1) {
+                    std::string val = toRegister(load(defBody[j], level + 1), level + 1);
+                    indent(level + 1); std::cout << "store i64 " << val << ", i64* " << resPtr << "\n";
+                } else emitStatement(defBody[j], level + 1);
+            }
+            indent(level + 1); std::cout << "br label %" << endLabel << "\n";
+        }
+        std::cout << endLabel << ":\n";
+        int finalId = lbl++;
+        indent(level); std::cout << "%v" << finalId << " = load i64, i64* " << resPtr << "\n";
+        return {"%v" + std::to_string(finalId), "i64"};
+    }
+    if (type == "TupleLiteral") {
+        int id = lbl++;
+        int count = node["elements"].size();
+        std::vector<Info> elements;
+        for (int i = 0; i < count; ++i) elements.push_back(load(node["elements"][i], level));
+        
+        indent(level); std::cout << "%tr" << id << " = call i8* @fax_fgc_alloc(i64 " << (long)count * 8 << ", i64* null, i64 0)\n";
+        indent(level); std::cout << "%tc" << id << " = bitcast i8* %tr" << id << " to i64*\n";
+        for (int i = 0; i < (int)elements.size(); ++i) {
+            std::string val = toRegister(elements[i], level);
+            indent(level); std::cout << "%tgep" << id << "_" << i << " = getelementptr i64, i64* %tc" << id << ", i32 " << i << "\n";
+            indent(level); std::cout << "store i64 " << val << ", i64* %tgep" << id << "_" << i << "\n";
+            if (isPointerType(elements[i].type)) {
+                std::string valptr = ensurePointer(elements[i], level);
+                indent(level); std::cout << "call void @fax_fgc_write_barrier(i8* %tr" << id << ", i8* " << valptr << ")\n";
+            }
+        }
+        return {"%tr" + std::to_string(id), "tuple"};
+    }
+    if (type == "MemberAccess") {
+        Info baseInfo = load(node["base"], level);
+        std::string baseReg = ensurePointer(baseInfo, level);
+        
+        // Safety Check: Null Pointer
+        emitNullCheck(baseReg, level);
+
+        std::string field = node.value("field", "");
+        int id = lbl++;
+        if (baseInfo.type == "tuple" || baseInfo.type.find("tuple") == 0) {
+            int index = std::stoi(field);
+            indent(level); std::cout << "%c" << id << " = bitcast i8* " << baseReg << " to i64*\n";
+            indent(level); std::cout << "%g" << id << " = getelementptr i64, i64* %c" << id << ", i32 " << index << "\n";
+            indent(level); std::cout << "%v" << id << " = load i64, i64* " << g << id << "\n";
+            return {"%v" + std::to_string(id), "i64"};
+        }
+        std::string structType = baseInfo.type;
+        if (structType.empty()) return {"0", "i64"};
+        int index = structMeta[structType][field];
+        indent(level); std::cout << "%c" << id << " = bitcast i8* " << baseReg << " to %struct." << structType << "*\n";
+        indent(level); std::cout << "%g" << id << " = getelementptr %struct." << structType << ", %struct." << structType << "* %c" << id << ", i32 0, i32 " << index << "\n";
+        std::string fieldType = fieldTypes[structType][field];
+        indent(level); std::cout << "%v" << id << " = load i64, i64* " << g << id << "\n";
+        if (isPointerType(fieldType)) {
+            int castId = lbl++;
+            indent(level); std::cout << "%rp" << castId << " = inttoptr i64 %v" << id << " to i8*\n";
+            indent(level); std::cout << "%cp" << castId << " = call i8* @fax_fgc_barrier(i8* %rp" << castId << ")\n";
+            return {"%cp" + std::to_string(castId), fieldType};
+        }
+        return {"%v" + std::to_string(id), fieldType};
+    }
+    if (type == "IndexAccess") {
+        Info baseInfo = load(node["base"], level);
+        std::string baseReg = ensurePointer(baseInfo, level);
+        
+        // Safety Check: Null Pointer
+        emitNullCheck(baseReg, level);
+
+        Info indexInfo = load(node["index"], level);
+        std::string indexReg = toRegister(indexInfo, level);
+
+        // Safety Check: Bounds
+        emitBoundsCheck(baseReg, indexReg, level);
+
+        int id = lbl++;
+        indent(level); std::cout << "%c" << id << " = bitcast i8* " << baseReg << " to i64*\n";
+        indent(level); std::cout << "%g" << id << " = getelementptr i64, i64* %c" << id << ", i64 " << indexReg << "\n";
+        indent(level); std::cout << "%v" << id << " = load i64, i64* %g" << id << "\n";
+        
+        std::string innerType = "i64";
+        if (baseInfo.type.find("[]") != std::string::npos) innerType = baseInfo.type.substr(0, baseInfo.type.length() - 2);
+        
+        if (isPointerType(innerType)) {
+            int castId = lbl++;
+            indent(level); std::cout << "%rp" << castId << " = inttoptr i64 %v" << id << " to i8*\n";
+            indent(level); std::cout << "%cp" << castId << " = call i8* @fax_fgc_barrier(i8* %rp" << castId << ")\n";
+            return {"%cp" + std::to_string(castId), innerType};
+        }
+        return {"%v" + std::to_string(id), innerType};
+    }
+    if (type == "CallExpression") {
+        std::string name = node.value("name", "");
+        if (name == "len") {
+            Info arg = load(node["args"][0], level);
+            int id = lbl++;
+            indent(level);
+            if (isStringType(arg.type)) std::cout << "%l" << id << " = call i64 @fax_str_len(i8* " << (isLLVMPointer(arg.reg) ? arg.reg : ensurePointer(arg, level)) << ")\n";
+            else std::cout << "%l" << id << " = call i64 @fax_fgc_len(i8* " << (isLLVMPointer(arg.reg) ? arg.reg : ensurePointer(arg, level)) << ")\n";
+            return {"%l" + std::to_string(id), "i64"};
+        }
+        std::vector<std::string> args;
+        if (node.contains("args")) for (auto& arg : node["args"]) args.push_back(toRegister(load(arg, level), level));
+        std::string retType = returns.count(name) ? returns[name] : "i64";
+        int id = lbl++;
+        indent(level); std::cout << "%ig" << id << " = call i64 @" << name << "(";
         for (size_t i = 0; i < args.size(); ++i) std::cout << (i > 0 ? ", " : "") << "i64 " << args[i];
         std::cout << ")\n";
-
         if (isPointerType(retType)) {
             int castId = lbl++;
             indent(level); std::cout << "%cp" << castId << " = inttoptr i64 %ig" << id << " to i8*\n";
@@ -286,122 +472,12 @@ Info Codegen::load(const json& node, int level) {
         }
         return {"%ig" + std::to_string(id), retType};
     }
-
-    if (type == "StructLiteral") {
-        std::string name = node.value("name", "");
-        int id = lbl++;
-        int count = node["fields"].size();
-
-        // Find pointer map for this struct
-        std::string pmap_name = "null";
-        int pmap_len = 0;
-
-        // We need to re-scan to find pmap size, or store it in a map.
-        // For simplicity, let's just re-calculate since we know the fields.
-        // Actually, I already emitted @pmap.name in process().
-        // Let's check how many fields are pointers.
-        for (auto const& [f, t] : fieldTypes[name]) {
-            if (isPointerType(t)) {
-                pmap_len++;
-            }
-        }
-
-        if (pmap_len > 0) {
-            pmap_name = "getelementptr ([" + std::to_string(pmap_len) + " x i64], [" + std::to_string(pmap_len) + " x i64]* @pmap." + name + ", i32 0, i32 0)";
-        }
-
-        indent(level); std::cout << "%sr" << id << " = call i8* @fax_fgc_alloc(i64 " << (long)count * 8 << ", i64* " << pmap_name << ", i64 " << (long)pmap_len << ")\n";
-        indent(level); std::cout << "%sc" << id << " = bitcast i8* %sr" << id << " to %struct." << name << "*\n";
-        for (auto& field : node["fields"]) {
-            std::string fieldName = field.value("name", "");
-            int index = structMeta[name][fieldName];
-            std::string val = toRegister(load(field["expr"], level), level);
-            indent(level); std::cout << "%sf" << id << "_" << index << " = getelementptr %struct." << name << ", %struct." << name << "* %sc" << id << ", i32 0, i32 " << index << "\n";
-            indent(level); std::cout << "store i64 " << val << ", i64* %sf" << id << "_" << index << "\n";
-        }
-        return {"%sr" + std::to_string(id), name};
-    }
-
-    if (type == "MemberAccess") {
-        Info baseInfo = load(node["base"], level);
-        std::string baseReg = ensurePointer(baseInfo, level);
-
-        std::string field = node.value("field", "");
-        std::string structType = baseInfo.type;
-        int index = structMeta[structType][field];
-        int id = lbl++;
-        indent(level);
-        std::cout << "%c" << id << " = bitcast i8* " << baseReg << " to %struct." << structType << "*\n";
-        indent(level);
-        std::cout << "%g" << id << " = getelementptr %struct." << structType << ", %struct." << structType << "* %c" << id << ", i32 0, i32 " << index << "\n";
-        std::string fieldType = fieldTypes[structType][field];
-        indent(level);
-        std::cout << "%v" << id << " = load i64, i64* %g" << id << "\n";
-        if (isPointerType(fieldType)) {
-            int castId = lbl++;
-            indent(level);
-            std::cout << "%cp" << castId << " = inttoptr i64 %v" << id << " to i8*\n";
-            return {"%cp" + std::to_string(castId), fieldType};
-        }
-        return {"%v" + std::to_string(id), fieldType};
-    }
-
-    if (type == "IndexAccess") {
-        Info baseInfo = load(node["base"], level);
-        std::string baseReg = ensurePointer(baseInfo, level);
-
-        std::string indexVal = toRegister(load(node["index"], level), level);
-        std::string elemType = "i64";
-        if (baseInfo.type.length() > 2 && baseInfo.type.substr(baseInfo.type.length() - 2) == "[]") {
-            elemType = baseInfo.type.substr(0, baseInfo.type.length() - 2);
-        }
-
-        int id = lbl++;
-        indent(level);
-        std::cout << "%ap" << id << " = bitcast i8* " << baseReg << " to i64*\n";
-        indent(level);
-        std::cout << "%ge" << id << " = getelementptr i64, i64* %ap" << id << ", i64 " << indexVal << "\n";
-        indent(level);
-        std::cout << "%vi" << id << " = load i64, i64* %ge" << id << "\n";
-
-        if (isPointerType(elemType)) {
-            int castId = lbl++;
-            indent(level); std::cout << "%cp" << castId << " = inttoptr i64 %vi" << id << " to i8*\n";
-            return {"%cp" + std::to_string(castId), elemType};
-        }
-        return {"%vi" + std::to_string(id), elemType};
-    }
-
-    if (type == "ArrayLiteral") {
-        int count = 0;
-        if (node.contains("elements")) count = node["elements"].size();
-
-        bool isPtrArray = false;
-        if (count > 0) {
-            Info first = load(node["elements"][0], level);
-            if (isPointerType(first.type)) isPtrArray = true;
-        }
-
-        int id = lbl++;
-        indent(level);
-        std::cout << "%ar" << id << " = call i8* @fax_fgc_alloc_array(i64 8, i64 " << (long)count << ", i1 " << (isPtrArray ? "1" : "0") << ")\n";
-        indent(level);
-        std::cout << "%ac" << id << " = bitcast i8* %ar" << id << " to i64*\n";
-        for (int i = 0; i < count; ++i) {
-            std::string val = toRegister(load(node["elements"][i], level), level);
-            indent(level);
-            std::cout << "%agep" << id << "_" << i << " = getelementptr i64, i64* %ac" << id << ", i64 " << i << "\n";
-            indent(level);
-            std::cout << "store i64 " << val << ", i64* %agep" << id << "_" << i << "\n";
-        }
-        return {"%ar" + std::to_string(id), "array"};
-    }
-
     return {"0", "i64"};
 }
 
 std::string Codegen::toRegister(Info info, int level) {
-    if (!info.reg.empty() && info.reg[0] == '%' && isPointerType(info.type)) {
+    if (info.type == "bool" || info.type == "i64") return info.reg;
+    if (isLLVMPointer(info.reg)) {
         int id = lbl++;
         indent(level);
         std::cout << "%c64_" << id << " = ptrtoint i8* " << info.reg << " to i64\n";
@@ -417,7 +493,6 @@ void Codegen::defineVariable(const json& node, int level) {
     scopes[name].push_back(id);
     std::string mangled = name + "_" + std::to_string(id);
     std::string ptr = "%" + mangled + "_ptr";
-
     if (node.contains("expr")) {
         Info res = load(node["expr"], level);
         std::string val = toRegister(res, level);
@@ -427,10 +502,7 @@ void Codegen::defineVariable(const json& node, int level) {
             std::cout << "%pv" << castId << " = inttoptr i64 " << val << " to i8*\n";
             indent(level);
             std::cout << "store i8* %pv" << castId << ", i8** " << ptr << "\n";
-        } else {
-            indent(level);
-            std::cout << "store i64 " << val << ", i64* " << ptr << "\n";
-        }
+        } else { indent(level); std::cout << "store i64 " << val << ", i64* " << ptr << "\n"; }
     }
 }
 
@@ -438,37 +510,22 @@ void Codegen::emitAssignment(const json& node, int level) {
     if (!node.contains("expr") || !node.contains("target")) return;
     std::string val = toRegister(load(node["expr"], level), level);
     const json& target = node["target"];
-
-    if (target.is_object() && target.value("type", "") == "MemberAccess") {
-        Info baseInfo = load(target["base"], level);
-        std::string field = target.value("field", "");
-        std::string structType = baseInfo.type;
-        int index = structMeta[structType][field];
-        int id = lbl++;
-        indent(level); std::cout << "%ca" << id << " = bitcast i8* " << baseInfo.reg << " to %struct." << structType << "*\n";
-        indent(level); std::cout << "%ga" << id << " = getelementptr %struct." << structType << ", %struct." << structType << "* %ca" << id << ", i32 0, i32 " << index << "\n";
-        indent(level); std::cout << "store i64 " << val << ", i64* %ga" << id << "\n";
-    } else if (target.is_object() && target.value("type", "") == "IndexAccess") {
-        Info baseInfo = load(target["base"], level);
-        std::string indexVal = toRegister(load(target["index"], level), level);
-        int id = lbl++;
-        indent(level); std::cout << "%ap" << id << " = bitcast i8* " << baseInfo.reg << " to i64*\n";
-        indent(level); std::cout << "%ge" << id << " = getelementptr i64, i64* %ap" << id << ", i64 " << indexVal << "\n";
-        indent(level); std::cout << "store i64 " << val << ", i64* %ge" << id << "\n";
-    } else if (target.is_object() && target.value("type", "") == "Identifier") {
+    if (target.is_object() && target.value("type", "") == "Identifier") {
         std::string name = target["value"];
         std::string ptr = resolve(name);
         std::string mangled = mangle(name);
         if (pointers.count(mangled)) {
             int id = lbl++;
-            indent(level);
-            std::cout << "%cv" << id << " = inttoptr i64 " << val << " to i8*\n";
-            indent(level);
-            std::cout << "store i8* %cv" << id << ", i8** " << ptr << "\n";
-        } else {
-            indent(level);
-            std::cout << "store i64 " << val << ", i64* " << ptr << "\n";
-        }
+            indent(level); std::cout << "%cv" << id << " = inttoptr i64 " << val << " to i8*\n";
+            indent(level); std::cout << "store i8* %cv" << id << ", i8** " << ptr << "\n";
+        } else { indent(level); std::cout << "store i64 " << val << ", i64* " << ptr << "\n"; }
+    } else if (target.value("type", "") == "DereferenceExpression") {
+        Info ptrInfo = load(target["operand"], level);
+        
+        // Safety Check: Null Pointer
+        emitNullCheck(ptrInfo.reg, level);
+
+        indent(level); std::cout << "store i64 " << val << ", i64* " << ptrInfo.reg << "\n";
     }
 }
 
@@ -477,7 +534,7 @@ void Codegen::emitIf(const json& node, int level) {
     int id = lbl++;
     indent(level); std::cout << "%cb" << id << " = icmp ne i64 " << cond << ", 0\n";
     bool hasElse = node.contains("else_branch") && !node["else_branch"].empty();
-    indent(level); std::cout << "br i1 %cb" << id << ", label %t" << id << ", label %" << (hasElse ? "e" : "f") << id << "\n\nt" << id << ":\n";
+    indent(level); std::cout << "br i1 %cb" << id << ", label %t" << id << ", label %" << (hasElse ? "e" : "f") << id << "\nt" << id << ":\n";
     emitBlock(node["then_branch"], level + 1);
     indent(level + 1); std::cout << "br label %f" << id << "\n";
     if (hasElse) { std::cout << "e" << id << ":\n"; emitBlock(node["else_branch"], level + 1); indent(level + 1); std::cout << "br label %f" << id << "\n"; }
@@ -502,10 +559,12 @@ void Codegen::emitFor(const json& node, int level) {
     scopes[var].push_back(sid);
     std::string ptr = "%" + var + "_" + std::to_string(sid) + "_ptr";
     indent(level); std::cout << ptr << " = alloca i64\n";
-    indent(level); std::cout << "store i64 " << toRegister(load(node["start"], level), level) << ", i64* " << ptr << "\n";
+    std::string startVal = toRegister(load(node["start"], level), level);
+    indent(level); std::cout << "store i64 " << startVal << ", i64* " << ptr << "\n";
     indent(level); std::cout << "br label %c" << id << "\nc" << id << ":\n";
     indent(level+1); std::cout << "%cv" << id << " = load i64, i64* " << ptr << "\n";
-    indent(level+1); std::cout << "%il" << id << " = icmp slt i64 %cv" << id << ", " << toRegister(load(node["end"], level+1), level+1) << "\n";
+    std::string endVal = toRegister(load(node["end"], level+1), level+1);
+    indent(level+1); std::cout << "%il" << id << " = icmp slt i64 %cv" << id << ", " << endVal << "\n";
     indent(level+1); std::cout << "br i1 %il" << id << ", label %b" << id << ", label %f" << id << "\nb" << id << ":\n";
     loops.push_back({id, id});
     emitBlock(node["body"], level+1);
@@ -523,20 +582,13 @@ void Codegen::emitReturn(const json& node, int level) {
         std::string res = toRegister(load(node[key], level), level);
         indent(level); std::cout << "call void @fax_fgc_pop_frame()\n";
         indent(level); std::cout << "ret i64 " << res << "\n";
-    } else {
-        indent(level); std::cout << "call void @fax_fgc_pop_frame()\n";
-        indent(level); std::cout << "ret i64 0\n";
-    }
+    } else { indent(level); std::cout << "call void @fax_fgc_pop_frame()\n"; indent(level); std::cout << "ret i64 0\n"; }
 }
 
 void Codegen::emitCall(const json& node, int level) {
     std::vector<std::string> args;
-    if (node.contains("args")) {
-        for (auto& arg : node["args"]) args.push_back(toRegister(load(arg, level), level));
-    }
+    if (node.contains("args")) for (auto& arg : node["args"]) args.push_back(toRegister(load(arg, level), level));
     std::string name = node["name"];
-    size_t p = 0;
-    while ((p = name.find("::", p)) != std::string::npos) { name.replace(p, 2, "_"); p += 1; }
     indent(level); std::cout << "%ig" << lbl++ << " = call i64 @" << name << "(";
     for (size_t i = 0; i < args.size(); ++i) std::cout << (i > 0 ? ", " : "") << "i64 " << args[i];
     std::cout << ")\n";
@@ -544,56 +596,25 @@ void Codegen::emitCall(const json& node, int level) {
 
 void Codegen::emitFunction(const json& node) {
     std::string name = node["name"];
-    bool isExt = node.value("is_extern", false);
-
-    if (isExt) {
+    if (node.value("is_extern", false)) {
         std::cout << "declare i64 @" << name << "(";
-        if (node.contains("args")) {
-            for (int i = 0; i < (int)node["args"].size(); ++i) std::cout << (i > 0 ? ", i64" : "i64");
-        }
+        if (node.contains("args")) for (int i = 0; i < (int)node["args"].size(); ++i) std::cout << (i > 0 ? ", i64" : "i64");
         std::cout << ")\n"; return;
     }
-
-    symbols.clear(); pointers.clear(); types.clear(); scopes.clear();
+    symbols.clear(); pointers.clear(); types.clear(); scopes.clear(); lbl = 0;
     std::cout << "\ndefine i64 @" << name << "(";
-
-    std::vector<std::string> argNames;
     if (node.contains("args")) {
         for (int i = 0; i < (int)node["args"].size(); ++i) {
             std::string arg = node["args"][i]["name"];
             std::cout << (i > 0 ? ", " : "") << "i64 %arg_" << arg;
             symbols[arg] = "arg";
-            argNames.push_back(arg);
-
-            // Initial type for arguments (can be improved with better type info in JSON)
-            std::string at = node["args"][i].value("p_type", "i64");
-            std::string mangled = arg + "_arg"; // Special mangling for args to avoid collision
-            if (isPointerType(at)) pointers[mangled] = isStringType(at) ? "string" : (at.find("[]") != std::string::npos ? "array" : "struct");
         }
     }
     std::cout << ") {\nentry:\n";
     if (name == "main") { indent(1); std::cout << "call void @fax_fgc_init()\n"; }
-
-    // Temporary scope setup for arguments during collection
-    for (auto const& arg : argNames) {
-        scopes[arg].push_back(-1); // Use -1 to indicate argument scope
-    }
-
     std::vector<std::string> ptrs;
     if (node.contains("body")) collect(node["body"], ptrs);
-
-    // Reset scopes but keep arguments (mangled correctly)
-    scopes.clear();
-    for (auto const& arg : argNames) {
-        // In Fax, arguments are currently accessed via %arg_name, not a pointer on stack.
-        // Wait, I previously changed them to be stored in stack slots for GC.
-        // Let's restore that logic but cleanly.
-    }
-
-    // Actual pointer collection logic including arguments
     std::vector<std::string> finalPtrs;
-    std::map<std::string, std::string> argPtrs;
-
     if (node.contains("args")) {
         for (auto& argNode : node["args"]) {
             std::string an = argNode["name"];
@@ -602,21 +623,12 @@ void Codegen::emitFunction(const json& node) {
             std::string mangled = an + "_" + std::to_string(id);
             nodeIds[&argNode] = id;
             types[mangled] = at;
-
             std::string ptr = "%" + mangled + "_ptr";
-            if (isPointerType(at)) {
-                pointers[mangled] = isStringType(at) ? "string" : (at.find("[]") != std::string::npos ? "array" : "struct");
-                finalPtrs.push_back(ptr);
-            } else {
-                indent(1); std::cout << ptr << " = alloca i64\n";
-            }
-            argPtrs[an] = ptr;
+            if (isPointerType(at)) { pointers[mangled] = "ptr"; finalPtrs.push_back(ptr); }
+            else { indent(1); std::cout << ptr << " = alloca i64\n"; }
         }
     }
-
-    // Add body pointers
     for (auto const& p : ptrs) finalPtrs.push_back(p);
-
     indent(1); std::cout << "%_frame = alloca { i8*, i8**, i64 }, align 16\n";
     indent(1); std::cout << "%_rs = alloca [" << std::max((int)finalPtrs.size(), 1) << " x i8**], align 16\n";
     for (int i = 0; i < (int)finalPtrs.size(); ++i) {
@@ -625,17 +637,15 @@ void Codegen::emitFunction(const json& node) {
         indent(1); std::cout << "%_ga" << i << " = getelementptr [" << std::max((int)finalPtrs.size(), 1) << " x i8**], [" << std::max((int)finalPtrs.size(), 1) << " x i8**]* %_rs, i32 0, i32 " << i << "\n";
         indent(1); std::cout << "store i8** " << finalPtrs[i] << ", i8*** %_ga" << i << "\n";
     }
-
-    // Setup GC frame
     indent(1); std::cout << "%_f0 = getelementptr { i8*, i8**, i64 }, { i8*, i8**, i64 }* %_frame, i32 0, i32 1\n";
-    indent(1); std::cout << "%_f1 = bitcast [" << std::max((int)finalPtrs.size(), 1) << " x i8**]* %_rs to i8**\n";
-    indent(1); std::cout << "store i8** %_f1, i8*** %_f0\n";
+    int bc1 = lbl++;
+    indent(1); std::cout << "%bc" << bc1 << " = bitcast [" << std::max((int)finalPtrs.size(), 1) << " x i8**]* %_rs to i8**\n";
+    indent(1); std::cout << "store i8** %bc" << bc1 << ", i8*** %_f0\n";
     indent(1); std::cout << "%_f2 = getelementptr { i8*, i8**, i64 }, { i8*, i8**, i64 }* %_frame, i32 0, i32 2\n";
     indent(1); std::cout << "store i64 " << (long)finalPtrs.size() << ", i64* %_f2\n";
-    indent(1); std::cout << "%_fc = bitcast { i8*, i8**, i64 }* %_frame to i8*\n";
-    indent(1); std::cout << "call void @fax_fgc_push_frame(i8* %_fc)\n";
-
-    // Initialize arguments in their slots and scopes
+    int bc2 = lbl++;
+    indent(1); std::cout << "%bc" << bc2 << " = bitcast { i8*, i8**, i64 }* %_frame to i8*\n";
+    indent(1); std::cout << "call void @fax_fgc_push_frame(i8* %bc" << bc2 << ")\n";
     if (node.contains("args")) {
         for (auto& argNode : node["args"]) {
             std::string an = argNode["name"];
@@ -643,152 +653,62 @@ void Codegen::emitFunction(const json& node) {
             scopes[an].push_back(id);
             std::string mangled = an + "_" + std::to_string(id);
             std::string ptr = "%" + mangled + "_ptr";
-
             if (pointers.count(mangled)) {
                 int idCast = lbl++;
                 indent(1); std::cout << "%pv" << idCast << " = inttoptr i64 %arg_" << an << " to i8*\n";
                 indent(1); std::cout << "store i8* %pv" << idCast << ", i8** " << ptr << "\n";
-            } else {
-                indent(1); std::cout << "store i64 %arg_" << an << ", i64* " << ptr << "\n";
-            }
+            } else { indent(1); std::cout << "store i64 %arg_" << an << ", i64* " << ptr << "\n"; }
         }
     }
-
     if (node.contains("body")) for (auto& stmt : node["body"]) emitStatement(stmt, 1);
-
     indent(1); std::cout << "call void @fax_fgc_pop_frame()\n";
     indent(1); std::cout << "ret i64 0\n}\n";
 }
 
 void Codegen::collect(const json& node, std::vector<std::string>& ptrs) {
-    if (node.is_array()) {
-        for (auto& item : node) collect(item, ptrs);
-        return;
-    }
+    if (node.is_array()) { for (auto& item : node) collect(item, ptrs); return; }
     if (!node.is_object()) return;
-
     std::string type = node.value("type", "");
-
-    if (type == "Block") {
-        std::map<std::string, size_t> checkpoint;
-        for (auto const& [name, ids] : scopes) checkpoint[name] = ids.size();
-        if (node.contains("body")) collect(node["body"], ptrs);
-        for (auto const& [name, size] : checkpoint) {
-            while (scopes[name].size() > size) scopes[name].pop_back();
-        }
-        return;
-    }
-
+    if (type == "Block") { if (node.contains("body")) collect(node["body"], ptrs); return; }
     if (type == "VariableDeclaration" && node.contains("name")) {
         std::string name = node["name"];
         int id = lbl++;
         nodeIds[&node] = id;
-
-        std::string vt = node.value("var_type", "");
-        if (vt == "" && node.contains("expr") && node["expr"].is_object()) {
-            const json& expr = node["expr"];
-            std::string et = expr.value("type", "");
-
-            if (et == "StringLiteral") vt = "string";
-            else if (et == "ArrayLiteral") vt = "array";
-            else if (et == "StructLiteral") vt = expr.value("name", "struct");
-            else if (et == "Identifier") {
-                std::string n = expr.value("value", "");
-                if (scopes.count(n) && !scopes[n].empty()) {
-                    std::string m = n + "_" + std::to_string(scopes[n].back());
-                    if (types.count(m)) vt = types[m];
-                }
-            } else if (et == "IndexAccess") {
-                const json& base = expr["base"];
-                if (base.is_object() && base.value("type", "") == "Identifier") {
-                    std::string n = base.value("value", "");
-                    if (scopes.count(n) && !scopes[n].empty()) {
-                        std::string m = n + "_" + std::to_string(scopes[n].back());
-                        if (types.count(m)) {
-                            std::string bt = types[m];
-                            if (bt.length() > 2 && bt.substr(bt.length() - 2) == "[]") vt = bt.substr(0, bt.length() - 2);
-                        }
-                    }
-                }
-            } else if (et == "CallExpression") {
-                std::string n = expr.value("name", "");
-                if (returns.count(n)) vt = returns[n];
-            } else if (et == "BinaryExpression" && expr.value("op", "") == "add") {
-                auto isStr = [&](const json& op) {
-                    if (!op.is_object()) return false;
-                    if (isStringType(op.value("type", ""))) return true;
-                    if (op.value("type", "") == "Identifier") {
-                        std::string n = op.value("value", "");
-                        if (scopes.count(n) && !scopes[n].empty()) {
-                            std::string m = n + "_" + std::to_string(scopes[n].back());
-                            return types.count(m) && isStringType(types[m]);
-                        }
-                    }
-                    return false;
-                };
-                if (isStr(expr.value("left", json::object())) || isStr(expr.value("right", json::object()))) vt = "string";
-            }
-        }
-
+        std::string vt = node.value("var_type", "i64");
         std::string mangled = name + "_" + std::to_string(id);
         scopes[name].push_back(id);
         types[mangled] = vt;
-
-        if (isPointerType(vt)) {
-            pointers[mangled] = isStringType(vt) ? "string" : (vt.find("[]") != std::string::npos ? "array" : "struct");
-            ptrs.push_back("%" + mangled + "_ptr");
-        } else {
-            indent(1); std::cout << "%" << mangled << "_ptr = alloca i64\n";
-            indent(1); std::cout << "store i64 0, i64* %" << mangled << "_ptr\n";
-        }
+        if (isPointerType(vt)) { pointers[mangled] = "ptr"; ptrs.push_back("%" + mangled + "_ptr"); }
+        else { indent(1); std::cout << "%" << mangled << "_ptr = alloca i64\n"; indent(1); std::cout << "store i64 0, i64* %" << mangled << "_ptr\n"; }
         return;
     }
-
-    if (type == "IfStatement") {
+    if (type == "IfStatement" || type == "IfExpression") {
         if (node.contains("then_branch")) collect(node["then_branch"], ptrs);
         if (node.contains("else_branch")) collect(node["else_branch"], ptrs);
     } else if (type == "WhileStatement" || type == "ForStatement") {
-        if (type == "ForStatement") {
-            std::string var = node["var_name"];
-            int id = lbl++;
-            scopes[var].push_back(id);
-            std::string mangled = var + "_" + std::to_string(id);
-            types[mangled] = "i64";
-            // For loops in Fax use a special pointer-less i64 on stack handled in emitFor
-        }
         if (node.contains("body")) collect(node["body"], ptrs);
-        if (type == "ForStatement") scopes[node["var_name"].get<std::string>()].pop_back();
-    } else {
-        for (auto it = node.begin(); it != node.end(); ++it) {
-            if (it.value().is_object() || it.value().is_array()) collect(it.value(), ptrs);
-        }
-    }
+    } else { for (auto it = node.begin(); it != node.end(); ++it) if (it.value().is_object() || it.value().is_array()) collect(it.value(), ptrs); }
 }
 
 void Codegen::emitPrint(const json& node, int level) {
-    Info info = { "0", "i64" };
-    if (node.contains("expr")) info = load(node["expr"], level);
-    else if (node.contains("args") && !node["args"].empty()) info = load(node["args"][0], level);
-
+    Info info = load(node.contains("expr") ? node["expr"] : node["args"][0], level);
     std::string val = toRegister(info, level);
-    if (info.type == "bool") {
+    if (info.type == "bool" || (node.contains("expr") && node["expr"].value("type", "") == "Boolean") || 
+        (node.contains("args") && !node["args"].empty() && node["args"][0].value("type", "") == "Boolean")) {
         int t = lbl++, f = lbl++, e = lbl++;
         indent(level); std::cout << "%it" << lbl++ << " = icmp ne i64 " << val << ", 0\n";
-        indent(level); std::cout << "br i1 %it" << (lbl-1) << ", label %L" << t << ", label %L" << f << "\n";
-        std::cout << "L" << t << ":\n"; indent(level+1); std::cout << "call i64 (i8*, ...) @printf(i8* getelementptr ([6 x i8], [6 x i8]* @f_t, i32 0, i32 0))\n"; indent(level+1); std::cout << "br label %L" << e << "\n";
-        std::cout << "L" << f << ":\n"; indent(level+1); std::cout << "call i64 (i8*, ...) @printf(i8* getelementptr ([7 x i8], [7 x i8]* @f_f, i32 0, i32 0))\n"; indent(level+1); std::cout << "br label %L" << e << "\n";
-        std::cout << "L" << e << ":\n";
+        indent(level); std::cout << "br i1 %it" << (lbl-1) << ", label %L" << t << ", label %L" << f << "\nL" << t << ":\n";
+        indent(level+1); std::cout << "call i64 (i8*, ...) @printf(i8* getelementptr ([6 x i8], [6 x i8]* @f_t, i32 0, i32 0))\n";
+        indent(level+1); std::cout << "br label %L" << e << "\nL" << f << ":\n";
+        indent(level+1); std::cout << "call i64 (i8*, ...) @printf(i8* getelementptr ([7 x i8], [7 x i8]* @f_f, i32 0, i32 0))\n";
+        indent(level+1); std::cout << "br label %L" << e << "\nL" << e << ":\n";
     } else if (isStringType(info.type)) {
-        indent(level); std::cout << "call i64 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @f_str, i32 0, i32 0), i8* " << (info.reg[0] == '%' ? info.reg : val) << ")\n";
-    } else {
-        indent(level); std::cout << "call i64 (i8*, ...) @printf(i8* getelementptr ([5 x i8], [5 x i8]* @f_int, i32 0, i32 0), i64 " << val << ")\n";
-    }
+        indent(level); std::cout << "call i64 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @f_str, i32 0, i32 0), i8* " << (isLLVMPointer(info.reg) ? info.reg : val) << ")\n";
+    } else { indent(level); std::cout << "call i64 (i8*, ...) @printf(i8* getelementptr ([5 x i8], [5 x i8]* @f_int, i32 0, i32 0), i64 " << val << ")\n"; }
 }
 
 void Codegen::generate() {
-    // Apply optimizations to the AST before code generation
     json optimizedAst = Optimizer::optimize(ast);
-    
     emitHeader();
     process(optimizedAst.contains("body") ? optimizedAst["body"] : optimizedAst);
     for (auto const& [val, name] : strings) {
@@ -802,5 +722,66 @@ void Codegen::generate() {
     }
 }
 
+// Safety Check Implementations
+std::string Codegen::emitBoundsCheck(const std::string& arr, const std::string& idx, int level) {
+    int id = lbl++;
+    indent(level); std::cout << "; --- Bounds check ---\n";
+    indent(level); std::cout << "%len" << id << " = call i64 @fax_fgc_len(i8* " << arr << ")\n";
+    indent(level); std::cout << "%cmp" << id << " = icmp slt i64 " << idx << ", %len" << id << "\n";
+    indent(level); std::cout << "%cmp2" << id << " = icmp sge i64 " << idx << ", 0\n";
+    indent(level); std::cout << "%valid" << id << " = and i1 %cmp" << id << ", %cmp2" << id << "\n";
+    indent(level); std::cout << "br i1 %valid" << id << ", label %ok" << id << ", label %bounds_fail" << id << "\n";
+    std::cout << "bounds_fail" << id << ":\n";
+    indent(level + 1); std::cout << "call void @fax_fgc_bounds_check(i8* " << arr << ", i64 " << idx << ")\n";
+    indent(level + 1); std::cout << "unreachable\n";
+    std::cout << "ok" << id << ":\n";
+    return "%valid" + std::to_string(id);
 }
+
+void Codegen::emitNullCheck(const std::string& ptr, int level) {
+    int id = lbl++;
+    indent(level); std::cout << "; --- Null check ---\n";
+    indent(level); std::cout << "%nullcmp" << id << " = icmp eq i8* " << ptr << ", null\n";
+    indent(level); std::cout << "br i1 %nullcmp" << id << ", label %null_fail" << id << ", label %null_ok" << id << "\n";
+    std::cout << "null_fail" << id << ":\n";
+    indent(level + 1); std::cout << "call void @abort()\n";
+    indent(level + 1); std::cout << "unreachable\n";
+    std::cout << "null_ok" << id << ":\n";
 }
+
+std::string Codegen::emitOverflowCheck(const std::string& op, const std::string& left, const std::string& right, int level) {
+    std::string intrinsic = (op == "add") ? "llvm.sadd.with.overflow.i64" : 
+                            (op == "mul") ? "llvm.smul.with.overflow.i64" : 
+                            (op == "sub") ? "llvm.ssub.with.overflow.i64" : "";
+    if (intrinsic.empty()) return "";
+
+    int id = lbl++;
+    indent(level); std::cout << "; --- Overflow check for " << op << " ---\n";
+    indent(level); std::cout << "%res_struct" << id << " = call {i64, i1} @" << intrinsic << "(i64 " << left << ", i64 " << right << ")\n";
+    indent(level); std::cout << "%ovf" << id << " = extractvalue {i64, i1} %res_struct" << id << ", 1\n";
+    indent(level); std::cout << "br i1 %ovf" << id << ", label %overflow" << id << ", label %no_overflow" << id << "\n";
+    std::cout << "overflow" << id << ":\n";
+    indent(level + 1); std::cout << "call void @abort()\n";
+    indent(level + 1); std::cout << "unreachable\n";
+    std::cout << "no_overflow" << id << ":\n";
+    indent(level); std::cout << "%res" << id << " = extractvalue {i64, i1} %res_struct" << id << ", 0\n";
+    return "%res" + std::to_string(id);
+}
+
+bool Codegen::needsBoundsCheck(const json& node) {
+    return node.is_object() && node.value("type", "") == "IndexAccess";
+}
+
+bool Codegen::needsNullCheck(const json& node) {
+    if (!node.is_object() || !node.contains("type")) return false;
+    std::string type = node["type"];
+    if (type == "DereferenceExpression" || type == "IndexAccess") return true;
+    if (type == "MemberAccess" && node.contains("base")) {
+        std::string bt = node["base"].value("type", "");
+        return bt == "Identifier" || bt == "DereferenceExpression" || bt == "IndexAccess" || bt == "MemberAccess";
+    }
+    return false;
+}
+
+} // namespace codegen
+} // namespace fax

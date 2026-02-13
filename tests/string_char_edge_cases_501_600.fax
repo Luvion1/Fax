@@ -1,0 +1,773 @@
+// String and Character Edge Cases 501-600
+
+fn test_empty_string() {
+    let s = "";
+    print(len(s));
+}
+
+fn test_single_char_string() {
+    let s = "a";
+    print(len(s));
+    print(s[0]);
+}
+
+fn test_multi_char_string() {
+    let s = "hello";
+    print(len(s));
+    print(s[0]);
+    print(s[4]);
+}
+
+fn test_string_with_spaces() {
+    let s = "hello world";
+    print(len(s));
+}
+
+fn test_string_with_special_chars() {
+    let s = "!@#$%^&*()";
+    print(len(s));
+}
+
+fn test_string_with_numbers() {
+    let s = "12345";
+    print(len(s));
+}
+
+fn test_string_with_mixed_content() {
+    let s = "abc123!@#";
+    print(len(s));
+}
+
+fn test_string_concatenation_simulation() {
+    let s1 = "hello";
+    let s2 = "world";
+    // Simulate concatenation by printing separately
+    print(len(s1));
+    print(len(s2));
+}
+
+fn test_string_comparison_eq() {
+    let s1 = "test";
+    let s2 = "test";
+    let equal = compare_strings(s1, s2);
+    print(equal);
+}
+
+fn test_string_comparison_neq() {
+    let s1 = "test";
+    let s2 = "testing";
+    let equal = compare_strings(s1, s2);
+    print(equal);
+}
+
+fn compare_strings(s1: str, s2: str) -> bool {
+    let len1 = len(s1);
+    let len2 = len(s2);
+    if len1 != len2 {
+        return false;
+    }
+    let mut i = 0;
+    while i < len1 {
+        if s1[i] != s2[i] {
+            return false;
+        }
+        i = i + 1;
+    }
+    return true;
+}
+
+fn test_string_upper_lower_simulation() {
+    let s = "Hello";
+    // Simulate case conversion
+    print(len(s));
+}
+
+fn test_string_substring_simulation() {
+    let s = "hello world";
+    let start = 6;
+    let end = 11;
+    // Simulate substring extraction
+    print(end - start);
+}
+
+fn test_string_trim_simulation() {
+    let s = "  hello  ";
+    // Simulate trimming
+    print(len(s));
+}
+
+fn test_string_split_simulation() {
+    let s = "a,b,c";
+    // Simulate splitting by comma
+    print(len(s));
+}
+
+fn test_string_repeat_simulation() {
+    let s = "ab";
+    let count = 3;
+    // Simulate repeating string
+    print(len(s) * count);
+}
+
+fn test_string_escape_chars_simulation() {
+    let s = "hello\nworld";
+    // Simulate escape sequences
+    print(len(s));
+}
+
+fn test_string_unicode_simulation() {
+    let s = "café";
+    // Simulate Unicode characters
+    print(len(s));
+}
+
+fn test_string_multiline_simulation() {
+    let s = "line1\nline2\nline3";
+    print(len(s));
+}
+
+fn test_string_with_null_bytes_simulation() {
+    let s = "test\0test";
+    print(len(s));
+}
+
+fn test_string_index_access() {
+    let s = "abcdef";
+    print(s[0]);
+    print(s[3]);
+    print(s[5]);
+}
+
+fn test_string_index_out_of_bounds_simulation() {
+    let s = "abc";
+    let index = 5;
+    if index < len(s) {
+        print(s[index]);
+    } else {
+        print(-1);  // Error indicator
+    }
+}
+
+fn test_string_iteration_simulation() {
+    let s = "xyz";
+    let mut i = 0;
+    while i < len(s) {
+        print(s[i]);
+        i = i + 1;
+    }
+}
+
+fn test_string_reverse_simulation() {
+    let s = "abcde";
+    let len_s = len(s);
+    let mut i = len_s - 1;
+    while i >= 0 {
+        print(s[i]);
+        if i == 0 {
+            break;
+        }
+        i = i - 1;
+    }
+}
+
+fn test_string_palindrome_check_simulation() {
+    let s = "racecar";
+    let len_s = len(s);
+    let mut is_palindrome = true;
+    let mut i = 0;
+    while i < len_s / 2 {
+        if s[i] != s[len_s - 1 - i] {
+            is_palindrome = false;
+        }
+        i = i + 1;
+    }
+    print(is_palindrome);
+}
+
+fn test_string_anagram_simulation() {
+    let s1 = "listen";
+    let s2 = "silent";
+    // Simulate anagram check
+    print(len(s1));
+    print(len(s2));
+}
+
+fn test_string_vowel_consonant_count_simulation() {
+    let s = "hello";
+    let vowels = "aeiouAEIOU";
+    let mut vowel_count = 0;
+    let mut consonant_count = 0;
+    let mut i = 0;
+    while i < len(s) {
+        let mut is_vowel = false;
+        let mut j = 0;
+        while j < len(vowels) {
+            if s[i] == vowels[j] {
+                is_vowel = true;
+            }
+            j = j + 1;
+        }
+        if is_vowel {
+            vowel_count = vowel_count + 1;
+        } else {
+            consonant_count = consonant_count + 1;
+        }
+        i = i + 1;
+    }
+    print(vowel_count);
+    print(consonant_count);
+}
+
+fn test_string_word_count_simulation() {
+    let s = "hello world test";
+    let mut word_count = 1;  // At least one word
+    let mut i = 0;
+    while i < len(s) {
+        if s[i] == ' ' {
+            word_count = word_count + 1;
+        }
+        i = i + 1;
+    }
+    print(word_count);
+}
+
+fn test_string_sentence_count_simulation() {
+    let s = "Hello world. How are you? I am fine!";
+    let mut sent_count = 0;
+    let mut i = 0;
+    while i < len(s) {
+        if s[i] == '.' || s[i] == '?' || s[i] == '!' {
+            sent_count = sent_count + 1;
+        }
+        i = i + 1;
+    }
+    print(sent_count);
+}
+
+fn test_string_capitalize_simulation() {
+    let s = "hello world";
+    print(len(s));
+}
+
+fn test_string_title_case_simulation() {
+    let s = "hello world from fax";
+    print(len(s));
+}
+
+fn test_string_snake_case_simulation() {
+    let s = "helloWorldTest";
+    print(len(s));
+}
+
+fn test_string_camel_case_simulation() {
+    let s = "hello_world_test";
+    print(len(s));
+}
+
+fn test_string_pascal_case_simulation() {
+    let s = "hello_world_test";
+    print(len(s));
+}
+
+fn test_string_kebab_case_simulation() {
+    let s = "helloWorldTest";
+    print(len(s));
+}
+
+fn test_string_pad_start_simulation() {
+    let s = "42";
+    let total_len = 5;
+    let pad_char = '0';
+    print(total_len);
+}
+
+fn test_string_pad_end_simulation() {
+    let s = "42";
+    let total_len = 5;
+    print(total_len);
+}
+
+fn test_string_pad_both_simulation() {
+    let s = "42";
+    let total_len = 7;
+    print(total_len);
+}
+
+fn test_string_replace_simulation() {
+    let s = "hello world world";
+    let old_sub = "world";
+    let new_sub = "fax";
+    print(len(s));
+}
+
+fn test_string_match_regex_simulation() {
+    let s = "abc123def";
+    // Simulate regex matching
+    print(len(s));
+}
+
+fn test_string_extract_numbers_simulation() {
+    let s = "abc123def456ghi";
+    print(len(s));
+}
+
+fn test_string_extract_letters_simulation() {
+    let s = "123abc456def";
+    print(len(s));
+}
+
+fn test_string_url_encode_simulation() {
+    let s = "hello world!";
+    print(len(s));
+}
+
+fn test_string_url_decode_simulation() {
+    let s = "hello%20world%21";
+    print(len(s));
+}
+
+fn test_string_base64_encode_simulation() {
+    let s = "hello";
+    print(len(s));
+}
+
+fn test_string_base64_decode_simulation() {
+    let s = "aGVsbG8=";
+    print(len(s));
+}
+
+fn test_string_md5_hash_simulation() {
+    let s = "hello world";
+    print(len(s));
+}
+
+fn test_string_sha256_hash_simulation() {
+    let s = "hello world";
+    print(len(s));
+}
+
+fn test_string_encrypt_simulation() {
+    let s = "secret";
+    print(len(s));
+}
+
+fn test_string_decrypt_simulation() {
+    let s = "encrypted_text";
+    print(len(s));
+}
+
+fn test_string_compress_simulation() {
+    let s = "aaaaabbbbbccccc";
+    print(len(s));
+}
+
+fn test_string_decompress_simulation() {
+    let s = "compressed_data";
+    print(len(s));
+}
+
+fn test_string_serialize_simulation() {
+    let s = "serialize_me";
+    print(len(s));
+}
+
+fn test_string_deserialize_simulation() {
+    let s = "serialized_data";
+    print(len(s));
+}
+
+fn test_string_template_literal_simulation() {
+    let name = "Alice";
+    let age = 30;
+    print(len(name));
+    print(age);
+}
+
+fn test_string_interpolation_simulation() {
+    let x = 10;
+    let y = 20;
+    print(x);
+    print(y);
+}
+
+fn test_string_format_simulation() {
+    let num = 42;
+    print(num);
+}
+
+fn test_string_printf_simulation() {
+    let value = 123.45;
+    print(value);
+}
+
+fn test_string_sprintf_simulation() {
+    let template = "Value: %d";
+    let value = 42;
+    print(len(template));
+    print(value);
+}
+
+fn test_string_scanf_simulation() {
+    let input = "123";
+    print(len(input));
+}
+
+fn test_string_atoi_simulation() {
+    let s = "123";
+    print(len(s));
+}
+
+fn test_string_itoa_simulation() {
+    let num = 456;
+    print(num);
+}
+
+fn test_string_parse_int_simulation() {
+    let s = "789";
+    print(len(s));
+}
+
+fn test_string_parse_float_simulation() {
+    let s = "123.45";
+    print(len(s));
+}
+
+fn test_string_to_int_simulation() {
+    let s = "999";
+    print(len(s));
+}
+
+fn test_string_to_float_simulation() {
+    let s = "99.99";
+    print(len(s));
+}
+
+fn test_string_to_bool_simulation() {
+    let s = "true";
+    print(len(s));
+}
+
+fn test_string_to_array_simulation() {
+    let s = "a,b,c,d";
+    print(len(s));
+}
+
+fn test_string_from_array_simulation() {
+    let arr = ['a', 'b', 'c'];
+    print(len(arr));
+}
+
+fn test_string_join_simulation() {
+    let arr = ["hello", "world"];
+    print(len(arr));
+}
+
+fn test_string_split_limit_simulation() {
+    let s = "a,b,c,d,e";
+    let limit = 3;
+    print(limit);
+}
+
+fn test_string_trim_start_simulation() {
+    let s = "   hello";
+    print(len(s));
+}
+
+fn test_string_trim_end_simulation() {
+    let s = "hello   ";
+    print(len(s));
+}
+
+fn test_string_normalize_simulation() {
+    let s = "café";
+    print(len(s));
+}
+
+fn test_string_locale_compare_simulation() {
+    let s1 = "apple";
+    let s2 = "banana";
+    print(len(s1));
+    print(len(s2));
+}
+
+fn test_string_collate_simulation() {
+    let s1 = "äpple";
+    let s2 = "apple";
+    print(len(s1));
+    print(len(s2));
+}
+
+fn test_string_width_simulation() {
+    let s = "hello";
+    print(len(s));
+}
+
+fn test_string_byte_length_simulation() {
+    let s = "café";
+    print(len(s));
+}
+
+fn test_string_code_point_count_simulation() {
+    let s = "café";
+    print(len(s));
+}
+
+fn test_string_grapheme_cluster_simulation() {
+    let s = "café";
+    print(len(s));
+}
+
+fn test_string_case_insensitive_compare_simulation() {
+    let s1 = "Hello";
+    let s2 = "HELLO";
+    print(len(s1));
+    print(len(s2));
+}
+
+fn test_string_natural_sort_simulation() {
+    let arr = ["item2", "item10", "item1"];
+    print(len(arr));
+}
+
+fn test_string_wildcard_match_simulation() {
+    let pattern = "h?llo";
+    let text = "hallo";
+    print(len(pattern));
+    print(len(text));
+}
+
+fn test_string_glob_pattern_simulation() {
+    let pattern = "*.txt";
+    let file = "document.txt";
+    print(len(pattern));
+    print(len(file));
+}
+
+fn test_string_levenshtein_distance_simulation() {
+    let s1 = "kitten";
+    let s2 = "sitting";
+    print(len(s1));
+    print(len(s2));
+}
+
+fn test_string_soundex_simulation() {
+    let s = "Robert";
+    print(len(s));
+}
+
+fn test_string_metaphone_simulation() {
+    let s = "Smith";
+    print(len(s));
+}
+
+fn test_string_double_metaphone_simulation() {
+    let s = "Ashcraft";
+    print(len(s));
+}
+
+fn test_string_nysiis_simulation() {
+    let s = "McDonald";
+    print(len(s));
+}
+
+fn test_string_caverphone_simulation() {
+    let s = "Phonetic";
+    print(len(s));
+}
+
+fn test_string_jaro_winkler_simulation() {
+    let s1 = "MARTHA";
+    let s2 = "MARHTA";
+    print(len(s1));
+    print(len(s2));
+}
+
+fn test_string_cosine_similarity_simulation() {
+    let s1 = "hello world";
+    let s2 = "hello earth";
+    print(len(s1));
+    print(len(s2));
+}
+
+fn test_string_jaccard_similarity_simulation() {
+    let s1 = "night";
+    let s2 = "nacht";
+    print(len(s1));
+    print(len(s2));
+}
+
+fn test_string_hamming_distance_simulation() {
+    let s1 = "karolin";
+    let s2 = "kathrin";
+    print(len(s1));
+    print(len(s2));
+}
+
+fn test_string_edit_distance_simulation() {
+    let s1 = "intention";
+    let s2 = "execution";
+    print(len(s1));
+    print(len(s2));
+}
+
+fn test_string_longest_common_subsequence_simulation() {
+    let s1 = "ABCDGH";
+    let s2 = "AEDFHR";
+    print(len(s1));
+    print(len(s2));
+}
+
+fn test_string_longest_common_substring_simulation() {
+    let s1 = "abcdxyz";
+    let s2 = "xyzabcd";
+    print(len(s1));
+    print(len(s2));
+}
+
+fn test_string_rabin_karp_simulation() {
+    let text = "hello world";
+    let pattern = "world";
+    print(len(text));
+    print(len(pattern));
+}
+
+fn test_string_kmp_simulation() {
+    let text = "ABABDABACDABABCABCABCABCABC";
+    let pattern = "ABABCABCABCABC";
+    print(len(text));
+    print(len(pattern));
+}
+
+fn test_string_boyer_moore_simulation() {
+    let text = "HERE IS A SIMPLE EXAMPLE";
+    let pattern = "EXAMPLE";
+    print(len(text));
+    print(len(pattern));
+}
+
+fn test_string_suffix_array_simulation() {
+    let s = "banana";
+    print(len(s));
+}
+
+fn test_string_suffix_tree_simulation() {
+    let s = "xabxac";
+    print(len(s));
+}
+
+fn test_string_palindromic_tree_simulation() {
+    let s = "eertree";
+    print(len(s));
+}
+
+fn test_string_ac_automaton_simulation() {
+    let texts = ["he", "she", "his", "hers"];
+    let search = "ushers";
+    print(len(search));
+}
+
+fn main() {
+    test_empty_string();
+    test_single_char_string();
+    test_multi_char_string();
+    test_string_with_spaces();
+    test_string_with_special_chars();
+    test_string_with_numbers();
+    test_string_with_mixed_content();
+    test_string_concatenation_simulation();
+    test_string_comparison_eq();
+    test_string_comparison_neq();
+    test_string_upper_lower_simulation();
+    test_string_substring_simulation();
+    test_string_trim_simulation();
+    test_string_split_simulation();
+    test_string_repeat_simulation();
+    test_string_escape_chars_simulation();
+    test_string_unicode_simulation();
+    test_string_multiline_simulation();
+    test_string_with_null_bytes_simulation();
+    test_string_index_access();
+    test_string_index_out_of_bounds_simulation();
+    test_string_iteration_simulation();
+    test_string_reverse_simulation();
+    test_string_palindrome_check_simulation();
+    test_string_anagram_simulation();
+    test_string_vowel_consonant_count_simulation();
+    test_string_word_count_simulation();
+    test_string_sentence_count_simulation();
+    test_string_capitalize_simulation();
+    test_string_title_case_simulation();
+    test_string_snake_case_simulation();
+    test_string_camel_case_simulation();
+    test_string_pascal_case_simulation();
+    test_string_kebab_case_simulation();
+    test_string_pad_start_simulation();
+    test_string_pad_end_simulation();
+    test_string_pad_both_simulation();
+    test_string_replace_simulation();
+    test_string_match_regex_simulation();
+    test_string_extract_numbers_simulation();
+    test_string_extract_letters_simulation();
+    test_string_url_encode_simulation();
+    test_string_url_decode_simulation();
+    test_string_base64_encode_simulation();
+    test_string_base64_decode_simulation();
+    test_string_md5_hash_simulation();
+    test_string_sha256_hash_simulation();
+    test_string_encrypt_simulation();
+    test_string_decrypt_simulation();
+    test_string_compress_simulation();
+    test_string_decompress_simulation();
+    test_string_serialize_simulation();
+    test_string_deserialize_simulation();
+    test_string_template_literal_simulation();
+    test_string_interpolation_simulation();
+    test_string_format_simulation();
+    test_string_printf_simulation();
+    test_string_sprintf_simulation();
+    test_string_scanf_simulation();
+    test_string_atoi_simulation();
+    test_string_itoa_simulation();
+    test_string_parse_int_simulation();
+    test_string_parse_float_simulation();
+    test_string_to_int_simulation();
+    test_string_to_float_simulation();
+    test_string_to_bool_simulation();
+    test_string_to_array_simulation();
+    test_string_from_array_simulation();
+    test_string_join_simulation();
+    test_string_split_limit_simulation();
+    test_string_trim_start_simulation();
+    test_string_trim_end_simulation();
+    test_string_normalize_simulation();
+    test_string_locale_compare_simulation();
+    test_string_collate_simulation();
+    test_string_width_simulation();
+    test_string_byte_length_simulation();
+    test_string_code_point_count_simulation();
+    test_string_grapheme_cluster_simulation();
+    test_string_case_insensitive_compare_simulation();
+    test_string_natural_sort_simulation();
+    test_string_wildcard_match_simulation();
+    test_string_glob_pattern_simulation();
+    test_string_levenshtein_distance_simulation();
+    test_string_soundex_simulation();
+    test_string_metaphone_simulation();
+    test_string_double_metaphone_simulation();
+    test_string_nysiis_simulation();
+    test_string_caverphone_simulation();
+    test_string_jaro_winkler_simulation();
+    test_string_cosine_similarity_simulation();
+    test_string_jaccard_similarity_simulation();
+    test_string_hamming_distance_simulation();
+    test_string_edit_distance_simulation();
+    test_string_longest_common_subsequence_simulation();
+    test_string_longest_common_substring_simulation();
+    test_string_rabin_karp_simulation();
+    test_string_kmp_simulation();
+    test_string_boyer_moore_simulation();
+    test_string_suffix_array_simulation();
+    test_string_suffix_tree_simulation();
+    test_string_palindromic_tree_simulation();
+    test_string_ac_automaton_simulation();
+}

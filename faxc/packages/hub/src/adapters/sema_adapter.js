@@ -4,7 +4,7 @@ exports.SemanticAnalyzerAdapter = void 0;
 const child_process_1 = require("child_process");
 const fs_1 = require("fs");
 class SemanticAnalyzerAdapter {
-    constructor(command = './faxc/packages/sema/bin/sema') {
+    constructor(command = '../sema/bin/sema_bin') {
         this.command = command;
     }
     async execute(input) {
