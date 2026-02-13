@@ -18,7 +18,7 @@ jobs:
       # --- SETUP (Mirrors CI) ---
       - name: Setup Tools
         run: |
-          sudo apt-get update && sudo apt-get install -y wget curl build-essential python3.14
+          sudo apt-get update && sudo apt-get install -y wget curl build-essential python3
           # (Simplified setup for brevity, ideally share scripts)
           wget -q https://nodejs.org/dist/v25.4.0/node-v25.4.0-linux-x64.tar.xz
           tar -xf node-v25.4.0-linux-x64.tar.xz -C /tmp
