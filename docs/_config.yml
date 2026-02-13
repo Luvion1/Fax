@@ -1,0 +1,32 @@
+title: Fax Programming Language
+description: Documentation for Fax, a high-performance polyglot programming language
+theme: jekyll-theme-minimal
+logo: /assets/logo.png
+url: https://luvion1.github.io/Fax
+baseurl: /Fax
+
+repository: Luvion1/Fax
+
+markdown: kramdown
+plugins:
+  - jekyll-sitemap
+  - jekyll-seo-tag
+
+exclude:
+  - node_modules/
+  - faxc/
+  - faxt/
+  - tests/
+  - scripts/
+
+collections:
+  docs:
+    output: true
+
+defaults:
+  - scope:
+      path: ""
+      type: "docs"
+    values:
+      layout: default
+      permalink: /:slug/
