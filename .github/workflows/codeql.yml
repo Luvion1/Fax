@@ -31,7 +31,17 @@ jobs:
         with:
           languages: ${{ matrix.language }}
 
+      - name: Manual Build (C++)
+        if: matrix.language == 'cpp'
+        run: |
+          cd faxc/packages/codegen
+          mkdir -p build
+          cd build
+          cmake ..
+          make -j$(nproc)
+
       - name: Autobuild
+        if: matrix.language != 'cpp'
         uses: github/codeql-action/autobuild@v3
 
       - name: Perform CodeQL Analysis
