@@ -15,3 +15,18 @@ build/
 *.dyn_o
 tools/
 
+# CMake
+CMakeCache.txt
+CMakeFiles/
+CMakeLists.txt.user
+cmake_install.cmake
+install_manifest.txt
+Makefile
+!faxc/packages/codegen/CMakeLists.txt
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+

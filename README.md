@@ -3,9 +3,11 @@
 > **The Polyglot Compiler Experiment.**  
 > A high-performance, modular language system where every compilation stage is a showcase of modern systems programming.
 
+[![CI](https://github.com/Luvion/Fax/actions/workflows/ci.yml/badge.svg)](https://github.com/Luvion/Fax/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/badge/version-v0.0.1--alpha-blue)](https://github.com/Luvion/Fax/releases/tag/v0.0.1-alpha)
 [![Status](https://img.shields.io/badge/Status-Active-brightgreen.svg)]()
 [![Runtime](https://img.shields.io/badge/Runtime-Fgc-blue.svg)]()
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)]()
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 ---
 
