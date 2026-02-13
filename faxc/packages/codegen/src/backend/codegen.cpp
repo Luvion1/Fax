@@ -410,7 +410,7 @@ Info Codegen::load(const json& node, int level) {
         indent(level); std::cout << "%c" << id << " = bitcast i8* " << baseReg << " to %struct." << structType << "*\n";
         indent(level); std::cout << "%g" << id << " = getelementptr %struct." << structType << ", %struct." << structType << "* %c" << id << ", i32 0, i32 " << index << "\n";
         std::string fieldType = fieldTypes[structType][field];
-        indent(level); std::cout << "%v" << id << " = load i64, i64* " << g << id << "\n";
+        indent(level); std::cout << "%v" << id << " = load i64, i64* %g" << id << "\n";
         if (isPointerType(fieldType)) {
             int castId = lbl++;
             indent(level); std::cout << "%rp" << castId << " = inttoptr i64 %v" << id << " to i8*\n";
