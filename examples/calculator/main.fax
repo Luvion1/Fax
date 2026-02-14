@@ -1,0 +1,79 @@
+// Simple Calculator in Fax
+// Demonstrates basic arithmetic, functions, and user input handling
+
+fn add(a: i64, b: i64): i64 {
+    return a + b;
+}
+
+fn subtract(a: i64, b: i64): i64 {
+    return a - b;
+}
+
+fn multiply(a: i64, b: i64): i64 {
+    return a * b;
+}
+
+fn divide(a: i64, b: i64): i64 {
+    if (b == 0) {
+        print("Error: Division by zero!");
+        return 0;
+    }
+    return a / b;
+}
+
+fn power(base: i64, exp: i64): i64 {
+    if (exp == 0) {
+        return 1;
+    }
+    let result = 1;
+    let i = 0;
+    while (i < exp) {
+        result = result * base;
+        i = i + 1;
+    }
+    return result;
+}
+
+fn factorial(n: i64): i64 {
+    if (n <= 1) {
+        return 1;
+    }
+    return n * factorial(n - 1);
+}
+
+fn calculate(op: str, a: i64, b: i64): i64 {
+    match op {
+        case "+": { return add(a, b); }
+        case "-": { return subtract(a, b); }
+        case "*": { return multiply(a, b); }
+        case "/": { return divide(a, b); }
+        case "^": { return power(a, b); }
+        default: { 
+            print("Unknown operation: " + op);
+            return 0;
+        }
+    }
+}
+
+fn main() {
+    print("=== Fax Calculator ===");
+    print("");
+    
+    // Basic calculations
+    print("10 + 5 = " + calculate("+", 10, 5));
+    print("20 - 8 = " + calculate("-", 20, 8));
+    print("7 * 6 = " + calculate("*", 7, 6));
+    print("100 / 4 = " + calculate("/", 100, 4));
+    print("2 ^ 10 = " + calculate("^", 2, 10));
+    print("");
+    
+    // Factorial
+    print("5! = " + factorial(5));
+    print("10! = " + factorial(10));
+    print("");
+    
+    // Division by zero handling
+    print("Testing division by zero:");
+    let result = divide(10, 0);
+    print("Result: " + result);
+}

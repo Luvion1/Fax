@@ -1,0 +1,164 @@
+// Data Structures in Fax
+// Demonstrates arrays, structs, and basic algorithms
+
+struct Node {
+    value: i64,
+    next: &Node
+}
+
+struct LinkedList {
+    head: &Node,
+    size: i64
+}
+
+struct Stack {
+    items: []i64,
+    capacity: i64,
+    top: i64
+}
+
+struct Queue {
+    items: []i64,
+    front: i64,
+    rear: i64,
+    size: i64
+}
+
+// Array operations
+fn findMax(arr: []i64): i64 {
+    if (len(arr) == 0) {
+        return 0;
+    }
+    let max = arr[0];
+    let i = 1;
+    while (i < len(arr)) {
+        if (arr[i] > max) {
+            max = arr[i];
+        }
+        i = i + 1;
+    }
+    return max;
+}
+
+fn findMin(arr: []i64): i64 {
+    if (len(arr) == 0) {
+        return 0;
+    }
+    let min = arr[0];
+    let i = 1;
+    while (i < len(arr)) {
+        if (arr[i] < min) {
+            min = arr[i];
+        }
+        i = i + 1;
+    }
+    return min;
+}
+
+fn sum(arr: []i64): i64 {
+    let total = 0;
+    let i = 0;
+    while (i < len(arr)) {
+        total = total + arr[i];
+        i = i + 1;
+    }
+    return total;
+}
+
+fn reverse(arr: []i64): []i64 {
+    let n = len(arr);
+    let i = 0;
+    while (i < n / 2) {
+        let temp = arr[i];
+        arr[i] = arr[n - 1 - i];
+        arr[n - 1 - i] = temp;
+        i = i + 1;
+    }
+    return arr;
+}
+
+fn bubbleSort(arr: []i64): []i64 {
+    let n = len(arr);
+    let i = 0;
+    while (i < n - 1) {
+        let j = 0;
+        while (j < n - i - 1) {
+            if (arr[j] > arr[j + 1]) {
+                let temp = arr[j];
+                arr[j] = arr[j + 1];
+                arr[j + 1] = temp;
+            }
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    return arr;
+}
+
+fn binarySearch(arr: []i64, target: i64): i64 {
+    let left = 0;
+    let right = len(arr) - 1;
+    
+    while (left <= right) {
+        let mid = left + (right - left) / 2;
+        
+        if (arr[mid] == target) {
+            return mid;
+        }
+        
+        if (arr[mid] < target) {
+            left = mid + 1;
+        } else {
+            right = mid - 1;
+        }
+    }
+    
+    return -1; // Not found
+}
+
+fn printArray(arr: []i64, name: str) {
+    print(name + ": [");
+    let i = 0;
+    while (i < len(arr)) {
+        print(arr[i]);
+        if (i < len(arr) - 1) {
+            print(", ");
+        }
+        i = i + 1;
+    }
+    print("]");
+}
+
+fn main() {
+    print("=== Data Structures Demo ===");
+    print("");
+    
+    // Array operations
+    let numbers = [64, 34, 25, 12, 22, 11, 90];
+    printArray(numbers, "Original array");
+    print("");
+    
+    print("Max: " + findMax(numbers));
+    print("Min: " + findMin(numbers));
+    print("Sum: " + sum(numbers));
+    print("");
+    
+    // Sorting
+    let sorted = bubbleSort(numbers);
+    printArray(sorted, "Sorted array");
+    print("");
+    
+    // Binary search
+    let target = 25;
+    let index = binarySearch(sorted, target);
+    if (index >= 0) {
+        print("Found " + target + " at index " + index);
+    } else {
+        print(target + " not found");
+    }
+    print("");
+    
+    // Reversing
+    let reversed = reverse(sorted);
+    printArray(reversed, "Reversed array");
+}

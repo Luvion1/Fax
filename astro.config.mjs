@@ -31,6 +31,13 @@ export default defineConfig({
           ],
         },
         {
+          label: 'Tutorials',
+          items: [
+            { label: 'Building a Calculator', link: '/tutorials/calculator/' },
+            { label: 'Data Structures', link: '/tutorials/data-structures/' },
+          ],
+        },
+        {
           label: 'Language',
           items: [
             { label: 'Basics', link: '/language/basics/' },
@@ -39,6 +46,21 @@ export default defineConfig({
             { label: 'Structs', link: '/language/structs/' },
             { label: 'Control Flow', link: '/language/control-flow/' },
             { label: 'Pattern Matching', link: '/language/pattern-matching/' },
+          ],
+        },
+        {
+          label: 'Guides',
+          items: [
+            { label: 'Testing', link: '/guides/testing/' },
+            { label: 'Performance', link: '/guides/performance/' },
+            { label: 'Troubleshooting', link: '/guides/troubleshooting/' },
+            { label: 'Comparison', link: '/guides/comparison/' },
+          ],
+        },
+        {
+          label: 'API Reference',
+          items: [
+            { label: 'Built-in Functions', link: '/api/builtins/' },
           ],
         },
         {
