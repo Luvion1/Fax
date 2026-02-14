@@ -3,7 +3,7 @@ title: Fax Programming Language
 description: A high-performance polyglot programming language with generational garbage collection
 template: splash
 hero:
-  tagline: A high-performance polyglot programming language with generational GC
+  tagline: Build fast, reliable, and efficient software with a modern language designed for the next generation of systems programming
   image:
     file: ../../assets/logo.svg
   actions:
@@ -14,34 +14,103 @@ hero:
     - text: View on GitHub
       link: https://github.com/Luvion1/Fax
       icon: github
+      variant: secondary
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import { Card, CardGrid, Code, LinkCard, LinkButton } from '@astrojs/starlight/components';
 
-## Why Fax?
+<div class="gradient-border">
+
+## Why Choose Fax?
+
+Fax combines the best of modern language design with cutting-edge compiler technology. Each stage of our pipeline is crafted in the optimal language for maximum performance and reliability.
+
+</div>
 
 <CardGrid stagger>
-  <Card title="🚀 High Performance" icon="rocket">
-    Optimized compiler pipeline with Rust, Zig, and C++ components for maximum speed.
+  <Card title="⚡ Blazing Fast" icon="rocket">
+    **Zero-cost abstractions** with LLVM optimization. Compile times measured in milliseconds, not seconds.
   </Card>
-  <Card title="🧠 Generational GC" icon="setting">
-    Custom FGC with nursery, multiple page sizes, and parallel marking for predictable memory management.
+  <Card title="🧠 Smart GC" icon="setting">
+    **Generational garbage collector** with nursery, parallel marking, and write barriers. Predictable pause times under 10ms.
   </Card>
-  <Card title="🔧 Polyglot Design" icon="puzzle">
-    Each compiler stage uses the best tool - Lexer in Rust, Parser in Zig, Sema in Haskell, and Codegen in C++.
+  <Card title="🎯 Type Safe" icon="approve-check">
+    **Static typing with inference**. Catch bugs at compile time, not runtime. Full null safety guaranteed.
   </Card>
-  <Card title="📦 Module System" icon="document">
-    Modern module system with imports, exports, and dependency management.
+  <Card title="🔧 Polyglot Power" icon="puzzle">
+    **Best-of-breed architecture**: Rust lexer, Zig parser, Haskell type checker, C++ codegen, Zig runtime.
   </Card>
-  <Card title="🛡️ Memory Safety" icon="approve-check">
-    Bounds checking, null safety, and comprehensive static type system.
+  <Card title="📦 Modern Modules" icon="document">
+    **First-class package system** with semantic versioning, dependency resolution, and reproducible builds.
   </Card>
-  <Card title="✨ Modern Syntax" icon="star">
-    Clean syntax inspired by Rust, Go, and TypeScript with pattern matching.
+  <Card title="🛡️ Memory Safety" icon="shield-check">
+    **Bounds checking, null safety, and no data races**. Write secure code without the overhead.
   </Card>
 </CardGrid>
 
+## See It in Action
+
+<div class="code-showcase">
+
+<Code lang="fax" title="hello.fax" 
+code={`// Define a struct with named fields
+struct Point {
+    x: i64,
+    y: i64
+}
+
+// Function with type annotations
+fn distance(p1: Point, p2: Point): f64 {
+    let dx = p2.x - p1.x;
+    let dy = p2.y - p1.y;
+    return sqrt(dx * dx + dy * dy);
+}
+
+// Pattern matching with match expressions
+fn classify(value: i64): str {
+    match value {
+        case 0: { return "zero"; }
+        case 1..10: { return "small"; }
+        case 11..100: { return "medium"; }
+        default: { return "large"; }
+    }
+}
+
+fn main() {
+    let origin = Point { x: 0, y: 0 };
+    let target = Point { x: 3, y: 4 };
+    
+    let dist = distance(origin, target);
+    print("Distance: " + dist);  // Distance: 5.0
+    
+    print(classify(42));  // medium
+}`}/>
+
+</div>
+
+## Language Features
+
+<div class="feature-grid">
+
+### 🔥 Modern Syntax
+Clean, expressive syntax inspired by the best of Rust, Go, and TypeScript.
+
+### 🎯 Pattern Matching
+Powerful `match` expressions with exhaustive checking and guards.
+
+### 🔗 First-Class Functions
+Functions are values. Pass them around, store in variables, return from functions.
+
+### 🏗️ Zero-Cost Abstractions
+High-level features compile down to efficient machine code.
+
+</div>
+
 ## Quick Start
+
+<div class="quick-start">
+
+### 1. Install
 
 ```bash
 # Clone the repository
@@ -51,31 +120,48 @@ cd Fax
 # Install dependencies
 npm install
 
-# Build all components
+# Build the compiler
 make build
-
-# Run your first program
-python3 faxt/main.py run examples/hello.fax
 ```
 
-## Language Example
+### 2. Write
+
+Create `hello.fax`:
 
 ```fax
-struct Person {
-    name: str,
-    age: i64
-}
-
-fn greet(person: Person) {
-    print("Hello, " + person.name);
-}
-
 fn main() {
-    let p = Person {
-        name: "Alice",
-        age: 30
-    };
-    
-    greet(p);
+    print("Hello, World!");
 }
 ```
+
+### 3. Run
+
+```bash
+python3 faxt/main.py run hello.fax
+```
+
+</div>
+
+<div class="cta-section">
+
+## Ready to Build?
+
+Start your journey with Fax today. Join our growing community of developers building the future of systems programming.
+
+<LinkButton href="/Fax/getting-started/introduction/" variant="primary" icon="right-arrow">
+  Get Started
+</LinkButton>
+
+<LinkButton href="https://github.com/Luvion1/Fax" variant="secondary" icon="github">
+  View on GitHub
+</LinkButton>
+
+</div>
+
+---
+
+<div class="footer-note">
+
+Built with ❤️ by the Fax Team • [MIT License](https://github.com/Luvion1/Fax/blob/main/LICENSE)
+
+</div>
