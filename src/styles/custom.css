@@ -1,0 +1,37 @@
+/* Custom styles for Fax documentation */
+
+/* Root color variables */
+:root {
+  --sl-color-accent-low: #1a1a3e;
+  --sl-color-accent: #6366f1;
+  --sl-color-accent-high: #818cf8;
+}
+
+/* Dark theme adjustments */
+[data-theme='dark'] {
+  --sl-color-accent-low: #1e1b4b;
+  --sl-color-accent: #818cf8;
+  --sl-color-accent-high: #a5b4fc;
+}
+
+/* Hero section */
+.hero-title {
+  font-weight: 800;
+}
+
+/* Custom code blocks */
+pre.astro-code {
+  border-radius: 0.5rem;
+  border: 1px solid var(--sl-color-gray-5);
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Card hover effects */
+.starlight-card:hover {
+  transform: translateY(-2px);
+  transition: transform 0.2s ease;
+}

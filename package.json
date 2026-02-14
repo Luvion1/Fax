@@ -1,0 +1,17 @@
+{
+  "name": "fax-docs",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "astro": "^4.0.0",
+    "@astrojs/starlight": "^0.28.0",
+    "sharp": "^0.32.0"
+  }
+}
