@@ -26,6 +26,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Copy install script
+        run: |
+          cp install.sh dist/
+          cp uninstall.sh dist/ 2>/dev/null || true
+
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         with:
