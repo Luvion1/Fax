@@ -21,9 +21,6 @@ export default defineConfig({
         baseUrl: 'https://github.com/Luvion1/Fax/edit/main/',
       },
 
-      compressHTML: false,
-      generate404: true,
-
       sidebar: [
         {
           label: 'Getting Started',
