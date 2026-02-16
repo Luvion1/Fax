@@ -1,6 +1,6 @@
 # Fax Compiler
 
-A modern, functional-first programming language with microservices architecture and low-latency garbage collection.
+A modern functional-first programming language implemented in **Lean 4**, featuring a microservices architecture and low-latency garbage collection (FGC).
 
 ![Version](https://img.shields.io/badge/version-0.0.1-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -10,14 +10,14 @@ A modern, functional-first programming language with microservices architecture 
 
 ### Language Features
 - **Functional-first** programming with immutable data structures
-- **Static typing** with powerful type inference
+- **Static typing** with powerful type inference (Hindley-Milner)
 - **Pattern matching** for expressive control flow
 - **Algebraic Data Types** (ADTs) via structs and enums
 - **First-class functions** and lambda expressions
-- **Generics** and type parameters
-- **Memory safety** without garbage collection pauses
+- **Memory safety** with low-latency garbage collection
 
 ### Architecture
+- **Lean 4** implementation for formal verification benefits
 - **Microservices-based** compiler design
 - **Protocol Buffers** for service communication
 - **gRPC** for distributed compilation
@@ -34,13 +34,13 @@ A modern, functional-first programming language with microservices architecture 
 
 ### Prerequisites
 - Lean 4 (latest stable)
-- LLVM/Clang
+- LLVM/Clang (for IR generation)
 - Protocol Buffers compiler
 
 ### From Source
 ```bash
-git clone https://github.com/yourusername/fax.git
-cd fax
+git clone https://github.com/Luvion1/Fax.git
+cd Fax
 make build
 make install
 ```
@@ -69,10 +69,13 @@ faxc hello.fax -o hello
 
 ## 📚 Documentation
 
-- [Language Specification](SPEC.md) - Complete language reference
-- [Architecture Guide](ARCHITECTURE.md) - Microservices architecture
-- [FGC Documentation](docs/FGC.md) - Garbage collector details
-- [Examples](examples/) - Sample programs
+| Document | Description |
+|----------|-------------|
+| [Language Specification](SPEC.md) | Complete language reference |
+| [Architecture Guide](ARCHITECTURE.md) | Microservices architecture |
+| [FGC Documentation](FGC.md) | Garbage collector details |
+| [Module Structure](MODULE_STRUCTURE.md) | Code organization guidelines |
+| [Examples](examples/) | Sample programs |
 
 ## 🧪 Testing
 
@@ -92,37 +95,39 @@ make benchmark
 ## 🏗️ Project Structure
 
 ```
-fax/
-├── faxc/                   # Compiler source code
+Fax/
+├── faxc/                     # Compiler source code (Lean 4)
 │   ├── Compiler/
-│   │   ├── AST/           # Abstract Syntax Tree
-│   │   ├── Lexer/         # Tokenization
-│   │   ├── Parser/        # AST construction
-│   │   ├── Semantic/      # Type checking
-│   │   ├── Codegen/       # LLVM IR generation
-│   │   ├── Driver/        # Compiler driver & CLI
-│   │   ├── Proto/         # Microservices
-│   │   ├── Runtime/       # FGC implementation
-│   │   └── Validation/    # Input validation
-│   ├── Fax.lean           # Main entry
-│   └── StdLib.lean        # Standard library
-├── tests/                  # Test suites
-│   ├── unit/              # Unit tests
-│   ├── integration/       # Integration tests
-│   └── e2e/               # End-to-end tests
-├── examples/               # Example programs
-└── docs/                   # Documentation
+│   │   ├── AST/             # Abstract Syntax Tree
+│   │   ├── Lexer/           # Tokenization
+│   │   ├── Parser/          # AST construction
+│   │   ├── Semantic/        # Type checking & inference
+│   │   ├── Codegen/         # LLVM IR generation
+│   │   ├── Driver/          # Compiler driver & CLI
+│   │   ├── Proto/           # Protocol Buffers & gRPC
+│   │   ├── Runtime/         # FGC implementation
+│   │   └── Validation/      # Input validation
+│   ├── Fax.lean              # Main entry point
+│   └── StdLib.lean          # Standard library
+├── tests/                    # Test suites
+│   ├── unit/                # Unit tests
+│   ├── integration/         # Integration tests
+│   ├── e2e/                 # End-to-end tests
+│   └── benchmarks/           # Performance benchmarks
+├── examples/                 # Example programs
+├── proto/ schemas
+└──                   # Protocol Buffer docs/                    # Additional documentation
 ```
 
 ### Module Organization
 
-The compiler follows a **modular architecture** with clear separation of concerns:
+The compiler follows **Lean 4 best practices** with a modular architecture:
 
 - **Index Files**: Each module has an index file (e.g., `Compiler/Semantic.lean`) that exports the public API
-- **Submodules**: Functionality is split into focused submodules (e.g., `Semantic/Checker.lean`, `Semantic/Inference.lean`)
-- **Validation Module**: New input validation with separate validators for source, identifiers, types, and limits
+- **Focused Submodules**: Functionality is split into focused modules (e.g., `Semantic/Checker.lean`, `Semantic/Inference.lean`)
+- **Validation Module**: Input validation with separate validators for source, identifiers, types, and limits
 
-See [MODULE_STRUCTURE.md](MODULE_STRUCTURE.md) for detailed module organization guidelines.
+See [MODULE_STRUCTURE.md](MODULE_STRUCTURE.md) for detailed guidelines.
 
 ## 🛠️ Development
 
@@ -137,9 +142,6 @@ make release        # Release build
 make docker-dev     # Start Docker dev environment
 make watch          # Watch mode for development
 ```
-
-### Contributing
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## 📊 Performance
 
@@ -162,27 +164,30 @@ Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - [x] FGC implementation
 - [x] Microservices architecture
 
-### Phase 2 (In Progress) 🚧
-- [x] Complete Semantic Analysis
-- [x] E2E Tests
+### Phase 2 (Completed) ✅
+- [x] Complete Semantic Analysis (type inference, type checking)
+- [x] Comprehensive Testing (106 tests)
 - [x] Docker & CI/CD
-- [ ] LLVM FFI bindings
-- [ ] Standard Library
+- [x] Code Reorganization & Modularization
 
-### Phase 3 (Planned) 📋
+### Phase 3 (In Progress) 🚧
+- [ ] LLVM FFI bindings for actual code execution
+- [ ] Standard Library expansion
 - [ ] Optimization passes
+
+### Phase 4 (Planned) 📋
 - [ ] Package manager
 - [ ] IDE support
 - [ ] WebAssembly target
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md).
+We welcome contributions! Please open an issue or submit a pull request.
 
 ### Areas for Contribution
-- Language features
-- Performance improvements
-- Documentation
+- Language features and syntax improvements
+- Performance optimizations
+- Documentation improvements
 - Bug fixes
 - Example programs
 
@@ -193,15 +198,14 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) file.
 ## 🙏 Acknowledgments
 
 - Lean 4 team for the excellent theorem prover
-- ZGC team for inspiration on low-latency GC
+- ZGC/Shenandoah teams for low-latency GC inspiration
 - Protocol Buffers team
 
 ## 📞 Support
 
-- GitHub Issues: [Report bugs](https://github.com/yourusername/fax/issues)
-- Discussions: [Ask questions](https://github.com/yourusername/fax/discussions)
-- Email: support@fax-lang.org
+- GitHub Issues: [Report bugs](https://github.com/Luvion1/Fax/issues)
+- GitHub Discussions: [Ask questions](https://github.com/Luvion1/Fax/discussions)
 
 ---
 
-**Made with ❤️ by the Fax Compiler Team**
+**Fax Compiler v0.0.1** - Built with Lean 4
