@@ -24,7 +24,7 @@ export Compiler.Proto.Grpc.Codegen (CodegenClient CodegenServer
                                      healthCheck LoadBalancer CircuitBreaker)
 
 -- Version
-partial def version : String := "1.0.0-microservices"
+partial def version : String := "0.0.1"
 
 -- High-level compilation API
 def compile (source : String) (useMicroservices : Bool := false) : IO (Except String String) := do
@@ -98,7 +98,7 @@ def compileBatch (sources : List String) (useMicroservices : Bool := false) : IO
 -- Main entry point with command line arguments
 def main (args : List String) : IO UInt32 := do
   if args.isEmpty then
-    IO.println "Fax Compiler v1.0.0 (Microservices Edition)"
+    IO.println "Fax Compiler v0.0.1"
     IO.println ""
     IO.println "Usage: faxc [options] <input.fax>"
     IO.println ""
@@ -117,7 +117,7 @@ def main (args : List String) : IO UInt32 := do
     return 0
   
   if inputFile == "-h" || inputFile == "--help" then
-    IO.println "Fax Compiler v1.0.0 (Microservices Edition)"
+    IO.println "Fax Compiler v0.0.1"
     IO.println ""
     IO.println "Usage: faxc [options] <input.fax>"
     return 0

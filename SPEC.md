@@ -1228,7 +1228,7 @@ fn main() {
 
 | Version | Date | Description |
 |---------|------|-------------|
-| 1.0.0 | 2026-02-15 | Initial specification based on implementation analysis |
+| 0.0.1 | 2026-02-16 | Initial specification based on implementation analysis |
 
 ---
 
