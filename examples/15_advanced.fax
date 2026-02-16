@@ -1,0 +1,46 @@
+-- Example 15: Advanced Patterns
+-- Complex programming patterns
+
+-- Closure-like pattern
+fn make_adder(x: i32) -> fn(i32) -> i32 {
+    fn(y: i32) -> i32 { x + y }
+}
+
+-- Pipeline pattern
+fn pipe(x: i32, f1: fn(i32) -> i32, f2: fn(i32) -> i32) -> i32 {
+    f2(f1(x))
+}
+
+-- Decorator pattern
+fn trace(f: fn(i32) -> i32, x: i32) -> i32 {
+    -- In real implementation, would print trace
+    f(x)
+}
+
+-- Memoization helper (simplified)
+fn memoized_fib() -> fn(i32) -> i32 {
+    fn(n: i32) -> i32 {
+        if n <= 1 { n } else { fib(n - 1) + fib(n - 2) }
+    }
+}
+
+fn fib(n: i32) -> i32 {
+    if n <= 1 { n } else { fib(n - 1) + fib(n - 2) }
+}
+
+-- Higher-order utilities
+fn apply_twice(f: fn(i32) -> i32, x: i32) -> i32 {
+    f(f(x))
+}
+
+fn compose(f: fn(i32) -> i32, g: fn(i32) -> i32) -> fn(i32) -> i32 {
+    fn(x: i32) -> i32 { f(g(x)) }
+}
+
+fn main() -> i32 {
+    let add5 = make_adder(5)
+    let result1 = add5(10)
+    let result2 = pipe(5, fn(x) -> i32 { x * 2 }, fn(x) -> i32 { x + 1 })
+    let result3 = apply_twice(fn(x) -> i32 { x * x }, 2)
+    result1 + result2 + result3
+}

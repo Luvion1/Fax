@@ -1,0 +1,36 @@
+-- Example 10: Enums
+-- Algebraic data types
+
+enum Color {
+    Red,
+    Green,
+    Blue
+}
+
+enum Shape {
+    Circle(i32),
+    Rectangle(i32, i32),
+    Triangle(i32, i32, i32)
+}
+
+enum Option {
+    Some(i32),
+    None
+}
+
+enum Result {
+    Ok(i32),
+    Err(str)
+}
+
+fn color_value(c: Color) -> i32 {
+    match c {
+        Color::Red => 1,
+        Color::Green => 2,
+        Color::Blue => 3
+    }
+}
+
+fn main() -> i32 {
+    color_value(Color::Red) + color_value(Color::Green)
+}

@@ -1,0 +1,15 @@
+-- Example 3: Variables
+-- Mutable and immutable variables
+
+fn main() -> i32 {
+    let immutable = 42
+    let mut mutable = 10
+    
+    mutable = mutable + immutable
+    
+    let x = 1
+    let y = 2
+    let z = x + y
+    
+    z + mutable
+}

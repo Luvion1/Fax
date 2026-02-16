@@ -1,0 +1,192 @@
+syntax = "proto3";
+
+package fax.compiler;
+
+package fax.compiler;
+
+import "common.proto";
+import "types.proto";
+import "literal.proto";
+import "pattern.proto";
+
+// Expression AST node
+message Expr {
+  oneof expr_kind {
+    LitExpr lit = 1;
+    VarExpr var = 2;
+    TupleExpr tuple = 3;
+    StructExpr struct = 4;
+    EnumExpr enum = 5;
+    ProjExpr proj = 6;
+    FieldExpr field = 7;
+    UnaryExpr unary = 8;
+    BinaryExpr binary = 9;
+    CallExpr call = 10;
+    IfExpr if_expr = 11;
+    MatchExpr match = 12;
+    BlockExpr block = 13;
+    LambdaExpr lambda = 14;
+    LetExpr let = 15;
+  }
+  SourceRange span = 100;
+}
+
+message LitExpr {
+  Literal value = 1;
+}
+
+message VarExpr {
+  string name = 1;
+}
+
+message TupleExpr {
+  repeated Expr elements = 1;
+}
+
+message StructExpr {
+  string name = 1;
+  repeated FieldInit fields = 2;
+}
+
+message FieldInit {
+  string field_name = 1;
+  Expr value = 2;
+}
+
+message EnumExpr {
+  string enum_name = 1;
+  string variant_name = 2;
+  repeated Expr args = 3;
+}
+
+message ProjExpr {
+  Expr expr = 1;
+  uint32 index = 2;
+}
+
+message FieldExpr {
+  Expr expr = 1;
+  string field_name = 2;
+}
+
+enum UnaryOp {
+  UNARY_NEG = 0;
+  UNARY_NOT = 1;
+  UNARY_BIT_NOT = 2;
+}
+
+message UnaryExpr {
+  UnaryOp op = 1;
+  Expr expr = 2;
+}
+
+enum BinaryOp {
+  BINARY_ADD = 0;
+  BINARY_SUB = 1;
+  BINARY_MUL = 2;
+  BINARY_DIV = 3;
+  BINARY_MOD = 4;
+  BINARY_AND = 5;
+  BINARY_OR = 6;
+  BINARY_EQ = 7;
+  BINARY_NE = 8;
+  BINARY_LT = 9;
+  BINARY_LE = 10;
+  BINARY_GT = 11;
+  BINARY_GE = 12;
+  BINARY_SHL = 13;
+  BINARY_SHR = 14;
+  BINARY_BIT_AND = 15;
+  BINARY_BIT_OR = 16;
+  BINARY_BIT_XOR = 17;
+}
+
+message BinaryExpr {
+  BinaryOp op = 1;
+  Expr left = 2;
+  Expr right = 3;
+}
+
+message CallExpr {
+  string function_name = 1;
+  repeated Expr args = 2;
+}
+
+message IfExpr {
+  Expr condition = 1;
+  Expr then_branch = 2;
+  Expr else_branch = 3;
+}
+
+message MatchArm {
+  Pattern pattern = 1;
+  Expr expr = 2;
+  Expr guard = 3;  // Optional guard condition
+}
+
+message MatchExpr {
+  Expr scrutinee = 1;
+  repeated MatchArm arms = 2;
+}
+
+message BlockExpr {
+  repeated Stmt statements = 1;
+  Expr trailing_expr = 2;
+}
+
+message Param {
+  string name = 1;
+  Type param_type = 2;
+}
+
+message LambdaExpr {
+  repeated Param params = 1;
+  Type return_type = 2;
+  Expr body = 3;
+}
+
+message LetExpr {
+  Pattern pattern = 1;
+  Expr value = 2;
+  Expr body = 3;
+}
+
+// Statement AST node
+message Stmt {
+  oneof stmt_kind {
+    DeclStmt decl = 1;
+    AssignStmt assign = 2;
+    ExprStmt expr = 3;
+    ReturnStmt return = 4;
+    BreakStmt break = 5;
+    ContinueStmt continue = 6;
+  }
+  SourceRange span = 100;
+}
+
+message DeclStmt {
+  bool is_mutable = 1;
+  Pattern pattern = 2;
+  Expr value = 3;
+}
+
+message AssignStmt {
+  Expr lhs = 1;
+  Expr rhs = 2;
+}
+
+message ExprStmt {
+  Expr expr = 1;
+}
+
+message ReturnStmt {
+  Expr value = 1;
+}
+
+message BreakStmt {
+  // No additional data
+}
+
+message ContinueStmt {
+  // No additional data
+}

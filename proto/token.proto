@@ -1,0 +1,117 @@
+syntax = "proto3";
+
+package fax.compiler;
+
+import "common.proto";
+
+// Token types from the lexer
+enum TokenType {
+  // Literals
+  LIT_INT = 0;
+  LIT_FLOAT = 1;
+  LIT_STRING = 2;
+  LIT_CHAR = 3;
+  LIT_BOOL = 4;
+  
+  // Keywords
+  KW_FN = 10;
+  KW_LET = 11;
+  KW_MUT = 12;
+  KW_IF = 13;
+  KW_ELSE = 14;
+  KW_MATCH = 15;
+  KW_STRUCT = 16;
+  KW_ENUM = 17;
+  KW_RETURN = 18;
+  KW_WHILE = 19;
+  KW_LOOP = 20;
+  KW_BREAK = 21;
+  KW_CONTINUE = 22;
+  KW_PUB = 23;
+  KW_MOD = 24;
+  KW_USE = 25;
+  KW_AS = 26;
+  KW_TRUE = 27;
+  KW_FALSE = 28;
+  
+  // Operators
+  OP_ADD = 50;
+  OP_SUB = 51;
+  OP_MUL = 52;
+  OP_DIV = 53;
+  OP_MOD = 54;
+  OP_AND = 55;
+  OP_OR = 56;
+  OP_NOT = 57;
+  OP_EQ = 58;
+  OP_NE = 59;
+  OP_LT = 60;
+  OP_LE = 61;
+  OP_GT = 62;
+  OP_GE = 63;
+  OP_ASSIGN = 64;
+  OP_ADD_ASSIGN = 65;
+  OP_SUB_ASSIGN = 66;
+  OP_MUL_ASSIGN = 67;
+  OP_DIV_ASSIGN = 68;
+  OP_MOD_ASSIGN = 69;
+  OP_SHL = 70;
+  OP_SHR = 71;
+  OP_BIT_AND = 72;
+  OP_BIT_OR = 73;
+  OP_BIT_XOR = 74;
+  OP_BIT_NOT = 75;
+  
+  // Delimiters
+  LPAREN = 100;
+  RPAREN = 101;
+  LBRACE = 102;
+  RBRACE = 103;
+  LBRACKET = 104;
+  RBRACKET = 105;
+  COMMA = 106;
+  COLON = 107;
+  SEMICOLON = 108;
+  DOT = 109;
+  ARROW = 110;
+  ARROW_FAT = 111;
+  PIPE = 112;
+  UNDERSCORE = 113;
+  DOUBLE_COLON = 114;
+  
+  // Identifiers and special
+  IDENT = 200;
+  EOF = 255;
+}
+
+// Individual token
+message Token {
+  TokenType type = 1;
+  string text = 2;
+  SourceRange span = 3;
+}
+
+// Lexer output: stream of tokens
+message TokenStream {
+  repeated Token tokens = 1;
+  string source_filename = 2;
+  string source_content = 3;
+}
+
+// Lexer request/response for RPC
+message LexRequest {
+  string source = 1;
+  string filename = 2;
+}
+
+message LexResponse {
+  oneof result {
+    TokenStream tokens = 1;
+    LexError error = 2;
+  }
+}
+
+message LexError {
+  string message = 1;
+  SourcePos position = 2;
+}

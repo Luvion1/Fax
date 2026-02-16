@@ -1,0 +1,26 @@
+-- Example 14: String Utilities
+-- String manipulation functions
+
+-- Note: String operations are simplified
+-- Full implementation would require string library
+
+fn string_length(s: str) -> i32 {
+    -- Placeholder for string length
+    0
+}
+
+fn is_empty(s: str) -> i32 {
+    if string_length(s) == 0 { 1 } else { 0 }
+}
+
+fn compare_strings(s1: str, s2: str) -> i32 {
+    -- Placeholder for string comparison
+    0
+}
+
+fn main() -> i32 {
+    let len = string_length("hello")
+    let empty = is_empty("")
+    let cmp = compare_strings("a", "b")
+    len + empty + cmp
+}

@@ -1,0 +1,29 @@
+# Lean build artifacts
+.lake/
+*.olean
+*.ilean
+*.hash
+
+# Lake manifest (optional - can be regenerated)
+lake-manifest.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build output
+build/
+dist/
+*.o
+*.a
+*.so
+*.dylib
+
+# Logs
+*.log

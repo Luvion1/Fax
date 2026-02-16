@@ -1,0 +1,18 @@
+-- Example 5: Functions
+-- Various function patterns
+
+fn identity(x: i32) -> i32 { x }
+
+fn constant() -> i32 { 42 }
+
+fn compose(f: fn(i32) -> i32, g: fn(i32) -> i32, x: i32) -> i32 {
+    f(g(x))
+}
+
+fn curry(a: i32) -> fn(i32) -> i32 {
+    fn(b: i32) -> i32 { a + b }
+}
+
+fn main() -> i32 {
+    identity(10) + constant() + compose(fn(x) -> i32 { x * 2 }, fn(x) -> i32 { x + 1 }, 5)
+}

@@ -1,0 +1,7 @@
+-- Simple Hello World program in Fax
+-- This demonstrates the basic syntax
+
+fn main() -> i32 {
+    println(42)
+    0
+}
