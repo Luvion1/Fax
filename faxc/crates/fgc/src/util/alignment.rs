@@ -1,0 +1,43 @@
+//! Alignment Utilities
+//!
+//! Helper functions untuk memory alignment.
+
+/// Alignment - utility untuk alignment operations
+pub struct Alignment;
+
+impl Alignment {
+    /// Align value up ke boundary
+    ///
+    /// # Examples
+    /// ```
+    /// assert_eq!(Alignment::align_up(100, 8), 104);
+    /// assert_eq!(Alignment::align_up(64, 8), 64);
+    /// ```
+    pub fn align_up(value: usize, alignment: usize) -> usize {
+        (value + alignment - 1) & !(alignment - 1)
+    }
+
+    /// Align value down ke boundary
+    pub fn align_down(value: usize, alignment: usize) -> usize {
+        value & !(alignment - 1)
+    }
+
+    /// Check jika value aligned
+    pub fn is_aligned(value: usize, alignment: usize) -> bool {
+        value & (alignment - 1) == 0
+    }
+
+    /// Get alignment padding needed
+    pub fn padding(value: usize, alignment: usize) -> usize {
+        Self::align_up(value, alignment) - value
+    }
+
+    /// Default object alignment (8 bytes)
+    pub const DEFAULT: usize = 8;
+
+    /// Cache line alignment (64 bytes)
+    pub const CACHE_LINE: usize = 64;
+
+    /// Page alignment (4KB)
+    pub const PAGE: usize = 4096;
+}

@@ -1,0 +1,15 @@
+[package]
+name = "faxc-util"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+indexmap.workspace = true
+rustc-hash.workspace = true
+thiserror.workspace = true
+bumpalo = "3.14"
+
+[dev-dependencies]

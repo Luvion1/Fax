@@ -1,0 +1,14 @@
+[package]
+name = "faxc-gen"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+faxc-util.workspace = true
+faxc-lir.workspace = true
+anyhow.workspace = true
+
+[dev-dependencies]

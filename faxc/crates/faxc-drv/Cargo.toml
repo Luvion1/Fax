@@ -1,0 +1,23 @@
+[package]
+name = "faxc-drv"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "faxc"
+path = "src/main.rs"
+
+[dependencies]
+faxc-util.workspace = true
+faxc-lex.workspace = true
+faxc-par.workspace = true
+faxc-sem.workspace = true
+faxc-mir.workspace = true
+faxc-lir.workspace = true
+faxc-gen.workspace = true
+anyhow.workspace = true
+
+[dev-dependencies]

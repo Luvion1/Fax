@@ -1,0 +1,15 @@
+[package]
+name = "faxc-mir"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+faxc-util.workspace = true
+faxc-sem.workspace = true
+indexmap.workspace = true
+rayon.workspace = true
+
+[dev-dependencies]

@@ -1,11 +1,12 @@
-# Lean build artifacts
-.lake/
-*.olean
-*.ilean
-*.hash
+# Rust/Cargo build artifacts
+/target/
 
-# Lake manifest (optional - can be regenerated)
-lake-manifest.json
+# Generated LLVM IR and object files
+*.ll
+*.o
+
+# Cargo.lock (optional - uncomment to ignore)
+# Cargo.lock
 
 # OS files
 .DS_Store
@@ -17,13 +18,8 @@ Thumbs.db
 *.swp
 *.swo
 
-# Build output
-build/
-dist/
-*.o
-*.a
-*.so
-*.dylib
-
 # Logs
 *.log
+
+.gemini/
+gha-creds-*.json

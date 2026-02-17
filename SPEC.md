@@ -9,6 +9,18 @@
 5. [Type System](#type-system)
 6. [AST Definitions](#ast-definitions)
 7. [Language Features](#language-features)
+   - 7.1 Variables and Mutability
+   - 7.2 Functions
+   - 7.3 Control Flow
+   - 7.4 Data Types
+   - 7.5 Operators
+   - 7.6 Expression Semantics
+   - 7.7 Generics
+   - 7.8 Traits
+   - 7.9 Async/Await
+   - 7.10 Error Handling
+   - 7.11 Visibility Modifiers
+   - 7.12 Constants and Static
 8. [Syntax Reference](#syntax-reference)
 9. [Operators](#operators)
 10. [Implementation](#implementation)
@@ -16,6 +28,9 @@
 12. [LLVM IR Generation](#llvm-ir-generation)
 13. [Known Limitations](#known-limitations)
 14. [Grammar Reference](#grammar-reference)
+15. [Appendix A: Reserved Keywords](#appendix-a-reserved-keywords)
+16. [Appendix B: Example Programs](#appendix-b-example-programs)
+17. [Appendix C: Advanced Features](#appendix-c-advanced-features)
 
 ---
 
@@ -129,7 +144,7 @@ while i < 5 {
 
 ### 4.1 Tokens
 
-The lexer (`Fax/Lexer.lean`) produces the following token types:
+The lexer (`faxc/lexer/src/lib.rs`) produces the following token types:
 
 #### 4.1.1 Keywords
 
@@ -154,6 +169,21 @@ The lexer (`Fax/Lexer.lean`) produces the following token types:
 | `mod` | Module declaration | Module system |
 | `use` | Import declaration | Module imports |
 | `as` | Type alias | Type renaming |
+| `async` | Async function marker | Asynchronous programming |
+| `await` | Await async operation | Asynchronous programming |
+| `const` | Constant declaration | Compile-time constants |
+| `static` | Static variable | Program-lifetime variable |
+| `trait` | Trait declaration | Interface definitions |
+| `impl` | Implementation block | Trait/struct implementations |
+| `dyn` | Dynamic dispatch | Trait objects |
+| `where` | Generic constraints | Complex bounds |
+| `type` | Type alias | Type renaming |
+| `unsafe` | Unsafe block | Unsafe operations |
+| `ref` | Reference binding | Pattern matching |
+| `self` | Self receiver | Method receiver |
+| `Self` | Self type | Current type |
+| `super` | Parent module | Module hierarchy |
+| `crate` | Current crate | Module hierarchy |
 
 #### 4.1.2 Literals
 
@@ -286,136 +316,156 @@ let y = "hello"         // type inferred as str
 
 ### 5.4 Type Definitions (AST)
 
-```lean
--- From Fax/AST.lean
-inductive Type where
-  | unit
-  | int32 | int64 | float64
-  | bool | char | string
-  | array (elem : Type) (size : Nat)
-  | tuple (elems : List Type)
-  | struct (name : String) (fields : List (String × Type))
-  | enum (name : String) (variants : List (String × List Type))
-  | fun (args : List Type) (ret : Type)
-  | inferred
+```rust
+// From faxc/parser/src/lib.rs
+enum Type {
+    Unit,
+    Int32, Int64, Float64,
+    Bool, Char, String,
+    Array(Box<Type>, usize),
+    Vec<Type>,
+    Struct(String, Vec<(String, Type)>),
+    Enum(String, Vec<(String, Vec<Type>)>),
+    Fun(Vec<Type>, Box<Type>),
+    Inferred,
+}
 ```
 
 ---
 
 ## 6. AST Definitions
 
-The Abstract Syntax Tree is defined in `Fax/AST.lean`.
+The Abstract Syntax Tree is defined in `faxc/parser/src/lib.rs`.
 
 ### 6.1 Literals
 
-```lean
-inductive Literal where
-  | int (val : Int)
-  | float (val : Float)
-  | bool (val : Bool)
-  | string (val : String)
-  | char (val : Char)
+```rust
+enum Literal {
+    Int(i64),
+    Float(f64),
+    Bool(bool),
+    String(String),
+    Char(char),
+}
 ```
 
 ### 6.2 Unary Operators
 
-```lean
-inductive UnaryOp where
-  | neg      -- Unary minus: -x
-  | not      -- Logical not: !x
-  | bitnot   -- Bitwise not: ~x
+```rust
+enum UnaryOp {
+    Neg,      // Unary minus: -x
+    Not,      // Logical not: !x
+    BitNot,   // Bitwise not: ~x
+}
 ```
 
 ### 6.3 Binary Operators
 
-```lean
-inductive BinOp where
-  -- Arithmetic
-  | add      -- Addition: +
-  | sub      -- Subtraction: -
-  | mul      -- Multiplication: *
-  | div      -- Division: /
-  | mod      -- Modulus: %
-  
-  -- Logical
-  | and      -- Logical AND: &&
-  | or       -- Logical OR: ||
-  
-  -- Comparison
-  | eq       -- Equality: ==
-  | ne       -- Inequality: !=
-  | lt       -- Less than: <
-  | le       -- Less than or equal: <=
-  | gt       -- Greater than: >
-  | ge       -- Greater than or equal: >=
-  
-  -- Bitwise
-  | shl      -- Shift left: <<
-  | shr      -- Shift right: >>
-  | band     -- Bitwise AND: &
-  | bor      -- Bitwise OR: |
-  | bxor     -- Bitwise XOR: ^
+```rust
+enum BinOp {
+    // Arithmetic
+    Add,      // Addition: +
+    Sub,      // Subtraction: -
+    Mul,      // Multiplication: *
+    Div,      // Division: /
+    Mod,      // Modulus: %
+    
+    // Logical
+    And,      // Logical AND: &&
+    Or,       // Logical OR: ||
+    
+    // Comparison
+    Eq,       // Equality: ==
+    Ne,       // Inequality: !=
+    Lt,       // Less than: <
+    Le,       // Less than or equal: <=
+    Gt,       // Greater than: >
+    Ge,       // Greater than or equal: >=
+    
+    // Bitwise
+    Shl,      // Shift left: <<
+    Shr,      // Shift right: >>
+    BitAnd,   // Bitwise AND: &
+    BitOr,    // Bitwise OR: |
+    BitXor,   // Bitwise XOR: ^
+}
 ```
 
 ### 6.4 Patterns
 
-```lean
-inductive Pat where
-  | wild                    -- Wildcard: _
-  | lit (l : Literal)       -- Literal pattern: 42, true, "hello"
-  | var (name : String)     -- Variable binding: x
-  | tuple (pats : List Pat)         -- Tuple pattern: (a, b, c)
-  | struct (name : String) (fields : List (String × Pat))  -- Struct pattern
-  | enum (name : String) (variant : String) (pats : List Pat)  -- Enum pattern
+```rust
+enum Pat {
+    Wild,                    // Wildcard: _
+    Lit(Literal),            // Literal pattern: 42, true, "hello"
+    Var(String),             // Variable binding: x
+    Vec<Pat>,                // Tuple pattern: (a, b, c)
+    Struct(String, Vec<(String, Pat)>),  // Struct pattern
+    Enum(String, String, Vec<Pat>),      // Enum pattern
+}
 ```
 
 ### 6.5 Expressions
 
-```lean
-inductive Expr where
-  | lit (l : Literal)                           -- Literal value
-  | var (name : String)                         -- Variable reference
-  | tuple (elems : List Expr)                   -- Tuple literal
-  | struct (name : String) (fields : List (String × Expr))  -- Struct literal
-  | enum (name : String) (variant : String) (args : List Expr)  -- Enum variant
-  | proj (e : Expr) (idx : Nat)                 -- Tuple projection: e.0
-  | field (e : Expr) (field : String)           -- Field access: e.field
-  | unary (op : UnaryOp) (e : Expr)             -- Unary operation
-  | binary (op : BinOp) (e1 e2 : Expr)          -- Binary operation
-  | call (fn : String) (args : List Expr)       -- Function call
-  | if (cond : Expr) (then : Expr) (else : Expr)  -- If expression
-  | match (scrut : Expr) (cases : List (Pat × Expr))  -- Match expression
-  | block (stmts : List Stmt) (expr : Expr)     -- Block expression
-  | lambda (params : List (String × Type)) (body : Expr)  -- Lambda
-  | let (pat : Pat) (value : Expr) (body : Expr)  -- Let binding
+```rust
+enum Expr {
+    Lit(Literal),                           // Literal value
+    Var(String),                            // Variable reference
+    Tuple(Vec<Expr>),                       // Tuple literal
+    Struct(String, Vec<(String, Expr)>),   // Struct literal
+    Enum(String, String, Vec<Expr>),       // Enum variant
+    Proj(Box<Expr>, usize),                 // Tuple projection: e.0
+    Field(Box<Expr>, String),               // Field access: e.field
+    Unary(UnaryOp, Box<Expr>),              // Unary operation
+    Binary(BinOp, Box<Expr>, Box<Expr>),   // Binary operation
+    Call(String, Vec<Expr>),                // Function call
+    If(Box<Expr>, Box<Expr>, Box<Expr>),   // If expression
+    Match(Box<Expr>, Vec<(Pat, Expr)>),     // Match expression
+    Block(Vec<Stmt>, Box<Expr>),            // Block expression
+    Lambda(Vec<(String, Type)>, Box<Expr>), // Lambda
+    Let(Pat, Box<Expr>, Box<Expr>),         // Let binding
+}
 ```
 
 ### 6.6 Statements
 
-```lean
-inductive Stmt where
-  | decl (mut : Bool) (pat : Pat) (value : Expr)  -- Variable declaration
-  | assign (lhs : Expr) (rhs : Expr)               -- Assignment
-  | expr (e : Expr)                                -- Expression statement
-  | return (e : Expr)                              -- Return statement
-  | break                                          -- Break loop
-  | continue                                       -- Continue loop
+```rust
+enum Stmt {
+    Decl(bool, Pat, Expr),  // Variable declaration (mut, pattern, value)
+    Assign(Expr, Expr),     // Assignment
+    Expr(Expr),             // Expression statement
+    Return(Option<Expr>),   // Return statement
+    Break,                  // Break loop
+    Continue,               // Continue loop
+}
 ```
 
 ### 6.7 Declarations
 
-```lean
-inductive Decl where
-  | fun (pub : Bool) (name : String) (params : List (String × Type)) (ret : Type) (body : Expr)
-  | struct (pub : Bool) (name : String) (fields : List (String × Type))
-  | enum (pub : Bool) (name : String) (variants : List (String × List Type))
+```rust
+struct Decl {
+    pub name: String,
+    pub params: Vec<(String, Type)>,
+    pub ret_type: Type,
+    pub body: Vec<Stmt>,
+}
+
+struct StructDecl {
+    pub name: String,
+    pub fields: Vec<(String, Type)>,
+}
+
+struct EnumDecl {
+    pub name: String,
+    pub variants: Vec<(String, Vec<Type>)>,
+}
 ```
 
 ### 6.8 Module
 
-```lean
-inductive Module where
-  | mk (decls : List Decl)
+```rust
+struct Module {
+    pub declarations: Vec<Decl>,
+}
 ```
 
 ---
@@ -746,6 +796,114 @@ let c = ~3           // bitwise not
 !a && b    // (!a) && b
 ```
 
+### 7.7 Generics
+
+```fax
+fn identity<T>(x: T) -> T {
+    x
+}
+
+struct Box<T> {
+    value: T,
+}
+
+enum Option<T> {
+    Some(T),
+    None,
+}
+
+impl<T> Box<T> {
+    fn new(value: T) -> Box<T> {
+        Box { value }
+    }
+}
+```
+
+### 7.8 Traits
+
+```fax
+trait Printable {
+    fn print(&self);
+}
+
+trait Add<Rhs = Self> {
+    type Output;
+    fn add(self, rhs: Rhs) -> Self::Output;
+}
+
+impl Add for i32 {
+    type Output = i32;
+    fn add(self, rhs: i32) -> i32 {
+        self + rhs
+    }
+}
+```
+
+### 7.9 Async/Await
+
+```fax
+async fn fetch(url: str) -> str {
+    let response = http_get(url).await;
+    response.body
+}
+
+async fn main() {
+    let result = await fetch("https://example.com");
+    println(result);
+}
+```
+
+### 7.10 Error Handling
+
+```fax
+fn divide(a: i32, b: i32) -> i32 {
+    if b == 0 {
+        throw("Division by zero")
+    }
+    a / b
+}
+
+fn safe_divide(a: i32, b: i32) -> Result<i32, str> {
+    if b == 0 {
+        Err("Division by zero")
+    } else {
+        Ok(a / b)
+    }
+}
+```
+
+### 7.11 Visibility Modifiers
+
+```fax
+mod foo {
+    pub fn public() {}
+    pub(crate) fn crate_visible() {}
+    pub(super) fn parent_visible() {}
+    fn private() {}
+}
+
+pub struct Point {
+    pub x: f64,
+    pub y: f64,
+    hidden: f64,
+}
+```
+
+### 7.12 Constants and Static
+
+```fax
+const MAX: i32 = 100;
+const NAME: str = "Fax";
+
+static mut COUNTER: i32 = 0;
+
+fn increment() {
+    unsafe {
+        COUNTER += 1;
+    }
+}
+```
+
 ---
 
 ## 8. Syntax Reference
@@ -857,36 +1015,37 @@ lambda_expr  ::= 'fn' '(' param_list ')' ('->' type)? expr
 
 ### 10.1 Technology Stack
 
-- **Language**: Lean 4
+- **Language**: Rust
 - **Target**: LLVM IR (can be compiled to native code via llc/clang)
-- **Build System**: Lake
+- **Build System**: Cargo
 
 ### 10.2 Project Structure
 
 ```
 Fax/
-├── lakefile.lean              # Lake build configuration
-├── lake-manifest.json         # Dependency manifest
+├── Cargo.toml                 # Workspace configuration
 ├── SPEC.md                    # This specification
-├── Fax/
-│   ├── Driver.lean            # Main compiler driver
-│   ├── Lexer.lean             # Lexical analyzer (tokenizer)
-│   ├── Parser.lean            # Parser (AST builder)
-│   ├── AST.lean              # AST node definitions
-│   └── Codegen.lean           # LLVM IR code generator
-└── .lake/
-    └── config/
-        └── [anonymous]/
-            ├── lakefile.olean
-            ├── lakefile.olean.lock
-            └── lakefile.olean.trace
+├── faxc/
+│   ├── cli/
+│   │   └── src/main.rs        # Main compiler CLI
+│   ├── lexer/
+│   │   └── src/lib.rs        # Lexical analyzer (tokenizer)
+│   ├── parser/
+│   │   └── src/lib.rs        # Parser (AST builder)
+│   ├── codegen/
+│   │   └── src/lib.rs        # LLVM IR code generator (using Inkwell)
+│   └── runtime/
+│       └── src/lib.rs        # Runtime library with ZGC garbage collector
+└── examples/                  # Example Fax programs
 ```
 
 ### 10.3 Dependencies
 
 The project uses:
-- **Lean 4** - Programming language and theorem prover
-- **LLVM** - Via FFI bindings for code generation
+- **Rust** - Programming language
+- **Inkwell** - Rust bindings for LLVM
+- **Clap** - CLI argument parsing
+- **libc** - Low-level memory management for runtime
 
 ---
 
@@ -896,52 +1055,59 @@ The project uses:
 
 ```
 Source Code (.fax)
-       │
-       ▼
+        │
+        ▼
 ┌──────────────────┐
 │ 1. Lexical       │  Source → Tokens
-│    Analysis      │  Fax/Lexer.lean
+│    Analysis      │  faxc/lexer/src/lib.rs
 └──────────────────┘
-       │
-       ▼
+        │
+        ▼
 ┌──────────────────┐
 │ 2. Parsing      │  Tokens → AST
-│                  │  Fax/Parser.lean
+│                  │  faxc/parser/src/lib.rs
 └──────────────────┘
-       │
-       ▼
+        │
+        ▼
 ┌──────────────────┐
 │ 3. Semantic      │  (Not yet implemented)
 │    Analysis      │  Type checking, scope resolution
 └──────────────────┘
-       │
-       ▼
+        │
+        ▼
 ┌──────────────────┐
 │ 4. Code          │  AST → LLVM IR
-│    Generation    │  Fax/Codegen.lean
+│    Generation    │  faxc/codegen/src/lib.rs
 └──────────────────┘
-       │
-       ▼
-   LLVM IR (.ll)
-       │
-       ▼
+        │
+        ▼
+    LLVM IR (.ll)
+        │
+        ▼
 ┌──────────────────┐
 │ 5. Native        │  LLVM IR → Executable
 │    Compilation   │  via llc + clang
 └──────────────────┘
-       │
-       ▼
-   Executable
+        │
+        ▼
+    Executable
 ```
 
-### 11.2 Driver Flow (Fax/Driver.lean)
+### 11.2 Driver Flow (faxc/cli/src/main.rs)
 
-```lean
-def compile (source : String) : Except String String :=
-  let tokens := Lexer.lex source      -- Stage 1: Lex
-  let module ← Parser.parseModule tokens  -- Stage 2: Parse
-  let ir := Codegen.Module.toLLVM module   -- Stage 4: Codegen
-  return ir
+```rust
+fn main() {
+    // Stage 1: Lex - Tokenize source code
+    let tokens = lexer.tokenize(source);
+    
+    // Stage 2: Parse - Build AST from tokens
+    let ast = parser.parse(tokens).expect("Parse error");
+    
+    // Stage 4: Codegen - Generate LLVM IR
+    let ir = codegen.generate_ir(ast).expect("Codegen error");
+    
+    println!("{}", ir);
+}
 ```
 
 ---
@@ -967,37 +1133,38 @@ def compile (source : String) : Except String String :=
 
 ### 12.2 Codegen Implementation
 
-The code generator (`Fax/Codegen.lean`) translates AST nodes to LLVM IR:
+The code generator (`faxc/codegen/src/lib.rs`) translates AST nodes to LLVM IR using Inkwell:
 
-```lean
--- Type to LLVM type conversion
-def Type.toLLVM (ty : AST.Type) : LLVMTypeRef
-  -- int32 → i32, float64 → double, bool → i1, etc.
-
--- Literal to LLVM value
-def Literal.toLLVM (l : AST.Literal) (env : CodegenEnv) : LLVMValueRef
-
--- Expression to LLVM value
-def Expr.toLLVM (e : AST.Expr) (env : CodegenEnv) : LLVMValueRef
-
--- Statement processing
-def Stmt.toLLVM (s : AST.Stmt) (env : CodegenEnv) : CodegenEnv
-
--- Declaration processing
-def Decl.toLLVM (d : AST.Decl) (env : CodegenEnv) : CodegenEnv
-
--- Module to complete LLVM IR
-def Module.toLLVM (m : AST.Module) : String
+```rust
+// Type to LLVM type conversion
+impl FaxCodegen {
+    fn compile_type(&self, ty: &Type) -> BasicTypeEnum<'ctx>
+    
+    // Literal to LLVM value
+    fn compile_literal(&self, lit: &Literal) -> BasicValueEnum<'ctx>
+    
+    // Expression to LLVM value
+    fn compile_expr(&self, expr: &Expr) -> Result<BasicValueEnum<'ctx>, String>
+    
+    // Statement processing
+    fn compile_stmt(&self, stmt: &Stmt) -> Result<(), String>
+    
+    // Declaration processing
+    fn compile_decl(&self, decl: &Decl) -> Result<FunctionValue<'ctx>, String>
+    
+    // Module to complete LLVM IR
+    fn compile_ast(&self, ast: AST) -> Result<String, String>
+}
 ```
 
 ### 12.3 Codegen Environment
 
-```lean
-structure CodegenEnv where
-  module : LLVMModuleRef           -- The LLVM module being built
-  builder : LLVMBuilderRef         -- IR builder for inserting instructions
-  namedValues : HashMap String LLVMValueRef  -- Variable bindings
-  stringConsts : HashMap String LLVMValueRef  -- String literals
+```rust
+pub struct FaxCodegen<'ctx> {
+    pub context: &'ctx Context,        // LLVM context
+    pub module: Module<'ctx>,           // The LLVM module being built
+    pub builder: Builder<'ctx>,         // IR builder for inserting instructions
+}
 ```
 
 ---
@@ -1008,34 +1175,57 @@ structure CodegenEnv where
 
 | Feature | Status | Location |
 |---------|--------|----------|
-| **Match expressions** | Parsed but no codegen | AST.lean:51, not in Codegen |
-| **Array type** | Defined in AST, no codegen | AST.lean:24 |
-| **Field access** | Parsed, no codegen | AST.lean:46 |
-| **Assignment statements** | Parsed, no codegen | AST.lean:58 |
-| **Enum variants** | Parsed, no codegen | AST.lean:44 |
-| **While/Loop statements** | Lexed but not parsed | Lexer.lean:6 |
-| **Semantic analysis** | Not implemented | No analyzer module |
+| **Match expressions** | Parsing partial | parser/src/lib.rs |
+| **Array type** | Defined in lexer, no codegen | lexer/src/lib.rs |
+| **Field access** | Tokenized, no codegen | lexer/src/lib.rs |
+| **Assignment statements** | Partial support | parser/src/lib.rs |
+| **Enum variants** | Parsed, limited codegen | parser/src/lib.rs |
+| **Struct declarations** | Not implemented | - |
+| **While/Loop statements** | Tokenized, limited parsing | lexer/src/lib.rs |
+| **Semantic analysis** | Not implemented | - |
 | **Type inference** | Partial | Uses `inferred` type |
+| **Generics** | Grammar defined | SPEC.md |
+| **Traits** | Grammar defined | SPEC.md |
+| **Async/Await** | Grammar defined | SPEC.md |
+| **Error handling** | Grammar defined | SPEC.md |
+| **Visibility modifiers** | Grammar defined | SPEC.md |
+| **Const/Static** | Grammar defined | SPEC.md |
+| **Attributes/Derive** | Grammar defined | SPEC.md |
 
 ### 13.2 Incomplete Codegen
 
-The following AST expressions are defined but return placeholder values:
+The code generator currently only supports basic integer literals:
 
-```lean
-| .proj e idx => LLVMConstInt (LLVMIntType 32) 0 ...
-| .field e field => LLVMConstInt (LLVMIntType 32) 0 ...
-| .enum name variant args => LLVMConstInt (LLVMIntType 32) 0 ...
-| .match scrut cases => LLVMConstInt (LLVMIntType 32) 0 ...
+```rust
+fn compile_expr(&self, expr: Expr) -> Result<BasicValueEnum<'ctx>, String> {
+    match expr {
+        Expr::Lit(Literal::Int(v)) => {
+            Ok(self.context.i32_type().const_int(v as u64, false).into())
+        }
+        _ => Err("Expression not supported in Codegen".to_string()),
+    }
+}
 ```
 
 ### 13.3 Missing Operators in Codegen
 
-The following BinOp variants are defined but not generated:
-- `shl` (shift left)
-- `shr` (shift right)
-- `band` (bitwise AND)
-- `bor` (bitwise OR)
-- `bxor` (bitwise XOR)
+The following operations are not yet generated:
+- Floating point operations
+- String operations
+- Boolean operations
+- All binary operators except basic integer literals
+
+### 13.4 Grammar Status
+
+| Feature | Grammar Status | Implementation Status |
+|---------|---------------|---------------------|
+| Basic syntax | ✅ Complete | ✅ Implemented |
+| Generics | ✅ Complete | ❌ Not implemented |
+| Traits | ✅ Complete | ❌ Not implemented |
+| Async/Await | ✅ Complete | ❌ Not implemented |
+| Error handling | ✅ Complete | ❌ Not implemented |
+| Visibility | ✅ Complete | ❌ Not implemented |
+| Attributes | ✅ Complete | ❌ Not implemented |
 
 ---
 
@@ -1044,24 +1234,53 @@ The following BinOp variants are defined but not generated:
 ### 14.1 Complete Grammar (EBNF)
 
 ```ebnf
-program         ::= decl*
+program         ::= item*
 
-decl            ::= fun_decl
+item            ::= fun_decl
                  |  struct_decl
                  |  enum_decl
+                 |  trait_decl
+                 |  impl_decl
+                 |  const_decl
+                 |  static_decl
+                 |  use_decl
+                 |  mod_decl
 
-fun_decl        ::= 'fn' ident '(' param_list ')' ('->' type)? block
+fun_decl        ::= 'fn' ident generics? '(' param_list ')' ('->' type)? where_clause? body
+                 |  'async' 'fn' ident generics? '(' param_list ')' ('->' type)? where_clause? body
+
+generics        ::= '<' generic_param (',' generic_param)* '>' 
+generic_param   ::= ident (':' type_bound)?
+where_clause    ::= 'where' constraint (',' constraint)*
 
 param_list      ::= (param (',' param)*)?
 param           ::= ident ':' type
 
-struct_decl     ::= 'struct' ident '{' field_list '}'
+body            ::= block
+                 |  ';'   (for extern declarations)
+
+struct_decl     ::= 'struct' ident generics? ('{' field_list '}')?
 field_list      ::= (field (',' field)*)?
 field           ::= ident ':' type
+                 |  ident ':' type '=' expr
 
-enum_decl       ::= 'enum' ident '{' variant_list '}'
+enum_decl       ::= 'enum' ident generics? '{' variant_list '}'
 variant_list    ::= (variant (',' variant)*)?
 variant         ::= ident ('(' type_list ')')?
+
+trait_decl      ::= 'trait' ident generics? ('where' constraint_list)? '{' trait_item* '}'
+trait_item      ::= fun_sig
+                 |  const_sig
+
+impl_decl       ::= 'impl' generics? type ('for' type)? '{' impl_item* '}'
+impl_item       ::= fun_def
+                 |  const_def
+
+const_decl      ::= 'const' ident ':' type '=' expr ';'
+static_decl     ::= 'static' 'mut'? ident ':' type '=' expr ';'
+
+use_decl        ::= 'use' path ('as' ident)? ';'
+mod_decl        ::= 'mod' ident (';' | '{' item* '}')
 
 type            ::= 'i8' | 'i16' | 'i32' | 'i64'
                  |  'u8' | 'u16' | 'u32' | 'u64'
@@ -1069,35 +1288,55 @@ type            ::= 'i8' | 'i16' | 'i32' | 'i64'
                  |  'bool' | 'char' | 'str' | 'unit'
                  |  '[' type ';' number ']'
                  |  '(' type_list ')'
-                 |  ident
+                 |  ident generics?
+                 |  '&' type
+                 |  'dyn' type_bound
+                 |  'fn' '(' type_list ')' ('->' type)?
 
+type_bound      ::= ident ('+' ident)*
 type_list       ::= type (',' type)*
+constraint      ::= type '<' type
+                 |  type ':' type_bound
 
 block           ::= '{' stmt* '}'
 
-stmt            ::= 'let' pattern '=' expr ';'
+stmt            ::= 'let' pattern ('=' expr)? ';'
+                 |  'let' 'mut' pattern ('=' expr)? ';'
                  |  'return' expr? ';'
-                 |  'break' ';'
+                 |  'break' expr? ';'
                  |  'continue' ';'
+                 |  'while' expr block
+                 |  'loop' block
+                 |  'for' pattern 'in' expr block
                  |  expr ';'
 
 pattern         ::= ident
                  |  '_'
-                 |  '(' pattern_list ')'
+                 |  literal
+                 |  '(' pattern (',' pattern)* ')'
+                 |  ident '@' pattern
 
 pattern_list    ::= pattern (',' pattern)*
 
 expr            ::= if_expr
                  |  match_expr
                  |  lambda_expr
+                 |  await_expr
+                 |  try_expr
                  |  or_expr
 
 if_expr         ::= 'if' expr block ('else' (block | if_expr))?
 
 match_expr      ::= 'match' expr '{' match_arm* '}'
-match_arm       ::= pattern '=>' expr (',' | ';')
+match_arm       ::= pattern ('if' guard)? '=>' expr
 
-lambda_expr     ::= 'fn' '(' param_list ')' ('->' type)? expr
+guard           ::= expr
+
+lambda_expr     ::= 'fn' generics? '(' param_list ')' ('->' type)? block
+
+await_expr      ::= 'await' expr
+
+try_expr        ::= 'try' expr
 
 or_expr         ::= and_expr ('||' and_expr)*
 
@@ -1112,14 +1351,21 @@ mul_expr        ::= unary_expr (('*' | '/' | '%') unary_expr)*
 unary_expr      ::= ('-' | '!' | '~') unary_expr
                  |  postfix_expr
 
-postfix_expr    ::= primary_expr (('(' arg_list ')') | ('.' ident))*
+postfix_expr    ::= primary_expr (('(' arg_list ')') | ('.' ident | '?'))*
 
 arg_list        ::= expr (',' expr)*
 
 primary_expr    ::= literal
-                 |  ident
+                 |  path ('::' ident)*
                  |  '(' (expr (',' expr)*)? ')'
-                 |  '{' block '}'
+                 |  '[' (expr (',' expr)*)? ']'
+                 |  '{' struct_field (',' struct_field)* '}'
+                 |  '[' expr ';' expr ']'  (array repetition)
+
+path            ::= ident ('::' ident)*
+
+struct_field    ::= ident ':' expr
+                 |  ident
 
 literal         ::= integer
                  |  float
@@ -1129,8 +1375,16 @@ literal         ::= integer
                  |  'false'
 
 integer         ::= [0-9]+
-float           ::= [0-9]+ '.' [0-9]+
+                 |  0x[0-9a-fA-F]+
+                 |  0b[01]+
+                 |  0o[0-7]+
+
+float           ::= [0-9]+ '.' [0-9]+ (('e' | 'E') ('+' | '-') [0-9]+)?
+                 |  [0-9]+ ('e' | 'E') ('+' | '-') [0-9]+
+
 string          ::= '"' [^"]* '"'
+                 |  'r' '#* '"' [^"]* '"' '#*'
+
 char            ::= '\'' [^']* '\''
 
 ident           ::= [a-zA-Z_] [a-zA-Z0-9_]*
@@ -1145,6 +1399,164 @@ fn      let     mut     if      else    match
 struct  enum    return  true    false   import
 pub     mod     use     as      loop    while
 for     in      break   continue
+async   await   const   static  trait
+impl    dyn     where   type    unsafe
+ref     self    Self    super   crate
+```
+
+## Appendix C: Advanced Features
+
+### C.1 Generics
+
+```fax
+fn identity<T>(x: T) -> T {
+    x
+}
+
+fn pair<T, U>(a: T, b: U) -> (T, U) {
+    (a, b)
+}
+
+struct Container<T> {
+    value: T,
+}
+
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+```
+
+### C.2 Traits
+
+```fax
+trait Printable {
+    fn print(&self);
+    
+    fn debug(&self) -> str {
+        // Default implementation
+        "debug"
+    }
+}
+
+trait Add<Rhs = Self> {
+    type Output;
+    fn add(self, rhs: Rhs) -> Self::Output;
+}
+
+impl Printable for i32 {
+    fn print(&self) {
+        println(*self)
+    }
+}
+```
+
+### C.3 Async/Await
+
+```fax
+async fn fetch_data(url: str) -> str {
+    let response = http_get(url).await;
+    response.body
+}
+
+async fn main() {
+    let data = await fetch_data("https://example.com");
+    println(data);
+}
+```
+
+### C.4 Error Handling
+
+```fax
+fn divide(a: i32, b: i32) -> i32 {
+    if b == 0 {
+        throw("Division by zero")
+    }
+    a / b
+}
+
+fn safe_divide(a: i32, b: i32) -> i32? {
+    if b == 0 {
+        None
+    } else {
+        Some(a / b)
+    }
+}
+
+fn handle_error() {
+    let result = try divide(10, 0);
+    match result {
+        Ok(value) => println(value),
+        Err(e) => println(e),
+    }
+}
+```
+
+### C.5 Visibility and Modules
+
+```fax
+mod math {
+    pub fn add(a: i32, b: i32) -> i32 {
+        a + b
+    }
+    
+    pub(crate) fn internal() {}
+    
+    pub(super) fn parent_accessible() {}
+    
+    mod inner {
+        pub(super) fn to_parent() {}
+    }
+}
+
+use math::add;
+use math::{sub, mul};
+
+mod external {
+    extern "C" {
+        fn printf(format: *const u8, ...);
+    }
+}
+```
+
+### C.6 Constants and Static
+
+```fax
+const MAX_SIZE: i32 = 100;
+const DEFAULT_NAME: str = "Guest";
+
+static mut COUNTER: i32 = 0;
+
+fn increment() {
+    unsafe {
+        COUNTER = COUNTER + 1;
+    }
+}
+```
+
+### C.7 Attributes and Derive
+
+```fax
+#[derive(Clone, Debug, PartialEq)]
+struct Point {
+    x: f64,
+    y: f64,
+}
+
+#[derive(Default)]
+struct Config {
+    host: str = "localhost",
+    port: u16 = 8080,
+}
+
+#[inline]
+fn hot_path() {}
+
+#[cold]
+fn error_path() {}
+
+#[cfg(target_os = "linux")]
+fn linux_only() {}
 ```
 
 ## Appendix B: Example Programs
@@ -1228,8 +1640,8 @@ fn main() {
 
 | Version | Date | Description |
 |---------|------|-------------|
-| 0.0.1 | 2026-02-16 | Initial specification based on implementation analysis |
+| 0.0.1 | 2026-02-15 | Initial specification based on implementation analysis |
 
 ---
 
-*This specification documents the Fax programming language as implemented in Lean 4, targeting LLVM IR generation.*
+*This specification documents the Fax programming language as implemented in Rust using Inkwell for LLVM IR generation.*

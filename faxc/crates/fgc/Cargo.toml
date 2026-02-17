@@ -1,0 +1,38 @@
+[package]
+name = "fgc"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# Internal
+faxc-util.workspace = true
+
+# Error handling
+thiserror.workspace = true
+anyhow.workspace = true
+
+# Concurrency
+parking_lot.workspace = true
+crossbeam.workspace = true
+
+# NUMA support (optional)
+num_cpus = "1.16"
+
+# Logging
+log = "0.4"
+
+# Memory mapping (cross-platform)
+memmap2 = "0.9"
+
+# System page size detection
+page_size = "0.6"
+
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "gc_perf"
+harness = false

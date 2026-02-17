@@ -1,0 +1,738 @@
+//! Object Scanner - Traces References Within Objects
+//!
+//! Object scanner bertanggung jawab untuk:
+//! - Membaca reference map dari object
+//! - Menemukan semua pointer fields dalam object
+//! - Mengembalikan references untuk further tracing
+//!
+//! # Scanning Modes
+//!
+//! 1. **Precise Scanning** - Menggunakan reference map dari class metadata
+//! 2. **Conservative Scanning** - Scan word-by-word, anggap semua non-zero sebagai pointer
+//!
+//! # Thread Safety
+//!
+//! Semua fungsi scanner adalah thread-safe dan dapat dipanggil
+//! dari multiple threads secara concurrent.
+
+use crate::object::{ObjectHeader, ReferenceMap, HEADER_SIZE, OBJECT_ALIGNMENT};
+use crate::memory;
+
+/// Object scanning statistics
+#[derive(Debug, Default, Clone)]
+pub struct ObjectScanStats {
+    /// Jumlah objects yang di-scan
+    pub objects_scanned: u64,
+    /// Total references yang ditemukan
+    pub references_found: u64,
+    /// Rata-rata refs per object
+    pub avg_refs_per_object: f64,
+    /// Maximum refs dalam satu object
+    pub max_refs_in_object: usize,
+    /// Minimum refs dalam satu object
+    pub min_refs_in_object: usize,
+}
+
+impl ObjectScanStats {
+    /// Create new stats tracker
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Record scan result
+    pub fn record(&mut self, ref_count: usize) {
+        self.objects_scanned += 1;
+        self.references_found += ref_count as u64;
+
+        if self.objects_scanned > 0 {
+            self.avg_refs_per_object = self.references_found as f64 / self.objects_scanned as f64;
+        }
+
+        if ref_count > self.max_refs_in_object {
+            self.max_refs_in_object = ref_count;
+        }
+
+        // Update min: first record OR smaller than current min
+        if self.objects_scanned == 1 || ref_count < self.min_refs_in_object {
+            self.min_refs_in_object = ref_count;
+        }
+    }
+
+    /// Merge dengan stats lain
+    pub fn merge(&mut self, other: &ObjectScanStats) {
+        if other.objects_scanned == 0 {
+            return;
+        }
+
+        let total_refs = self.references_found + other.references_found;
+        let total_objects = self.objects_scanned + other.objects_scanned;
+
+        self.objects_scanned = total_objects;
+        self.references_found = total_refs;
+        self.avg_refs_per_object = total_refs as f64 / total_objects as f64;
+        self.max_refs_in_object = self.max_refs_in_object.max(other.max_refs_in_object);
+        
+        if other.min_refs_in_object > 0 && (self.min_refs_in_object == 0 || other.min_refs_in_object < self.min_refs_in_object) {
+            self.min_refs_in_object = other.min_refs_in_object;
+        }
+    }
+}
+
+/// Scan object dan yield semua reference fields
+///
+/// Ini adalah precise scanning mode - menggunakan reference map
+/// untuk menemukan hanya pointer fields yang sebenarnya.
+///
+/// # Arguments
+/// * `obj_addr` - Address of object (points to ObjectHeader)
+/// * `ref_map` - Reference map untuk object type ini
+/// * `callback` - Called for each reference found (receives reference address)
+///
+/// # Returns
+/// Number of references found (non-null only)
+///
+/// # Safety
+/// `obj_addr` harus point ke valid GC-managed object dengan header yang valid
+///
+/// # Examples
+///
+/// ```ignore
+/// let refs_found = scan_object_precise(obj_addr, &ref_map, |ref_addr| {
+///     let ref_value = unsafe { memory::read_pointer(ref_addr) };
+///     println!("Found reference: {:#x}", ref_value);
+/// });
+/// ```
+pub fn scan_object_precise<F>(obj_addr: usize, ref_map: &ReferenceMap, mut callback: F) -> usize
+where
+    F: FnMut(usize),  // Called with address of each reference field
+{
+    unsafe {
+        let header = &*(obj_addr as *const ObjectHeader);
+
+        // Validate object
+        if header.size == 0 || header.size > 1024 * 1024 * 1024 {
+            return 0;
+        }
+
+        let data_start = obj_addr + HEADER_SIZE;
+        let data_size = header.get_data_size();
+
+        let mut ref_count = 0;
+
+        // Scan for references using reference map
+        for offset in ref_map.iter() {
+            if offset < data_size {
+                let ref_addr = data_start + offset;
+
+                // Read the reference
+                let ref_value = memory::read_pointer(ref_addr);
+
+                // Only yield non-null references
+                if ref_value != 0 {
+                    callback(ref_addr);
+                    ref_count += 1;
+                }
+            }
+        }
+
+        ref_count
+    }
+}
+
+/// Scan object dengan reference map dari header
+///
+/// Convenience wrapper yang mendapatkan reference map dari
+/// object header (dalam implementasi penuh, ini akan lookup
+/// dari class metadata).
+///
+/// # Arguments
+/// * `obj_addr` - Address of object
+/// * `callback` - Called for each reference found
+///
+/// # Returns
+/// Number of references found
+pub fn scan_object<F>(obj_addr: usize, mut callback: F) -> usize
+where
+    F: FnMut(usize),
+{
+    unsafe {
+        let header = &*(obj_addr as *const ObjectHeader);
+
+        // Validate object
+        if header.size == 0 || header.size > 1024 * 1024 * 1024 {
+            return 0;
+        }
+
+        let data_start = obj_addr + HEADER_SIZE;
+        let data_size = header.get_data_size();
+
+        // Get reference map for this object
+        // TODO: In production, lookup from class metadata
+        let ref_map = get_reference_map_for_object(obj_addr);
+
+        let mut ref_count = 0;
+
+        // Scan for references
+        for offset in ref_map.iter() {
+            if offset < data_size {
+                let ref_addr = data_start + offset;
+
+                // Validate reference address is readable
+                if memory::is_readable(ref_addr) {
+                    let ref_value = memory::read_pointer(ref_addr);
+
+                    // Only yield non-null references
+                    if ref_value != 0 {
+                        callback(ref_addr);
+                        ref_count += 1;
+                    }
+                }
+            }
+        }
+
+        ref_count
+    }
+}
+
+/// Conservative reference scanner
+///
+/// Scans memory word-by-word dan treats any non-zero value sebagai
+/// potential reference. Ini kurang precise tapi bekerja tanpa
+/// type information.
+///
+/// # Warning
+///
+/// May produce false positives (treat non-pointers as pointers).
+/// Gunakan hanya jika precise reference map tidak tersedia.
+///
+/// # Arguments
+/// * `obj_addr` - Address of object
+/// * `callback` - Called for each potential reference
+///
+/// # Returns
+/// Number of potential references found
+pub fn scan_object_conservative<F>(obj_addr: usize, mut callback: F) -> usize
+where
+    F: FnMut(usize),
+{
+    unsafe {
+        let header = &*(obj_addr as *const ObjectHeader);
+
+        // Validate object
+        if header.size == 0 || header.size > 1024 * 1024 * 1024 {
+            return 0;
+        }
+
+        let data_start = obj_addr + HEADER_SIZE;
+        let data_size = header.get_data_size();
+        let word_count = data_size / std::mem::size_of::<usize>();
+
+        let mut ref_count = 0;
+
+        for i in 0..word_count {
+            let word_addr = data_start + (i * std::mem::size_of::<usize>());
+
+            // Check if address is readable
+            if memory::is_readable(word_addr) {
+                let word_value = memory::read_pointer(word_addr);
+
+                // Conservative: treat any non-zero value as potential reference
+                if word_value != 0 {
+                    callback(word_addr);
+                    ref_count += 1;
+                }
+            }
+        }
+
+        ref_count
+    }
+}
+
+/// Hybrid scanner - precise jika ada reference map, conservative jika tidak
+///
+/// # Arguments
+/// * `obj_addr` - Address of object
+/// * `ref_map` - Optional reference map (None = conservative)
+/// * `callback` - Called for each reference found
+///
+/// # Returns
+/// Number of references found
+pub fn scan_object_hybrid<F>(obj_addr: usize, ref_map: Option<&ReferenceMap>, mut callback: F) -> usize
+where
+    F: FnMut(usize),
+{
+    match ref_map {
+        Some(map) => scan_object_precise(obj_addr, map, callback),
+        None => scan_object_conservative(obj_addr, callback),
+    }
+}
+
+/// Get reference map untuk object
+///
+/// Dalam implementasi penuh, ini akan:
+/// 1. Read class pointer dari object header
+/// 2. Lookup class metadata
+/// 3. Return reference map dari metadata
+///
+/// Untuk sekarang, returns conservative map (assumes semua fields adalah references)
+///
+/// # Safety
+/// `obj_addr` harus point ke valid object
+fn get_reference_map_for_object(obj_addr: usize) -> ReferenceMap {
+    unsafe {
+        let header = &*(obj_addr as *const ObjectHeader);
+        let data_size = header.get_data_size();
+
+        // Create map assuming semua 8-byte slots contain references
+        // Ini adalah conservative fallback
+        let mut offsets = Vec::new();
+        for i in 0..(data_size / OBJECT_ALIGNMENT) {
+            offsets.push(i * OBJECT_ALIGNMENT);
+        }
+
+        ReferenceMap::new(&offsets)
+    }
+}
+
+/// Object scanner iterator
+///
+/// Iterator untuk scanning object tanpa callback
+pub struct ObjectScanner {
+    /// Object address
+    obj_addr: usize,
+    /// Current offset
+    current_offset: usize,
+    /// Data size
+    data_size: usize,
+    /// Reference map
+    ref_map: ReferenceMap,
+    /// Iterator internal
+    ref_iter: crate::object::refmap::ReferenceMapIter,
+}
+
+impl ObjectScanner {
+    /// Create new object scanner
+    ///
+    /// # Safety
+    /// `obj_addr` harus point ke valid object
+    pub unsafe fn new(obj_addr: usize) -> Option<Self> {
+        let header = &*(obj_addr as *const ObjectHeader);
+
+        if header.size == 0 || header.size > 1024 * 1024 * 1024 {
+            return None;
+        }
+
+        let data_size = header.get_data_size();
+        let ref_map = get_reference_map_for_object(obj_addr);
+        let ref_iter = ref_map.iter();
+
+        Some(Self {
+            obj_addr,
+            current_offset: 0,
+            data_size,
+            ref_map,
+            ref_iter,
+        })
+    }
+
+    /// Get object address
+    pub fn obj_addr(&self) -> usize {
+        self.obj_addr
+    }
+
+    /// Get data size
+    pub fn data_size(&self) -> usize {
+        self.data_size
+    }
+}
+
+impl Iterator for ObjectScanner {
+    type Item = usize; // Returns reference address
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(offset) = self.ref_iter.next() {
+            if offset < self.data_size {
+                let ref_addr = self.obj_addr + HEADER_SIZE + offset;
+
+                // Check if reference is non-null
+                unsafe {
+                    if memory::is_readable(ref_addr) {
+                        let ref_value = memory::read_pointer(ref_addr);
+                        if ref_value != 0 {
+                            self.current_offset = offset;
+                            return Some(ref_addr);
+                        }
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.ref_iter.size_hint()
+    }
+}
+
+impl ExactSizeIterator for ObjectScanner {}
+impl std::iter::FusedIterator for ObjectScanner {}
+
+/// Batch object scanner - scan multiple objects efficiently
+pub struct BatchScanner {
+    stats: ObjectScanStats,
+}
+
+impl BatchScanner {
+    /// Create new batch scanner
+    pub fn new() -> Self {
+        Self {
+            stats: ObjectScanStats::new(),
+        }
+    }
+
+    /// Scan multiple objects
+    ///
+    /// # Arguments
+    /// * `objects` - Slice of object addresses
+    /// * `callback` - Called for each reference found
+    ///
+    /// # Returns
+    /// Scan statistics
+    pub fn scan_objects<F>(&mut self, objects: &[usize], mut callback: F) -> ObjectScanStats
+    where
+        F: FnMut(usize),
+    {
+        let mut stats = ObjectScanStats::new();
+
+        for &obj_addr in objects {
+            let ref_count = scan_object(obj_addr, |ref_addr| {
+                callback(ref_addr);
+            });
+            stats.record(ref_count);
+        }
+
+        self.stats.merge(&stats);
+        stats.clone()
+    }
+
+    /// Get accumulated stats
+    pub fn stats(&self) -> &ObjectScanStats {
+        &self.stats
+    }
+
+    /// Clear stats
+    pub fn clear_stats(&mut self) {
+        self.stats = ObjectScanStats::new();
+    }
+}
+
+impl Default for BatchScanner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Reference validator - validates if a value is a valid reference
+pub struct ReferenceValidator {
+    /// Heap minimum address
+    heap_min: usize,
+    /// Heap maximum address
+    heap_max: usize,
+    /// Check for alignment
+    check_alignment: bool,
+}
+
+impl ReferenceValidator {
+    /// Create new validator
+    ///
+    /// # Arguments
+    /// * `heap_min` - Minimum valid heap address
+    /// * `heap_max` - Maximum valid heap address
+    /// * `check_alignment` - Whether to check pointer alignment
+    pub fn new(heap_min: usize, heap_max: usize, check_alignment: bool) -> Self {
+        Self {
+            heap_min,
+            heap_max,
+            check_alignment,
+        }
+    }
+
+    /// Check if value is a valid reference
+    pub fn is_valid_reference(&self, value: usize) -> bool {
+        // Null is not a valid reference
+        if value == 0 {
+            return false;
+        }
+
+        // Check if within heap bounds
+        if value < self.heap_min || value >= self.heap_max {
+            return false;
+        }
+
+        // Check alignment if enabled
+        if self.check_alignment && value % OBJECT_ALIGNMENT != 0 {
+            return false;
+        }
+
+        // Additional validation could check:
+        // - Is address readable?
+        // - Does it point to a valid object header?
+        // - Is the object marked?
+
+        true
+    }
+
+    /// Validate and filter references
+    pub fn filter_references<F>(&self, addresses: &[usize], mut callback: F) -> usize
+    where
+        F: FnMut(usize),
+    {
+        let mut count = 0;
+        for &addr in addresses {
+            if self.is_valid_reference(addr) {
+                callback(addr);
+                count += 1;
+            }
+        }
+        count
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::object::refmap::ReferenceMapBuilder;
+
+    fn create_test_object(data_size: usize) -> (Vec<u8>, usize) {
+        // Allocate buffer: header + data
+        let total_size = HEADER_SIZE + data_size;
+        let mut buffer = vec![0u8; total_size];
+
+        // Create header
+        let header = ObjectHeader::new(0x1000, total_size);
+        unsafe {
+            std::ptr::write_unaligned(buffer.as_mut_ptr() as *mut ObjectHeader, header);
+        }
+
+        let obj_addr = buffer.as_ptr() as usize;
+        (buffer, obj_addr)
+    }
+
+    #[test]
+    fn test_scan_empty_object() {
+        let (buffer, obj_addr) = create_test_object(0);
+
+        let mut refs = Vec::new();
+        let count = scan_object(obj_addr, |ref_addr| {
+            refs.push(ref_addr);
+        });
+
+        assert_eq!(count, 0);
+        assert!(refs.is_empty());
+    }
+
+    #[test]
+    fn test_scan_object_with_references() {
+        let (mut buffer, obj_addr) = create_test_object(32);
+
+        // Plant some references in object data
+        let data_start = obj_addr + HEADER_SIZE;
+        unsafe {
+            // Reference at offset 0
+            *(data_start as *mut usize) = 0xAAAAAAAA;
+            // Reference at offset 8
+            *((data_start + 8) as *mut usize) = 0xBBBBBBBB;
+            // Null at offset 16
+            *((data_start + 16) as *mut usize) = 0;
+            // Reference at offset 24
+            *((data_start + 24) as *mut usize) = 0xCCCCCCCC;
+        }
+
+        // Create precise reference map (offsets 0, 8, 24)
+        let ref_map = ReferenceMap::new(&[0, 8, 24]);
+
+        let mut refs = Vec::new();
+        let count = scan_object_precise(obj_addr, &ref_map, |ref_addr| {
+            refs.push(ref_addr);
+        });
+
+        // Should find 3 non-null references
+        assert_eq!(count, 3);
+        assert_eq!(refs.len(), 3);
+    }
+
+    #[test]
+    fn test_conservative_scan() {
+        let (mut buffer, obj_addr) = create_test_object(32);
+
+        let data_start = obj_addr + HEADER_SIZE;
+        unsafe {
+            // Non-zero values
+            *(data_start as *mut usize) = 0x11111111;
+            *((data_start + 8) as *mut usize) = 0x22222222;
+            // Zero value (should be skipped)
+            *((data_start + 16) as *mut usize) = 0;
+            // Another non-zero
+            *((data_start + 24) as *mut usize) = 0x44444444;
+        }
+
+        let mut refs = Vec::new();
+        let count = scan_object_conservative(obj_addr, |ref_addr| {
+            refs.push(ref_addr);
+        });
+
+        // Should find 3 non-zero values
+        assert_eq!(count, 3);
+        assert_eq!(refs.len(), 3);
+    }
+
+    #[test]
+    fn test_object_scanner_iterator() {
+        let (mut buffer, obj_addr) = create_test_object(24);
+
+        let data_start = obj_addr + HEADER_SIZE;
+        unsafe {
+            *(data_start as *mut usize) = 0x11111111;
+            *((data_start + 8) as *mut usize) = 0x22222222;
+            *((data_start + 16) as *mut usize) = 0;
+        }
+
+        unsafe {
+            let mut scanner = ObjectScanner::new(obj_addr).unwrap();
+            let refs: Vec<usize> = scanner.collect();
+
+            // Should find 2 non-null references
+            assert_eq!(refs.len(), 2);
+        }
+    }
+
+    #[test]
+    fn test_batch_scanner() {
+        let mut objects = Vec::new();
+        let mut buffers = Vec::new();
+
+        // Create 3 test objects
+        for i in 0..3 {
+            let (buffer, obj_addr) = create_test_object(16);
+            let data_start = obj_addr + HEADER_SIZE;
+            unsafe {
+                *(data_start as *mut usize) = 0x1000 + i;
+                *((data_start + 8) as *mut usize) = 0x2000 + i;
+            }
+            buffers.push(buffer);
+            objects.push(obj_addr);
+        }
+
+        let mut scanner = BatchScanner::new();
+        let mut all_refs = Vec::new();
+
+        let stats = scanner.scan_objects(&objects, |ref_addr| {
+            unsafe {
+                let ref_value = memory::read_pointer(ref_addr);
+                all_refs.push(ref_value);
+            }
+        });
+
+        assert_eq!(stats.objects_scanned, 3);
+        assert_eq!(stats.references_found, 6); // 2 refs per object
+        assert_eq!(all_refs.len(), 6);
+    }
+
+    #[test]
+    fn test_reference_validator() {
+        let validator = ReferenceValidator::new(0x1000, 0x10000, true);
+
+        // Valid reference
+        assert!(validator.is_valid_reference(0x2000));
+
+        // Null
+        assert!(!validator.is_valid_reference(0));
+
+        // Out of bounds
+        assert!(!validator.is_valid_reference(0x500));
+        assert!(!validator.is_valid_reference(0x20000));
+
+        // Misaligned
+        assert!(!validator.is_valid_reference(0x2001));
+    }
+
+    #[test]
+    fn test_scan_stats() {
+        let mut stats = ObjectScanStats::new();
+
+        stats.record(2);
+        stats.record(4);
+        stats.record(0);
+        stats.record(6);
+
+        assert_eq!(stats.objects_scanned, 4);
+        assert_eq!(stats.references_found, 12);
+        assert!((stats.avg_refs_per_object - 3.0).abs() < f64::EPSILON);
+        assert_eq!(stats.max_refs_in_object, 6);
+        assert_eq!(stats.min_refs_in_object, 0);  // record(0) sets min to 0
+    }
+
+    #[test]
+    fn test_scan_invalid_object() {
+        // Invalid: size = 0
+        let (buffer, _) = create_test_object(0);
+        let invalid_addr = buffer.as_ptr() as usize + HEADER_SIZE; // Skip header
+
+        let count = scan_object(invalid_addr, |_| {});
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn test_scan_with_null_references() {
+        let (mut buffer, obj_addr) = create_test_object(16);
+        let data_start = obj_addr + HEADER_SIZE;
+
+        unsafe {
+            // All null references
+            *(data_start as *mut usize) = 0;
+            *((data_start + 8) as *mut usize) = 0;
+        }
+
+        let count = scan_object_conservative(obj_addr, |_| {});
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn test_hybrid_scan_precise() {
+        let (mut buffer, obj_addr) = create_test_object(16);
+        let data_start = obj_addr + HEADER_SIZE;
+
+        unsafe {
+            *(data_start as *mut usize) = 0xAAAAAAAA;
+            *((data_start + 8) as *mut usize) = 0;
+        }
+
+        let ref_map = ReferenceMap::new(&[0, 8]);
+
+        let mut refs = Vec::new();
+        let count = scan_object_hybrid(obj_addr, Some(&ref_map), |ref_addr| {
+            refs.push(ref_addr);
+        });
+
+        assert_eq!(count, 1); // Only one non-null
+    }
+
+    #[test]
+    fn test_hybrid_scan_conservative() {
+        let (mut buffer, obj_addr) = create_test_object(16);
+        let data_start = obj_addr + HEADER_SIZE;
+
+        unsafe {
+            *(data_start as *mut usize) = 0xAAAAAAAA;
+            *((data_start + 8) as *mut usize) = 0xBBBBBBBB;
+        }
+
+        let mut refs = Vec::new();
+        let count = scan_object_hybrid(obj_addr, None, |ref_addr| {
+            refs.push(ref_addr);
+        });
+
+        assert_eq!(count, 2); // Conservative finds both
+    }
+}

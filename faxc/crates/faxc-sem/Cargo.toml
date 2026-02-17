@@ -1,0 +1,16 @@
+[package]
+name = "faxc-sem"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+faxc-util.workspace = true
+faxc-lex.workspace = true
+faxc-par.workspace = true
+fgc.workspace = true
+indexmap.workspace = true
+
+[dev-dependencies]
