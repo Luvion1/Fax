@@ -14,7 +14,7 @@ thiserror.workspace = true
 bumpalo = "3.14"
 
 # Concurrency and hashing improvements
-dashmap = "5.5"
+dashmap = "6.1"
 ahash = "0.8"
 
 # Compile-time assertions
