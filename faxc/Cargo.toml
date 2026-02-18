@@ -31,7 +31,7 @@ faxc-drv = { path = "crates/faxc-drv" }
 thiserror = "1.0"
 anyhow = "1.0"
 indexmap = "2.1"
-rustc-hash = "1.1"
+rustc-hash = "2.1"
 parking_lot = "0.12"
 crossbeam = "0.8"
 rayon = "1.8"
