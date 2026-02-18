@@ -126,7 +126,7 @@ jobs:
       # Caches cargo registry, build artifacts, and coverage data
       # -----------------------------------------------------------------------
       - name: Cache cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -137,7 +137,7 @@ jobs:
             ${{ runner.os }}-cargo-registry-
 
       - name: Cache cargo build artifacts
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             faxc/target
@@ -148,7 +148,7 @@ jobs:
             ${{ runner.os }}-cargo-debug-
 
       - name: Cache LLVM coverage data
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             faxc/target/llvm-cov
