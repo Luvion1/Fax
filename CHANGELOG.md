@@ -216,8 +216,8 @@ Initial development by the Fax team.
 ### License
 
 Licensed under either of:
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
-- MIT license ([LICENSE-MIT](LICENSE-MIT))
+- Apache License, Version 2.0 ([]())
+- MIT license ([LICENSE](LICENSE))
 
 at your option.
 

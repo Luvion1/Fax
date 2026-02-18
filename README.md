@@ -1,7 +1,7 @@
 # Fax Compiler
 
 [![Version](https://img.shields.io/badge/version-0.0.1--pre--alpha-orange.svg)](https://github.com/username/faxc/releases)
-[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE-MIT)
+[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.75+-blue.svg)](https://www.rust-lang.org)
 [![CI](https://img.shields.io/github/actions/workflow/status/username/faxc/ci.yml?branch=main)](https://github.com/username/faxc/actions)
 [![Coverage](https://img.shields.io/github/actions/workflow/status/username/faxc/coverage.yml?branch=main&label=coverage)](https://github.com/username/faxc/actions)
@@ -263,8 +263,8 @@ git push origin feature/my-feature
 
 Licensed under either of:
 
-- **Apache License, Version 2.0** ([LICENSE-APACHE](LICENSE-APACHE))
-- **MIT License** ([LICENSE-MIT](LICENSE-MIT))
+- **Apache License, Version 2.0** ([]())
+- **MIT License** ([LICENSE](LICENSE))
 
 at your option.
 

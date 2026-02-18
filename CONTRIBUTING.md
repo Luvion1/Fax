@@ -304,4 +304,4 @@ Clarified function type grammar in section 5.2.5.
 
 ## License
 
-By contributing to Fax, you agree that your contributions will be licensed under the project's dual license (MIT OR Apache-2.0). See [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE) for details.
+By contributing to Fax, you agree that your contributions will be licensed under the project's dual license (MIT OR Apache-2.0). See [LICENSE](LICENSE) and []() for details.
