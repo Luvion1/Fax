@@ -1,0 +1,119 @@
+// 06_enums.fax - Enums (Algebraic Data Types) in Fax
+// ===================================================
+// Demonstrates enum definition, variants, and pattern matching.
+//
+// Features demonstrated:
+// - Enum declaration with `enum`
+// - Simple variants (no data)
+// - Tuple variants (with data)
+// - Pattern matching on enums
+// - Destructuring enum variants
+// - Common enum patterns (Option, Result)
+//
+// Expected output:
+//   Color: Red
+//   RGB color: r=255, g=128, b=0
+//   Direction: North
+//   Option has value: 42
+//   Result: success with 100
+
+// Simple enum with unit variants
+enum Color {
+    Red,
+    Green,
+    Blue,
+    RGB(i32, i32, i32),
+}
+
+// Enum with tuple variants
+enum Direction {
+    North,
+    South,
+    East,
+    West,
+    At(i32, i32),
+}
+
+// Option-like enum for nullable values
+enum Option {
+    Some(i32),
+    None,
+}
+
+// Result-like enum for error handling
+enum Result {
+    Ok(i32),
+    Err(str),
+}
+
+fn main() {
+    // ===== Simple enum variant =====
+    let c = Color::Red
+    match c {
+        Color::Red => println("Color: Red"),
+        Color::Green => println("Color: Green"),
+        Color::Blue => println("Color: Blue"),
+        Color::RGB(r, g, b) => {
+            println("RGB color: r=")
+            println(r)
+            println(", g=")
+            println(g)
+            println(", b=")
+            println(b)
+        },
+    }
+
+    // ===== Enum with data =====
+    let rgb = Color::RGB(255, 128, 0)
+    match rgb {
+        Color::Red => println("Just red"),
+        Color::Green => println("Just green"),
+        Color::Blue => println("Just blue"),
+        Color::RGB(r, g, b) => {
+            println("RGB color: r=")
+            println(r)
+            println(", g=")
+            println(g)
+            println(", b=")
+            println(b)
+        },
+    }
+
+    // ===== Direction enum =====
+    let dir = Direction::North
+    match dir {
+        Direction::North => println("Direction: North"),
+        Direction::South => println("Direction: South"),
+        Direction::East => println("Direction: East"),
+        Direction::West => println("Direction: West"),
+        Direction::At(x, y) => {
+            println("At position: x=")
+            println(x)
+            println(", y=")
+            println(y)
+        },
+    }
+
+    // ===== Option pattern =====
+    let opt = Option::Some(42)
+    match opt {
+        Option::Some(v) => {
+            println("Option has value: ")
+            println(v)
+        },
+        Option::None => println("Option has no value"),
+    }
+
+    // ===== Result pattern =====
+    let res = Result::Ok(100)
+    match res {
+        Result::Ok(v) => {
+            println("Result: success with ")
+            println(v)
+        },
+        Result::Err(e) => {
+            println("Result: error: ")
+            println(e)
+        },
+    }
+}

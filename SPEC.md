@@ -184,6 +184,8 @@ The lexer (`faxc/lexer/src/lib.rs`) produces the following token types:
 | `Self` | Self type | Current type |
 | `super` | Parent module | Module hierarchy |
 | `crate` | Current crate | Module hierarchy |
+| `for` | For loop keyword | For-in loops |
+| `macro_rules` | Macro definition | Macro metaprogramming |
 
 #### 4.1.2 Literals
 
@@ -989,8 +991,9 @@ lambda_expr  ::= 'fn' '(' param_list ')' ('->' type)? expr
 | Arithmetic | `+`, `-`, `*`, `/`, `%` | Addition, subtraction, multiplication, division, modulus |
 | Comparison | `==`, `!=`, `<`, `<=`, `>`, `>=` | Equality, inequality, less than, etc. |
 | Logical | `&&`, `\|\|`, `!` | Logical AND, OR, NOT |
-| Bitwise | `&`, `\|`, `^`, `<<`, `>>` | AND, OR, XOR, shift left, shift right |
+| Bitwise | `&`, `\|`, `^`, `<<`, `>>`, `~` | AND, OR, XOR, shift left, shift right, NOT |
 | Assignment | `=`, `+=`, `-=`, `*=`, `/=`, `%=` | Simple and compound assignment |
+| Bitwise Assignment | `&=`, `\|=`, `^=`, `<<=`, `>>=` | Bitwise AND, OR, XOR, shift left/right assignment |
 | Unary | `-`, `!`, `~` | Negation, logical NOT, bitwise NOT |
 
 ### 9.2 Operator Precedence Table
@@ -1396,12 +1399,12 @@ ident           ::= [a-zA-Z_] [a-zA-Z0-9_]*
 
 ```
 fn      let     mut     if      else    match
-struct  enum    return  true    false   import
-pub     mod     use     as      loop    while
-for     in      break   continue
-async   await   const   static  trait
-impl    dyn     where   type    unsafe
-ref     self    Self    super   crate
+struct  enum    return  true    false   pub
+mod     use     as      loop    while   for
+break   continue  async   await   const
+static  trait   impl    dyn     where   type
+unsafe  ref     self    Self    super   crate
+macro_rules
 ```
 
 ## Appendix C: Advanced Features

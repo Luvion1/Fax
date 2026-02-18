@@ -10,3 +10,4 @@ repository.workspace = true
 faxc-util.workspace = true
 
 [dev-dependencies]
+proptest = "1.4"

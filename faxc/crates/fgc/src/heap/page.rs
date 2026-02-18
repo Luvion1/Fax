@@ -1,11 +1,11 @@
 //! Page Management - Fine-Grained Memory Pages
 //!
-//! Page adalah unit yang lebih kecil dari region untuk fine-grained memory management.
-//! Setiap region terdiri dari multiple pages.
+//! A Page is a smaller unit than a region for fine-grained memory management.
+//! Each region consists of multiple pages.
 //!
-//! Page size: 4KB (standard page) atau 2MB (large page)
+//! Page size: 4KB (standard page) or 2MB (large page)
 //!
-//! Page digunakan untuk:
+//! Pages are used for:
 //! - Fine-grained tracking memory usage
 //! - Efficient memory commit/uncommit
 //! - NUMA-aware allocation
@@ -25,8 +25,8 @@ static SYSTEM_PAGE_SIZE: AtomicUsize = AtomicUsize::new(0);
 
 /// Get system page size dynamically
 ///
-/// Returns actual system page size dari OS.
-/// Cache hasil untuk performance.
+/// Returns actual system page size from OS.
+/// Caches result for performance.
 pub fn get_page_size() -> usize {
     let cached = SYSTEM_PAGE_SIZE.load(Ordering::Relaxed);
     if cached != 0 {
@@ -38,25 +38,25 @@ pub fn get_page_size() -> usize {
     size
 }
 
-/// Align size ke page boundary (round up)
+/// Align size to page boundary (round up)
 pub fn align_to_page(size: usize) -> usize {
     let ps = get_page_size();
     (size + ps - 1) & !(ps - 1)
 }
 
-/// Align address ke page boundary (round down)
+/// Align address to page boundary (round down)
 pub fn align_down_to_page(addr: usize) -> usize {
     let ps = get_page_size();
     addr & !(ps - 1)
 }
 
-/// Align address ke page boundary (round up)
+/// Align address to page boundary (round up)
 pub fn align_up_to_page(addr: usize) -> usize {
     let ps = get_page_size();
     (addr + ps - 1) & !(ps - 1)
 }
 
-/// Convert bytes ke pages (round up)
+/// Convert bytes to pages (round up)
 pub fn bytes_to_pages(bytes: usize) -> usize {
     let ps = get_page_size();
     if bytes == 0 {
@@ -65,30 +65,30 @@ pub fn bytes_to_pages(bytes: usize) -> usize {
     (bytes + ps - 1) / ps
 }
 
-/// Convert pages ke bytes
+/// Convert pages to bytes
 pub fn pages_to_bytes(pages: usize) -> usize {
     pages * get_page_size()
 }
 
-/// Check jika address page-aligned
+/// Check if address is page-aligned
 pub fn is_page_aligned(addr: usize) -> bool {
     addr % get_page_size() == 0
 }
 
-/// Calculate offset dalam page
+/// Calculate offset within page
 pub fn page_offset(addr: usize) -> usize {
     addr & (get_page_size() - 1)
 }
 
-/// Calculate page number dari address
+/// Calculate page number from address
 pub fn page_number(addr: usize) -> usize {
     addr / get_page_size()
 }
 
-/// Page - unit kecil memory management
+/// Page - small unit of memory management
 ///
-/// Page adalah contiguous block of memory dengan ukuran tetap.
-/// Multiple pages membentuk sebuah region.
+/// A Page is a contiguous block of memory with a fixed size.
+/// Multiple pages form a region.
 pub struct Page {
     /// Page address
     address: usize,
@@ -99,10 +99,10 @@ pub struct Page {
     /// Committed status
     committed: AtomicBool,
 
-    /// Accessed status (untuk GC heuristics)
+    /// Accessed status (for GC heuristics)
     accessed: AtomicBool,
 
-    /// Modified status (untuk GC heuristics)
+    /// Modified status (for GC heuristics)
     modified: AtomicBool,
 
     /// NUMA node
@@ -115,7 +115,7 @@ impl Page {
     /// # Arguments
     /// * `address` - Page address
     /// * `size` - Page size
-    /// * `numa_node` - NUMA node tempat page dialokasikan
+    /// * `numa_node` - NUMA node where page is allocated
     pub fn new(address: usize, size: usize, numa_node: usize) -> Self {
         Self {
             address,
@@ -129,19 +129,19 @@ impl Page {
 
     /// Commit page (allocate physical memory)
     pub fn commit(&self) -> Result<()> {
-        // Note: Dalam implementasi nyata, ini mmap atau VirtualAlloc
+        // Note: In real implementation, this would use mmap or VirtualAlloc
         self.committed.store(true, Ordering::SeqCst);
         Ok(())
     }
 
     /// Uncommit page (return physical memory to OS)
     pub fn uncommit(&self) -> Result<()> {
-        // Note: Dalam implementasi nyata, ini munmap atau VirtualFree
+        // Note: In real implementation, this would use munmap or VirtualFree
         self.committed.store(false, Ordering::SeqCst);
         Ok(())
     }
 
-    /// Check jika page committed
+    /// Check if page is committed
     pub fn is_committed(&self) -> bool {
         self.committed.load(Ordering::Relaxed)
     }
@@ -178,11 +178,11 @@ impl Page {
     }
 }
 
-/// PageTable - manages pages dalam region
+/// PageTable - manages pages in a region
 ///
-/// Track status setiap page dalam region.
+/// Tracks status of each page in a region.
 pub struct PageTable {
-    /// Pages dalam table
+    /// Pages in table
     pages: Vec<Page>,
 
     /// Page size
@@ -196,9 +196,9 @@ impl PageTable {
     /// Create new page table
     ///
     /// # Arguments
-    /// * `base_address` - Base address region
-    /// * `region_size` - Size region dalam bytes
-    /// * `page_size` - Size setiap page
+    /// * `base_address` - Base address of region
+    /// * `region_size` - Size of region in bytes
+    /// * `page_size` - Size of each page
     /// * `numa_node` - NUMA node
     pub fn new(
         base_address: usize,
@@ -221,7 +221,7 @@ impl PageTable {
         }
     }
 
-    /// Get page untuk address
+    /// Get page for address
     pub fn get_page(&self, address: usize) -> Option<&Page> {
         let offset = address % (self.page_count * self.page_size);
         let page_index = offset / self.page_size;
@@ -274,10 +274,10 @@ impl PageTable {
     }
 }
 
-/// Page allocator untuk tracking allocations
+/// Page allocator for tracking allocations
 ///
-/// Simple tracker untuk page allocations.
-/// Tidak mengalokasi memory sebenarnya, hanya tracking statistics.
+/// Simple tracker for page allocations.
+/// Does not allocate actual memory, only tracks statistics.
 pub struct PageAllocator {
     /// Total pages allocated
     allocated: AtomicUsize,

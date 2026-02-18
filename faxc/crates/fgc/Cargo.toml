@@ -30,6 +30,18 @@ memmap2 = "0.9"
 # System page size detection
 page_size = "0.6"
 
+# Platform-specific dependencies for multi-mapping
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+libunwind = { version = "1.3", optional = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.52", features = [
+    "Win32_System_Memory",
+    "Win32_Foundation",
+    "Win32_System_Memory_NonVolatile",
+] }
+
 [dev-dependencies]
 criterion = "0.5"
 

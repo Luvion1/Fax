@@ -1,6 +1,6 @@
 //! Util Module - Shared Utilities
 //!
-//! Utilities dan helper functions yang digunakan di seluruh FGC.
+//! Utilities and helper functions used throughout FGC.
 
 pub mod alignment;
 pub mod atomic;
@@ -9,7 +9,7 @@ pub mod debug;
 pub use alignment::Alignment;
 pub use atomic::AtomicUtils;
 
-/// Size class untuk objects
+/// Size class for objects
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SizeClass {
     Tiny,   // < 64 bytes
@@ -19,7 +19,7 @@ pub enum SizeClass {
 }
 
 impl SizeClass {
-    /// Determine size class dari object size
+    /// Determine size class from object size
     pub fn from_size(size: usize) -> Self {
         match size {
             0..=63 => Self::Tiny,
@@ -30,7 +30,7 @@ impl SizeClass {
     }
 }
 
-/// Constants untuk FGC
+/// Constants for FGC
 pub mod constants {
     /// 1 Kilobyte
     pub const KB: usize = 1024;

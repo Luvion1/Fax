@@ -1,8 +1,8 @@
 //! Debug Utilities
 //!
-//! Helper functions untuk debugging dan logging.
+//! Helper functions for debugging and logging.
 
-/// Debug formatter untuk memory addresses
+/// Debug formatter for memory addresses
 pub fn format_address(address: usize) -> String {
     format!("0x{:016X}", address)
 }
@@ -33,7 +33,7 @@ pub fn dump_region(start: usize, size: usize, lines: usize) {
     }
 }
 
-/// Trace macro untuk debugging
+/// Trace macro for debugging
 #[macro_export]
 macro_rules! trace {
     ($($arg:tt)*) => {
@@ -43,7 +43,7 @@ macro_rules! trace {
     };
 }
 
-/// Debug macro untuk conditional debugging
+/// Debug macro for conditional debugging
 #[macro_export]
 macro_rules! debug {
     ($($arg:tt)*) => {

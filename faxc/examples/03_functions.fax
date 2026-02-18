@@ -1,0 +1,60 @@
+// 03_functions.fax - Functions in Fax
+// ====================================
+// Demonstrates function declaration, parameters, return values, and lambdas.
+//
+// Features demonstrated:
+// - Function declaration with `fn`
+// - Parameters with type annotations
+// - Return type annotation with `->`
+// - Return values (last expression)
+// - Lambda expressions (anonymous functions)
+// - Higher-order functions (functions that take other functions)
+//
+// Expected output:
+//   sum = 15
+//   product = 50
+//   double of 7 = 14
+//   Applied result = 20
+
+// Function with two parameters and return type
+fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
+
+// Function with single parameter
+fn square(x: i32) -> i32 {
+    x * x
+}
+
+// Function returning multiple values via tuple
+fn divmod(a: i32, b: i32) -> (i32, i32) {
+    (a / b, a % b)
+}
+
+// Higher-order function: takes a function as parameter
+fn apply(f: fn(i32) -> i32, x: i32) -> i32 {
+    f(x)
+}
+
+fn main() {
+    // Call function with two arguments
+    let sum = add(5, 10)
+    println("sum = ")
+    println(sum)
+
+    // Call function with single argument
+    let product = square(5)
+    println("product = ")
+    println(product)
+
+    // Lambda expression (anonymous function)
+    let double = fn(x: i32) -> i32 { x * 2 }
+    let doubled = double(7)
+    println("double of 7 = ")
+    println(doubled)
+
+    // Higher-order function: pass function as argument
+    let result = apply(double, 10)
+    println("Applied result = ")
+    println(result)
+}

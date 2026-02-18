@@ -1,7 +1,7 @@
 //! Runtime Module - GC Runtime Integration
 //!
-//! Module ini mengintegrasikan GC dengan runtime Fax.
-//! Mengelola:
+//! This module integrates GC with the Fax runtime.
+//! Manages:
 //! - GC initialization
 //! - Safepoint management
 //! - Finalizer queue
@@ -19,7 +19,7 @@ use std::sync::Arc;
 
 /// Runtime - GC runtime orchestrator
 ///
-/// Mengkoordinasikan seluruh GC runtime components.
+/// Coordinates all GC runtime components.
 pub struct Runtime {
     /// GC instance
     gc: Arc<crate::gc::GarbageCollector>,
@@ -92,7 +92,7 @@ impl Runtime {
         heap.allocate_tlab_memory(size)
     }
 
-    /// Register finalizer untuk object
+    /// Register finalizer for object
     pub fn register_finalizer<F>(&self, object: usize, finalizer_fn: F)
     where
         F: FnOnce(usize) + Send + 'static,
@@ -111,13 +111,13 @@ impl Runtime {
 /// Runtime state
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RuntimeState {
-    /// Runtime belum di-start
+    /// Runtime not yet started
     Initialized,
-    /// Runtime berjalan normal
+    /// Runtime running normally
     Running,
-    /// Runtime sedang stop
+    /// Runtime is stopping
     Stopping,
-    /// Runtime sudah stop
+    /// Runtime has stopped
     Stopped,
 }
 

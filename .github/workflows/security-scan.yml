@@ -1,0 +1,295 @@
+# =============================================================================
+# Security Scan Workflow
+# =============================================================================
+# Purpose: Run security audits on dependencies using cargo-deny
+# Triggers:
+#   - Push to any branch
+#   - Pull requests to any branch
+#   - Weekly schedule (Monday 00:00 UTC) for continuous monitoring
+#
+# This workflow:
+#   1. Installs cargo-deny tool
+#   2. Runs security checks against the dependency graph
+#   3. Fails the build if vulnerabilities are found
+#   4. Uploads scan results as artifacts for review
+#
+# Documentation: https://github.com/EmbarkStudios/cargo-deny
+# =============================================================================
+
+name: Security Scan
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run weekly on Monday at 00:00 UTC for continuous security monitoring
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+    # Allow manual trigger for on-demand security scans
+    inputs:
+      check_type:
+        description: 'Type of check to run (all, advisories, bans, licenses, sources)'
+        required: false
+        default: 'all'
+        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+  # MSRV must match the workspace configuration
+  MSRV: "1.75"
+  # Deny version - pinned for reproducibility
+  CARGO_DENY_VERSION: "0.16"
+
+jobs:
+  # ===========================================================================
+  # Security Audit with cargo-deny
+  # ===========================================================================
+  security-audit:
+    name: Security Audit (cargo-deny)
+    runs-on: ubuntu-latest
+    # This job performs comprehensive security scanning of dependencies
+    # It checks for known vulnerabilities, banned crates, license compliance,
+    # and source verification
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Fetch full history for better context in reports
+          fetch-depth: 0
+
+      - name: Install Rust toolchain (${{ env.MSRV }})
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.MSRV }}
+          components: rustfmt
+
+      - name: Install LLVM dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            llvm \
+            lld \
+            libssl-dev \
+            pkg-config
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-security-cargo-registry-${{ hashFiles('faxc/**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-security-cargo-registry-
+
+      - name: Install cargo-deny
+        run: |
+          echo "Installing cargo-deny v${{ env.CARGO_DENY_VERSION }}..."
+          cargo install cargo-deny --version ${{ env.CARGO_DENY_VERSION }} --locked
+          cargo deny --version
+          echo "::notice::cargo-deny installed successfully"
+
+      - name: Initialize cargo-deny configuration (if missing)
+        run: |
+          cd faxc
+          if [ ! -f "deny.toml" ]; then
+            echo "::warning::deny.toml not found, creating default configuration"
+            cargo deny init
+          else
+            echo "::notice::deny.toml found, using existing configuration"
+          fi
+
+      - name: Run cargo-deny check (all checks)
+        id: deny_check
+        working-directory: faxc
+        continue-on-error: true
+        run: |
+          echo "Running comprehensive security scan..."
+          echo "=========================================="
+          
+          # Run all checks and capture output
+          cargo deny check 2>&1 | tee deny-output.txt
+          
+          # Check exit code
+          EXIT_CODE=${PIPESTATUS[0]}
+          
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "::notice::Security scan passed - no issues found"
+            echo "scan_status=passed" >> $GITHUB_OUTPUT
+          else
+            echo "::error::Security scan failed - issues detected"
+            echo "scan_status=failed" >> $GITHUB_OUTPUT
+          fi
+          
+          exit $EXIT_CODE
+
+      - name: Generate detailed security report
+        if: always()
+        working-directory: faxc
+        run: |
+          echo "Generating detailed security report..."
+          
+          # Create a comprehensive report
+          {
+            echo "# Security Scan Report"
+            echo ""
+            echo "## Scan Information"
+            echo "- **Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            echo "- **Commit:** ${{ github.sha }}"
+            echo "- **Branch:** ${{ github.ref_name }}"
+            echo "- **cargo-deny version:** ${{ env.CARGO_DENY_VERSION }}"
+            echo ""
+            echo "## Check Results"
+            echo ""
+            
+            # Run individual checks for detailed output
+            echo "### Advisories Check"
+            cargo deny check advisories 2>&1 || true
+            echo ""
+            
+            echo "### Bans Check"
+            cargo deny check bans 2>&1 || true
+            echo ""
+            
+            echo "### Licenses Check"
+            cargo deny check licenses 2>&1 || true
+            echo ""
+            
+            echo "### Sources Check"
+            cargo deny check sources 2>&1 || true
+          } > security-report.md
+
+      - name: Upload scan results artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-scan-results-${{ github.run_id }}
+          path: |
+            faxc/deny-output.txt
+            faxc/security-report.md
+            faxc/deny.toml
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Post summary to GitHub Actions summary
+        if: always()
+        run: |
+          SCAN_STATUS="${{ steps.deny_check.outputs.scan_status }}"
+          
+          {
+            echo "# 🔒 Security Scan Results"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| **Status** | $([ "$SCAN_STATUS" = "passed" ] && echo "✅ Passed" || echo "❌ Failed") |"
+            echo "| **Commit** | \`${{ github.sha }}\` |"
+            echo "| **Branch** | \`${{ github.ref_name }}\` |"
+            echo "| **Trigger** | \`${{ github.event_name }}\` |"
+            echo "| **cargo-deny** | v${{ env.CARGO_DENY_VERSION }} |"
+            echo ""
+            
+            if [ "$SCAN_STATUS" = "failed" ]; then
+              echo "## ⚠️ Action Required"
+              echo ""
+              echo "Security vulnerabilities or policy violations were detected."
+              echo "Please review the scan results artifact and address the issues."
+              echo ""
+              echo "### Quick Fixes"
+              echo "\`\`\`bash"
+              echo "# Update vulnerable dependencies"
+              echo "cargo update"
+              echo ""
+              echo "# Re-run security check locally"
+              echo "cargo deny check"
+              echo "\`\`\`"
+            else
+              echo "## ✅ All Checks Passed"
+              echo ""
+              echo "No security vulnerabilities or policy violations detected."
+            fi
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Final security status
+        if: always()
+        run: |
+          SCAN_STATUS="${{ steps.deny_check.outputs.scan_status }}"
+          
+          echo "═══════════════════════════════════════════════════════"
+          echo "  Security Scan Complete"
+          echo "═══════════════════════════════════════════════════════"
+          echo "  Status: $SCAN_STATUS"
+          echo "  Commit: ${{ github.sha }}"
+          echo "═══════════════════════════════════════════════════════"
+          
+          # Fail the job if security scan failed (except for scheduled runs)
+          if [ "$SCAN_STATUS" = "failed" ] && [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "::error::Security scan failed. Please address the vulnerabilities."
+            exit 1
+          elif [ "$SCAN_STATUS" = "failed" ] && [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "::warning::Scheduled security scan found issues. Creating notification."
+            # For scheduled runs, we don't fail but create an issue notification
+            exit 0
+          fi
+
+  # ===========================================================================
+  # Cargo Audit (Alternative security check using rustsec)
+  # ===========================================================================
+  cargo-audit:
+    name: Cargo Audit (RustSec)
+    runs-on: ubuntu-latest
+    # Additional security layer using RustSec advisory database
+    # This provides a second opinion on dependency vulnerabilities
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install LLVM dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            llvm \
+            lld \
+            libssl-dev \
+            pkg-config
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-audit-cargo-registry-${{ hashFiles('faxc/**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-audit-cargo-registry-
+
+      - name: Install cargo-audit
+        run: |
+          echo "Installing cargo-audit..."
+          cargo install cargo-audit --locked
+          cargo audit --version
+
+      - name: Run cargo audit
+        working-directory: faxc
+        continue-on-error: true
+        run: |
+          echo "Running cargo audit against RustSec database..."
+          cargo audit --json > audit-results.json 2>&1 || true
+          cargo audit 2>&1 || true
+
+      - name: Upload audit results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cargo-audit-results-${{ github.run_id }}
+          path: faxc/audit-results.json
+          retention-days: 30
+          if-no-files-found: warn

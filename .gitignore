@@ -1,25 +1,332 @@
-# Rust/Cargo build artifacts
+# =============================================================================
+# Fax Compiler - Comprehensive .gitignore
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Rust/Cargo Build Artifacts
+# -----------------------------------------------------------------------------
 /target/
+**/target/
+/debug/
+/release/
 
-# Generated LLVM IR and object files
-*.ll
-*.o
-
-# Cargo.lock (optional - uncomment to ignore)
+# Cargo.lock (uncomment if you want to track it)
 # Cargo.lock
 
-# OS files
-.DS_Store
-Thumbs.db
+# Cargo config
+.cargo/
 
-# Editor files
+# -----------------------------------------------------------------------------
+# Generated Files (LLVM IR, Object Files, Binaries)
+# -----------------------------------------------------------------------------
+*.ll
+*.ll.bc
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+*.pdb
+
+# -----------------------------------------------------------------------------
+# Generated LLVM IR and Object Files (Project Specific)
+# -----------------------------------------------------------------------------
+**/*.ll
+**/*.o
+**/*.bc
+**/*.s
+
+# -----------------------------------------------------------------------------
+# IDE and Editor Files
+# -----------------------------------------------------------------------------
+# VS Code
 .vscode/
+*.code-workspace
+
+# IntelliJ IDEA / RustRover
 .idea/
+*.iml
+*.ipr
+*.iws
+
+# Vim / Neovim
 *.swp
 *.swo
+*.swn
+*~
+*.un~
+*.bak
+*.viminfo
 
-# Logs
+# Emacs
+*~
+\#*\#
+.*.elc
+.dir-locals.el
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Atom
+*.atom/
+
+# -----------------------------------------------------------------------------
+# OS Files
+# -----------------------------------------------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.Trash-*
+.nfs*
+
+# -----------------------------------------------------------------------------
+# Logs and Temporary Files
+# -----------------------------------------------------------------------------
 *.log
+logs/
+tmp/
+temp/
+.cache/
+*.tmp
+*.temp
 
-.gemini/
+# -----------------------------------------------------------------------------
+# Test and Coverage
+# -----------------------------------------------------------------------------
+# Coverage reports
+*.gcno
+*.gcda
+*.gcov
+coverage/
+*.lcov
+tarpaulin-report.html
+cobertura.xml
+codecov.yml
+
+# Test output
+test-results/
+*.test
+*.spec
+
+# -----------------------------------------------------------------------------
+# Documentation Build
+# -----------------------------------------------------------------------------
+# Rust docs
+doc/
+**/target/doc/
+
+# Generated documentation
+*.md.bak
+*.html
+!README.md
+!CONTRIBUTING.md
+!CODE_OF_CONDUCT.md
+!SECURITY.md
+!CHANGELOG.md
+!SPEC.md
+!RELEASE.md
+
+# -----------------------------------------------------------------------------
+# Dependencies and Packages
+# -----------------------------------------------------------------------------
+# Node.js (if used for tooling)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Python (if used for scripts)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.env
+*.egg-info/
+.eggs/
+
+# -----------------------------------------------------------------------------
+# Secrets and Credentials
+# -----------------------------------------------------------------------------
+# Never commit these!
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# Environment files
+.env
+.env.local
+.env.*.local
+*.env
+
+# Credentials
+credentials
+credentials.*
+*.credentials
+secrets/
+*.secret
+*.secrets
+
+# API keys
+api_key
+api_key.*
+*.api_key
+apikey
+apikey.*
+
+# Tokens
+*.token
+token
+token.*
+
+# SSH keys
+id_rsa
+id_rsa.*
+id_dsa
+id_dsa.*
+id_ecdsa
+id_ecdsa.*
+id_ed25519
+id_ed25519.*
+
+# AWS
+.aws/credentials
+*.aws
+
+# GCP
+gcp-creds*.json
+*-service-account*.json
 gha-creds-*.json
+
+# Kubernetes
+*.kubeconfig
+kube_config
+
+# -----------------------------------------------------------------------------
+# Build and Release Artifacts
+# -----------------------------------------------------------------------------
+# Release binaries
+dist/
+build/
+out/
+artifacts/
+
+# Package files
+*.tar.gz
+*.tar.bz2
+*.zip
+*.deb
+*.rpm
+*.pkg
+
+# -----------------------------------------------------------------------------
+# Benchmark and Profile Data
+# -----------------------------------------------------------------------------
+*.prof
+*.profraw
+*.profdata
+perf.data
+perf.data.old
+flamegraph.svg
+cachegrind.out.*
+callgrind.out.*
+
+# -----------------------------------------------------------------------------
+# Fuzzing
+# -----------------------------------------------------------------------------
+corpus/
+crashes/
+hangs/
+fuzz/
+**/fuzz/artifacts/
+
+# -----------------------------------------------------------------------------
+# Docker
+# -----------------------------------------------------------------------------
+.docker/
+docker-compose.override.yml
+
+# -----------------------------------------------------------------------------
+# Git and Version Control
+# -----------------------------------------------------------------------------
+# Git files that shouldn't be tracked
+.git/
+.gitignore
+.gitattributes
+.gitmodules
+
+# Merge conflict markers (should be resolved before commit)
+# *.merge
+
+# -----------------------------------------------------------------------------
+# Qwen AI (Project Specific)
+# -----------------------------------------------------------------------------
+.gemini/
+.qwen/config.json
+.qwen/agents/config.json
+
+# -----------------------------------------------------------------------------
+# Release Please / Automation
+# -----------------------------------------------------------------------------
+.release-please-manifest.json
+.changeset/
+
+# -----------------------------------------------------------------------------
+# Miscellaneous
+# -----------------------------------------------------------------------------
+# Backup files
+*.orig
+*.old
+*.backup
+
+# Patch files
+*.patch
+*.diff
+
+# Notes
+*.note
+*.notes
+TODO.md
+NOTES.md
+
+# Personal files
+personal/
+private/
+
+# -----------------------------------------------------------------------------
+# Fax Language Specific
+# -----------------------------------------------------------------------------
+# Compiled Fax programs
+*.faxc
+*.fax.ir
+*.fax.bc
+
+# Fax compiler test output
+test_output/
+*.fax.out
+
+# -----------------------------------------------------------------------------
+# End of .gitignore
+# -----------------------------------------------------------------------------

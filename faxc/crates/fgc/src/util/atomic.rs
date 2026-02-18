@@ -1,16 +1,16 @@
 //! Atomic Utilities
 //!
-//! Helper functions untuk atomic operations.
+//! Helper functions for atomic operations.
 
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-/// AtomicUtils - utility untuk atomic operations
+/// AtomicUtils - utility for atomic operations
 pub struct AtomicUtils;
 
 impl AtomicUtils {
-    /// Atomic fetch-add dengan saturasi
+    /// Atomic fetch-add with saturation
     ///
-    /// Tidak overflow, saturate di max value.
+    /// Does not overflow, saturates at max value.
     pub fn saturating_add(atomic: &AtomicUsize, value: usize) -> usize {
         let mut current = atomic.load(Ordering::Relaxed);
 
@@ -29,7 +29,7 @@ impl AtomicUtils {
         }
     }
 
-    /// Atomic fetch-sub dengan saturasi
+    /// Atomic fetch-sub with saturation
     pub fn saturating_sub(atomic: &AtomicUsize, value: usize) -> usize {
         let mut current = atomic.load(Ordering::Relaxed);
 
@@ -48,7 +48,7 @@ impl AtomicUtils {
         }
     }
 
-    /// Atomic swap jika kondisi terpenuhi
+    /// Atomic swap if condition is met
     pub fn swap_if(atomic: &AtomicBool, expected: bool, new_value: bool) -> bool {
         match atomic.compare_exchange_weak(
             expected,
@@ -61,7 +61,7 @@ impl AtomicUtils {
         }
     }
 
-    /// Spin wait dengan backoff
+    /// Spin wait with backoff
     pub fn spin_wait<F>(mut condition: F, max_spins: usize) -> bool
     where
         F: FnMut() -> bool,

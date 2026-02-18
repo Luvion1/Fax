@@ -1,12 +1,12 @@
 //! Alignment Utilities
 //!
-//! Helper functions untuk memory alignment.
+//! Helper functions for memory alignment.
 
-/// Alignment - utility untuk alignment operations
+/// Alignment - utility for alignment operations
 pub struct Alignment;
 
 impl Alignment {
-    /// Align value up ke boundary
+    /// Align value up to boundary
     ///
     /// # Examples
     /// ```
@@ -17,12 +17,12 @@ impl Alignment {
         (value + alignment - 1) & !(alignment - 1)
     }
 
-    /// Align value down ke boundary
+    /// Align value down to boundary
     pub fn align_down(value: usize, alignment: usize) -> usize {
         value & !(alignment - 1)
     }
 
-    /// Check jika value aligned
+    /// Check if value is aligned
     pub fn is_aligned(value: usize, alignment: usize) -> bool {
         value & (alignment - 1) == 0
     }

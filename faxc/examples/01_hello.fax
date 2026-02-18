@@ -1,0 +1,14 @@
+// 01_hello.fax - Hello World in Fax
+// ==================================
+// This is the simplest Fax program demonstrating basic output.
+//
+// Features demonstrated:
+// - Main function declaration
+// - Built-in println function for output
+//
+// Expected output:
+//   Hello, Fax!
+
+fn main() {
+    println("Hello, Fax!")
+}

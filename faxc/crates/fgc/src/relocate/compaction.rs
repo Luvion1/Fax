@@ -1,15 +1,15 @@
 //! Compaction - Region Compaction
 //!
-//! Module untuk region compaction strategy.
-//! Memilih region mana yang perlu di-compact berdasarkan
-//! garbage ratio dan fragmentation.
+//! Module for region compaction strategy.
+//! Selects which regions need to be compacted based on
+//! garbage ratio and fragmentation.
 
 use crate::heap::Region;
 use std::sync::Arc;
 
-/// Compactor - manager untuk region compaction
+/// Compactor - manager for region compaction
 ///
-/// Memilih regions untuk compaction dan manage prosesnya.
+/// Selects regions for compaction and manages the process.
 pub struct Compactor {
     /// Compaction in progress
     in_progress: std::sync::atomic::AtomicBool,
@@ -22,7 +22,7 @@ impl Compactor {
         }
     }
 
-    /// Select regions untuk compaction
+    /// Select regions for compaction
     pub fn select_regions(&self, regions: &[Arc<Region>], max_size: usize) -> Vec<Arc<Region>> {
         let mut candidates: Vec<_> = regions
             .iter()

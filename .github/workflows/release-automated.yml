@@ -1,0 +1,522 @@
+# Automated Release Workflow for Fax Compiler
+# Uses release-plz for version management and changelog generation
+#
+# Triggers:
+# - Manual dispatch (workflow_dispatch)
+# - Push to main branch with version changes
+# - Scheduled check for pending releases (optional)
+#
+# Features:
+# - Automatic version bumping based on conventional commits
+# - Changelog generation
+# - GitHub release creation
+# - Multi-platform binary builds
+# - Optional crates.io publishing
+
+name: Release - Automated
+
+on:
+  # Manual trigger with options
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run in dry-run mode (no actual release)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "true"
+          - "false"
+      publish_crates:
+        description: "Publish crates to crates.io"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "true"
+          - "false"
+      release_type:
+        description: "Force specific release type (auto-detect if empty)"
+        required: false
+        default: ""
+        type: choice
+        options:
+          - ""
+          - major
+          - minor
+          - patch
+          - alpha
+          - beta
+          - rc
+
+  # Automatic trigger on push to main branch
+  push:
+    branches:
+      - main
+    paths:
+      - "faxc/**"
+      - "release-plz.toml"
+      - ".github/workflows/release-automated.yml"
+
+  # Scheduled check for pending releases (weekly)
+  schedule:
+    - cron: "0 9 * * 1" # Every Monday at 9:00 UTC
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+  CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+  CARGO_PUBLISH: ${{ github.event.inputs.publish_crates == 'true' && 'true' || 'false' }}
+
+jobs:
+  # ===========================================================================
+  # Job 1: Detect Changes and Prepare Release
+  # ===========================================================================
+  detect-changes:
+    name: Detect Changes & Prepare Release
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release-plz.outputs.releases_created }}
+      release_version: ${{ steps.release-plz.outputs.releases_created && 'detected' || 'none' }}
+      changelog_path: ${{ steps.release-plz.outputs.changelog_path }}
+      packages_to_release: ${{ steps.list-packages.outputs.packages }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch full history for changelog generation
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Install release-plz
+        run: cargo install release-plz --locked
+
+      - name: Install LLVM dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            llvm \
+            lld \
+            libssl-dev \
+            pkg-config
+
+      - name: List packages to release
+        id: list-packages
+        working-directory: faxc
+        run: |
+          packages=$(cargo metadata --format-version=1 --no-deps | jq -r '.packages[].name' | jq -R -s -c 'split("\n")[:-1]')
+          echo "packages=$packages" >> $GITHUB_OUTPUT
+          echo "Packages found: $packages"
+
+      - name: Check for pending releases (dry-run)
+        id: release-plz
+        working-directory: faxc
+        run: |
+          # Run release-plz in dry-run mode to detect pending releases
+          output=$(release-plz release-plan --output release-plan.json 2>&1) || true
+          
+          if [ -f release-plan.json ]; then
+            # Check if there are releases to create
+            releases_count=$(jq '.releases | length' release-plan.json)
+            echo "Releases to create: $releases_count"
+            
+            if [ "$releases_count" -gt 0 ]; then
+              echo "releases_created=true" >> $GITHUB_OUTPUT
+              
+              # Get the first release version
+              first_version=$(jq -r '.releases[0].version' release-plan.json)
+              echo "release_version=$first_version" >> $GITHUB_OUTPUT
+              
+              # Get changelog path
+              changelog_path=$(jq -r '.releases[0].changelog_path' release-plan.json)
+              echo "changelog_path=$changelog_path" >> $GITHUB_OUTPUT
+              
+              echo "📦 Release detected: v$first_version"
+            else
+              echo "releases_created=false" >> $GITHUB_OUTPUT
+              echo "No releases to create"
+            fi
+          else
+            echo "releases_created=false" >> $GITHUB_OUTPUT
+            echo "No release plan generated"
+          fi
+
+      - name: Upload release plan artifact
+        if: steps.release-plz.outputs.releases_created == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-plan
+          path: faxc/release-plan.json
+          retention-days: 7
+
+  # ===========================================================================
+  # Job 2: Create Release PR (if not manual dispatch with force)
+  # ===========================================================================
+  create-release-pr:
+    name: Create Release PR
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.release_created == 'true' &&
+      github.event_name != 'workflow_dispatch'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install release-plz
+        run: cargo install release-plz --locked
+
+      - name: Install LLVM dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            llvm \
+            lld \
+            libssl-dev \
+            pkg-config
+
+      - name: Create release PR
+        working-directory: faxc
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          release-plz release-pr \
+            --git-token $GITHUB_TOKEN \
+            --verbose
+
+  # ===========================================================================
+  # Job 3: Build Release Artifacts (All Platforms)
+  # ===========================================================================
+  build-artifacts:
+    name: Build Release (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.release_created == 'true' &&
+      (github.event_name == 'workflow_dispatch' || github.event.inputs.dry_run != 'true')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux targets
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact_name: faxc-linux-x86_64
+            archive_ext: tar.gz
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            artifact_name: faxc-linux-aarch64
+            archive_ext: tar.gz
+            cross: true
+          
+          # macOS targets
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact_name: faxc-macos-x86_64
+            archive_ext: tar.gz
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact_name: faxc-macos-aarch64
+            archive_ext: tar.gz
+          
+          # Windows targets
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact_name: faxc-windows-x86_64
+            archive_ext: zip
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross-compilation tools (Linux ARM)
+        if: matrix.cross == true
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu \
+            g++-aarch64-linux-gnu
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+
+      - name: Install LLVM dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            llvm \
+            lld \
+            libssl-dev \
+            pkg-config
+
+      - name: Install LLVM dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install llvm openssl pkg-config
+          echo "LDFLAGS=-L$(brew --prefix llvm)/lib" >> $GITHUB_ENV
+          echo "CPPFLAGS=-I$(brew --prefix llvm)/include" >> $GITHUB_ENV
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('faxc/**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache Cargo build artifacts
+        uses: actions/cache@v4
+        with:
+          path: faxc/target
+          key: ${{ runner.os }}-cargo-target-${{ matrix.target }}-${{ hashFiles('faxc/**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-target-${{ matrix.target }}-
+
+      - name: Build release binary
+        working-directory: faxc
+        run: cargo build --release --target ${{ matrix.target }} --bin faxc
+
+      - name: Build all workspace crates (for crates.io)
+        working-directory: faxc
+        run: cargo build --workspace --release --target ${{ matrix.target }}
+
+      - name: Run tests
+        working-directory: faxc
+        run: cargo test --workspace --release --target ${{ matrix.target }}
+
+      - name: Run clippy
+        working-directory: faxc
+        run: cargo clippy --workspace --release --target ${{ matrix.target }} -- -D warnings
+
+      - name: Prepare release artifacts
+        shell: bash
+        run: |
+          mkdir -p release
+          
+          # Copy binary
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cp faxc/target/${{ matrix.target }}/release/faxc.exe release/
+          else
+            cp faxc/target/${{ matrix.target }}/release/faxc release/
+          fi
+          
+          # Copy documentation
+          cp faxc/README.md release/ 2>/dev/null || true
+          cp faxc/LICENSE release/ 2>/dev/null || true
+          cp faxc/faxc/README.md release/README.md 2>/dev/null || true
+          cp faxc/faxc/CONTRIBUTING.md release/CONTRIBUTING.md 2>/dev/null || true
+          
+          # Create checksum file
+          cd release
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            sha256sum faxc.exe > SHA256SUMS.txt
+          else
+            sha256sum faxc > SHA256SUMS.txt
+          fi
+
+      - name: Create release archive (Unix)
+        if: runner.os != 'Windows'
+        working-directory: release
+        run: tar -czvf ../${{ matrix.artifact_name }}.${{ matrix.archive_ext }} .
+
+      - name: Create release archive (Windows)
+        if: runner.os == 'Windows'
+        working-directory: release
+        shell: pwsh
+        run: Compress-Archive -Path * -DestinationPath ../${{ matrix.artifact_name }}.${{ matrix.archive_ext }}
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_name }}.${{ matrix.archive_ext }}
+          retention-days: 30
+
+  # ===========================================================================
+  # Job 4: Publish to crates.io (Optional)
+  # ===========================================================================
+  publish-crates:
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-artifacts]
+    if: |
+      needs.detect-changes.outputs.release_created == 'true' &&
+      github.event.inputs.publish_crates == 'true' &&
+      secrets.CARGO_REGISTRY_TOKEN != ''
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install release-plz
+        run: cargo install release-plz --locked
+
+      - name: Install LLVM dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            llvm \
+            lld \
+            libssl-dev \
+            pkg-config
+
+      - name: Publish crates
+        working-directory: faxc
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          release-plz release \
+            --verbose \
+            --git-token ${{ secrets.GITHUB_TOKEN }}
+
+  # ===========================================================================
+  # Job 5: Create GitHub Release
+  # ===========================================================================
+  create-github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-artifacts]
+    if: |
+      needs.detect-changes.outputs.release_created == 'true' &&
+      (github.event_name == 'workflow_dispatch' || github.event.inputs.dry_run != 'true')
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install release-plz
+        run: cargo install release-plz --locked
+
+      - name: Install LLVM dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            llvm \
+            lld \
+            libssl-dev \
+            pkg-config
+
+      - name: Download all release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: faxc-*
+          merge-multiple: false
+          path: ./artifacts
+
+      - name: List downloaded artifacts
+        run: |
+          echo "Downloaded artifacts:"
+          find ./artifacts -type f -name "*.tar.gz" -o -name "*.zip" | sort
+
+      - name: Create GitHub Release
+        working-directory: faxc
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Create the release with changelog
+          release-plz release \
+            --git-token $GITHUB_TOKEN \
+            --verbose
+
+      - name: Get release version
+        id: version
+        working-directory: faxc
+        run: |
+          # Extract version from release-plan.json
+          if [ -f release-plan.json ]; then
+            version=$(jq -r '.releases[0].version' release-plan.json)
+            echo "version=$version" >> $GITHUB_OUTPUT
+          else
+            # Fallback: get from Cargo.toml
+            version=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+            echo "version=$version" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          files: |
+            ./artifacts/**/*.tar.gz
+            ./artifacts/**/*.zip
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, 'alpha') || contains(steps.version.outputs.version, 'beta') || contains(steps.version.outputs.version, 'rc') }}
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ===========================================================================
+  # Job 6: Post-Release Actions
+  # ===========================================================================
+  post-release:
+    name: Post-Release Actions
+    runs-on: ubuntu-latest
+    needs: [detect-changes, create-github-release]
+    if: always() && needs.detect-changes.outputs.release_created == 'true'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install release-plz
+        run: cargo install release-plz --locked
+
+      - name: Update repository after release
+        working-directory: faxc
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Sync the repository state
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Pull latest changes
+          git pull origin main || true
+          
+          echo "✅ Post-release actions completed"
+
+      - name: Notify release completion
+        if: success()
+        run: |
+          echo "🎉 Release completed successfully!"
+          echo "Release version: ${{ needs.detect-changes.outputs.release_version }}"

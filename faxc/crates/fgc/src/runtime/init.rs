@@ -1,14 +1,14 @@
 //! Runtime Initialization
 //!
-//! Module untuk GC runtime initialization.
+//! Module for GC runtime initialization.
 
 use crate::config::GcConfig;
 use crate::error::Result;
 use std::sync::Once;
 
-/// RuntimeInitializer - initializer untuk GC runtime
+/// RuntimeInitializer - initializer for GC runtime
 ///
-/// Mengelola initialization sequence:
+/// Manages initialization sequence:
 /// 1. Validate configuration
 /// 2. Initialize heap
 /// 3. Start GC threads
@@ -18,7 +18,7 @@ pub struct RuntimeInitializer {
     initialized: std::sync::atomic::AtomicBool,
 }
 
-/// Shutdown guard untuk cleanup otomatis
+/// Shutdown guard for automatic cleanup
 struct ShutdownGuard;
 
 impl ShutdownGuard {
@@ -29,8 +29,8 @@ impl ShutdownGuard {
 
 impl Drop for ShutdownGuard {
     fn drop(&mut self) {
-        // Cleanup saat program exit
-        // Note: Ini dipanggil saat runtime drop
+        // Cleanup when program exits
+        // Note: This is called when runtime drops
     }
 }
 
@@ -38,7 +38,7 @@ static SHUTDOWN_INIT: Once = Once::new();
 static mut SHUTDOWN_GUARD: Option<ShutdownGuard> = None;
 
 impl RuntimeInitializer {
-    /// Create new initializer dengan config
+    /// Create new initializer with config
     pub fn new(config: GcConfig) -> Self {
         Self {
             config,
@@ -49,7 +49,7 @@ impl RuntimeInitializer {
     /// Initialize runtime
     ///
     /// # Returns
-    /// Result dengan initialized Runtime
+    /// Result with initialized Runtime
     pub fn initialize(&self) -> Result<super::Runtime> {
         if self.initialized.load(std::sync::atomic::Ordering::Relaxed) {
             return Err(crate::error::FgcError::Internal(
@@ -76,9 +76,9 @@ impl RuntimeInitializer {
         Ok(runtime)
     }
 
-    /// Register shutdown hook untuk cleanup
+    /// Register shutdown hook for cleanup
     fn register_shutdown_hook(&self) {
-        // Setup shutdown guard yang akan dipanggil saat program exit
+        // Setup shutdown guard that will be called when program exits
         SHUTDOWN_INIT.call_once(|| {
             unsafe {
                 SHUTDOWN_GUARD = Some(ShutdownGuard::new());
@@ -97,14 +97,14 @@ impl RuntimeInitializer {
     }
 }
 
-/// Initialize GC dengan default config
+/// Initialize GC with default config
 pub fn init_default() -> Result<super::Runtime> {
     let config = GcConfig::default();
     let initializer = RuntimeInitializer::new(config);
     initializer.initialize()
 }
 
-/// Initialize GC dengan custom config
+/// Initialize GC with custom config
 pub fn init_with_config(config: GcConfig) -> Result<super::Runtime> {
     let initializer = RuntimeInitializer::new(config);
     initializer.initialize()

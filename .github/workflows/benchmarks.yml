@@ -1,0 +1,411 @@
+# =============================================================================
+# Benchmarks Workflow
+# =============================================================================
+# Purpose: Run performance benchmarks and detect regressions
+# Triggers:
+#   - Push to main branch only (not pull requests)
+#
+# This workflow:
+#   1. Runs cargo bench with proper configuration
+#   2. Stores benchmark results as artifacts
+#   3. Compares results with baseline if available
+#   4. Posts summary to GitHub Actions summary
+#   5. Fails if regression exceeds 10% threshold
+#
+# Note: Benchmarks are resource-intensive and run only on main branch
+#       to avoid unnecessary CI costs on PRs.
+# =============================================================================
+
+name: Benchmarks
+
+on:
+  push:
+    branches: [main]
+    # Only run on main branch, not on pull requests
+    # This prevents expensive benchmark runs on every PR
+  workflow_dispatch:
+    # Allow manual trigger for on-demand benchmarking
+    inputs:
+      compare_baseline:
+        description: 'Compare with baseline (true/false)'
+        required: false
+        default: 'true'
+        type: boolean
+      regression_threshold:
+        description: 'Regression threshold percentage (e.g., 10 for 10%)'
+        required: false
+        default: '10'
+        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-C target-cpu=native"
+  # MSRV must match the workspace configuration
+  MSRV: "1.75"
+  # Regression threshold - fail if performance drops by more than this percentage
+  REGRESSION_THRESHOLD: "10"
+  # Benchmark output directory
+  BENCH_OUTPUT_DIR: "target/criterion"
+
+jobs:
+  # ===========================================================================
+  # Run Benchmarks
+  # ===========================================================================
+  run-benchmarks:
+    name: Run Benchmarks
+    runs-on: ubuntu-latest
+    # This job runs the actual benchmarks and collects performance data
+    # Results are stored as artifacts for comparison and historical tracking
+
+    outputs:
+      benchmark_status: ${{ steps.run_bench.outputs.status }}
+      regression_detected: ${{ steps.compare_baseline.outputs.regression_detected }}
+      regression_percentage: ${{ steps.compare_baseline.outputs.regression_percentage }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Fetch full history for baseline comparison
+          fetch-depth: 0
+
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Install LLVM dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            llvm \
+            lld \
+            libssl-dev \
+            pkg-config
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-bench-cargo-registry-${{ hashFiles('faxc/**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bench-cargo-registry-
+
+      - name: Cache Cargo build artifacts
+        uses: actions/cache@v4
+        with:
+          path: faxc/target
+          key: ${{ runner.os }}-bench-cargo-target-${{ hashFiles('faxc/**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bench-cargo-target-
+
+      - name: Cache benchmark results
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.BENCH_OUTPUT_DIR }}
+          key: ${{ runner.os }}-benchmark-results-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-benchmark-results-
+
+      - name: Download previous benchmark baseline
+        id: download_baseline
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: benchmark-baseline
+          path: .github/benchmark-baseline
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check for baseline availability
+        id: baseline_check
+        run: |
+          if [ -f ".github/benchmark-baseline/benchmark-results.json" ]; then
+            echo "has_baseline=true" >> $GITHUB_OUTPUT
+            echo "::notice::Baseline found, will compare results"
+          else
+            echo "has_baseline=false" >> $GITHUB_OUTPUT
+            echo "::notice::No baseline found, will establish new baseline"
+          fi
+
+      - name: Run benchmarks
+        id: run_bench
+        working-directory: faxc
+        run: |
+          echo "Starting benchmark run..."
+          echo "=========================================="
+          echo "Rust Version: $(rustc --version)"
+          echo "Cargo Version: $(cargo --version)"
+          echo "=========================================="
+          
+          # Run benchmarks with release profile for accurate measurements
+          # Using --no-run first to ensure everything compiles
+          echo "Compiling benchmarks..."
+          cargo bench --workspace --no-run 2>&1 || {
+            echo "::error::Benchmark compilation failed"
+            echo "status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          }
+          
+          # Run actual benchmarks
+          echo "Running benchmarks..."
+          cargo bench --workspace 2>&1 | tee benchmark-output.txt
+          
+          BENCH_EXIT_CODE=${PIPESTATUS[0]}
+          
+          if [ $BENCH_EXIT_CODE -eq 0 ]; then
+            echo "::notice::Benchmarks completed successfully"
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "::error::Benchmarks failed"
+            echo "status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Parse benchmark results
+        id: parse_results
+        if: steps.run_bench.outputs.status == 'success'
+        working-directory: faxc
+        run: |
+          echo "Parsing benchmark results..."
+          
+          # Create a JSON summary of benchmark results
+          # Criterion stores results in target/criterion/<benchmark_name>/new/estimates.json
+          {
+            echo "{"
+            echo "  \"timestamp\": \"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\","
+            echo "  \"commit\": \"${{ github.sha }}\","
+            echo "  \"branch\": \"${{ github.ref_name }}\","
+            echo "  \"benchmarks\": ["
+            
+            first=true
+            for dir in target/criterion/*/new; do
+              if [ -f "$dir/estimates.json" ]; then
+                benchmark_name=$(basename $(dirname $(dirname $dir)))
+                mean=$(jq -r '.mean.point' "$dir/estimates.json" 2>/dev/null || echo "null")
+                stddev=$(jq -r '.std_dev.point' "$dir/estimates.json" 2>/dev/null || echo "null")
+                
+                if [ "$first" = true ]; then
+                  first=false
+                else
+                  echo ","
+                fi
+                
+                echo -n "    {\"name\": \"$benchmark_name\", \"mean\": $mean, \"stddev\": $stddev}"
+              fi
+            done
+            
+            echo ""
+            echo "  ]"
+            echo "}"
+          } > benchmark-results.json
+          
+          # Display summary
+          echo "Benchmark Results Summary:"
+          jq -r '.benchmarks[] | "\(.name): \(.mean) ns (±\(.stddev))"' benchmark-results.json || true
+
+      - name: Compare with baseline
+        id: compare_baseline
+        if: steps.run_bench.outputs.status == 'success' && steps.baseline_check.outputs.has_baseline == 'true'
+        working-directory: faxc
+        run: |
+          echo "Comparing with baseline..."
+          
+          BASELINE_FILE=".github/benchmark-baseline/benchmark-results.json"
+          CURRENT_FILE="benchmark-results.json"
+          
+          if [ ! -f "$BASELINE_FILE" ]; then
+            echo "No baseline file found"
+            echo "regression_detected=false" >> $GITHUB_OUTPUT
+            echo "regression_percentage=0" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Compare benchmarks and detect regressions
+          max_regression=0
+          regression_found=false
+          
+          echo "## Benchmark Comparison" > comparison-report.md
+          echo "" >> comparison-report.md
+          echo "| Benchmark | Baseline (ns) | Current (ns) | Change | Status |" >> comparison-report.md
+          echo "|-----------|---------------|--------------|--------|--------|" >> comparison-report.md
+          
+          # Use jq to compare results
+          while IFS= read -r benchmark; do
+            name=$(echo "$benchmark" | jq -r '.name')
+            current_mean=$(echo "$benchmark" | jq -r '.mean')
+            baseline_mean=$(jq -r --arg name "$name" '.benchmarks[] | select(.name == $name) | .mean' "$BASELINE_FILE" 2>/dev/null)
+            
+            if [ "$baseline_mean" != "null" ] && [ -n "$baseline_mean" ] && [ "$baseline_mean" != "0" ]; then
+              # Calculate percentage change (positive = slower = regression)
+              change=$(echo "scale=2; (($current_mean - $baseline_mean) / $baseline_mean) * 100" | bc 2>/dev/null || echo "0")
+              change_int=${change%.*}
+              
+              if [ "${change_int#-}" -gt "$max_regression" ] 2>/dev/null; then
+                max_regression=${change_int#-}
+              fi
+              
+              if [ "${change_int:-0}" -gt "${{ env.REGRESSION_THRESHOLD }}" ] 2>/dev/null; then
+                regression_found=true
+                status="❌ REGRESSION"
+              elif [ "${change_int:-0}" -lt "-${{ env.REGRESSION_THRESHOLD }}" ] 2>/dev/null; then
+                status="✅ IMPROVEMENT"
+              else
+                status="✅ OK"
+              fi
+              
+              change_display=$(printf "%+.2f%%" "$change")
+              echo "| $name | $baseline_mean | $current_mean | $change_display | $status |" >> comparison-report.md
+            fi
+          done < <(jq -c '.benchmarks[]' "$CURRENT_FILE")
+          
+          echo "" >> comparison-report.md
+          echo "**Maximum Regression:** ${max_regression}%" >> comparison-report.md
+          echo "**Threshold:** ${{ env.REGRESSION_THRESHOLD }}%" >> comparison-report.md
+          
+          # Set outputs
+          echo "regression_detected=$regression_found" >> $GITHUB_OUTPUT
+          echo "regression_percentage=$max_regression" >> $GITHUB_OUTPUT
+          
+          if [ "$regression_found" = "true" ]; then
+            echo "::error::Performance regression detected: ${max_regression}% (threshold: ${{ env.REGRESSION_THRESHOLD }}%)"
+          else
+            echo "::notice::No significant regressions detected"
+          fi
+
+      - name: Upload benchmark results artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-results-${{ github.run_id }}
+          path: |
+            faxc/benchmark-output.txt
+            faxc/benchmark-results.json
+            faxc/comparison-report.md
+            faxc/target/criterion/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Update baseline artifact
+        if: steps.run_bench.outputs.status == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-baseline
+          path: faxc/benchmark-results.json
+          retention-days: 90
+          if-no-files-found: warn
+
+      - name: Post summary to GitHub Actions summary
+        if: always()
+        run: |
+          BENCH_STATUS="${{ steps.run_bench.outputs.status }}"
+          REGRESSION_DETECTED="${{ steps.compare_baseline.outputs.regression_detected }}"
+          REGRESSION_PCT="${{ steps.compare_baseline.outputs.regression_percentage }}"
+          HAS_BASELINE="${{ steps.baseline_check.outputs.has_baseline }}"
+          
+          {
+            echo "# 📊 Benchmark Results"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| **Status** | $([ "$BENCH_STATUS" = "success" ] && echo "✅ Success" || echo "❌ Failed") |"
+            echo "| **Commit** | \`${{ github.sha }}\` |"
+            echo "| **Branch** | \`${{ github.ref_name }}\` |"
+            echo "| **Rust Version** | \`$(rustc --version)\` |"
+            echo "| **Baseline Comparison** | $([ "$HAS_BASELINE" = "true" ] && echo "Yes" || echo "No") |"
+            
+            if [ "$HAS_BASELINE" = "true" ]; then
+              echo "| **Regression Detected** | $([ "$REGRESSION_DETECTED" = "true" ] && echo "⚠️ Yes" || echo "✅ No") |"
+              echo "| **Max Regression** | ${REGRESSION_PCT:-N/A}% |"
+              echo "| **Threshold** | ${{ env.REGRESSION_THRESHOLD }}% |"
+            fi
+            
+            echo ""
+            
+            if [ "$BENCH_STATUS" = "failed" ]; then
+              echo "## ❌ Benchmark Execution Failed"
+              echo ""
+              echo "Please check the workflow logs for details."
+            elif [ "$REGRESSION_DETECTED" = "true" ]; then
+              echo "## ⚠️ Performance Regression Detected"
+              echo ""
+              echo "A performance regression of **${REGRESSION_PCT}%** was detected,"
+              echo "which exceeds the threshold of **${{ env.REGRESSION_THRESHOLD }}%**."
+              echo ""
+              echo "### Recommended Actions"
+              echo "1. Review recent changes for performance impact"
+              echo "2. Profile the affected benchmarks"
+              echo "3. Consider optimizing or documenting the regression"
+            else
+              echo "## ✅ Benchmarks Completed Successfully"
+              echo ""
+              if [ "$HAS_BASELINE" = "true" ]; then
+                echo "No significant performance regressions detected."
+              else
+                echo "This is the first benchmark run. Results will be used as baseline for future comparisons."
+              fi
+            fi
+            
+            # Include comparison table if available
+            if [ -f "faxc/comparison-report.md" ]; then
+              echo ""
+              echo "## Detailed Comparison"
+              echo ""
+              cat faxc/comparison-report.md
+            fi
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Final benchmark status
+        if: always()
+        run: |
+          BENCH_STATUS="${{ steps.run_bench.outputs.status }}"
+          REGRESSION_DETECTED="${{ steps.compare_baseline.outputs.regression_detected }}"
+          
+          echo "═══════════════════════════════════════════════════════"
+          echo "  Benchmark Run Complete"
+          echo "═══════════════════════════════════════════════════════"
+          echo "  Status: $BENCH_STATUS"
+          echo "  Regression Detected: $REGRESSION_DETECTED"
+          echo "  Commit: ${{ github.sha }}"
+          echo "═══════════════════════════════════════════════════════"
+          
+          # Fail if benchmarks failed or regression detected
+          if [ "$BENCH_STATUS" = "failed" ]; then
+            echo "::error::Benchmark execution failed"
+            exit 1
+          fi
+          
+          if [ "$REGRESSION_DETECTED" = "true" ]; then
+            echo "::error::Performance regression exceeds threshold (${{ env.REGRESSION_THRESHOLD }}%)"
+            exit 1
+          fi
+
+  # ===========================================================================
+  # Benchmark Notification (for regressions)
+  # ===========================================================================
+  benchmark-notification:
+    name: Benchmark Notification
+    runs-on: ubuntu-latest
+    needs: [run-benchmarks]
+    if: always() && needs.run-benchmarks.outputs.regression_detected == 'true'
+    # This job creates a notification when regressions are detected
+    # It can be extended to create GitHub issues or send notifications
+
+    steps:
+      - name: Create regression issue comment
+        run: |
+          echo "Performance regression detected!"
+          echo "This job can be extended to:"
+          echo "  - Create a GitHub issue automatically"
+          echo "  - Send Slack/email notifications"
+          echo "  - Add labels to the commit/PR"
+          echo ""
+          echo "Regression: ${{ needs.run-benchmarks.outputs.regression_percentage }}%"
+          echo "Threshold: ${{ env.REGRESSION_THRESHOLD }}%"
+          
+          # TODO: Implement actual notification mechanism
+          # Example: Create GitHub issue using gh CLI
+          # gh issue create --title "Performance Regression Detected" --body "..."

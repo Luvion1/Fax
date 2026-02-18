@@ -1,13 +1,13 @@
 //! GC Metrics - Export Metrics
 //!
-//! Module untuk export metrics ke monitoring systems
+//! Module for exporting metrics to monitoring systems
 //! (Prometheus, Grafana, etc.)
 
 use std::collections::HashMap;
 
 /// GcMetrics - metrics exporter
 ///
-/// Export GC metrics dalam berbagai format.
+/// Export GC metrics in various formats.
 pub struct GcMetrics {
     /// Metrics data
     metrics: std::sync::Mutex<HashMap<String, MetricValue>>,

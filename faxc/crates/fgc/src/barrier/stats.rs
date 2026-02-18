@@ -1,12 +1,12 @@
 //! Barrier Statistics - Performance Monitoring
 //!
-//! Module ini menyediakan statistik untuk load barrier performance monitoring.
-//! Statistics digunakan untuk:
-//! - Debugging dan profiling
+//! This module provides statistics for load barrier performance monitoring.
+//! Statistics are used for:
+//! - Debugging and profiling
 //! - Performance tuning
 //! - GC health monitoring
 //!
-//! Metrics yang dilacak:
+//! Metrics tracked:
 //! - Total barrier invocations
 //! - Fast path success rate
 //! - Objects marked via barrier
@@ -14,17 +14,17 @@
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
-/// LoadBarrierStats - statistics untuk load barrier operations
+/// LoadBarrierStats - statistics for load barrier operations
 ///
-/// Statistics ini track semua aspek load barrier performance:
+/// These statistics track all aspects of load barrier performance:
 /// - Invocation count
 /// - Fast path vs slow path ratio
 /// - Marking activity
 /// - Pointer healing
 ///
 /// # Thread Safety
-/// Semua field menggunakan atomic operations untuk thread-safe access.
-/// Stats bisa di-update dari multiple GC threads secara concurrent.
+/// All fields use atomic operations for thread-safe access.
+/// Stats can be updated from multiple GC threads concurrently.
 #[derive(Debug, Clone, Default)]
 pub struct LoadBarrierStats {
     /// Total barrier invocations
@@ -42,19 +42,19 @@ pub struct LoadBarrierStats {
 }
 
 impl LoadBarrierStats {
-    /// Create new stats dengan default values
+    /// Create new stats with default values
     #[inline]
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Merge stats dari sumber lain (untuk aggregation)
+    /// Merge stats from another source (for aggregation)
     ///
-    /// Digunakan untuk menggabungkan stats dari multiple threads
-    /// atau multiple GC cycles.
+    /// Used to combine stats from multiple threads
+    /// or multiple GC cycles.
     ///
     /// # Arguments
-    /// * `other` - Stats lain untuk di-merge
+    /// * `other` - Another stats instance to merge
     #[inline]
     pub fn merge(&mut self, other: &LoadBarrierStats) {
         self.total_invocations += other.total_invocations;
@@ -93,7 +93,7 @@ impl LoadBarrierStats {
         self.total_invocations - self.null_pointers
     }
 
-    /// Print stats untuk debugging
+    /// Print stats for debugging
     pub fn print(&self) {
         println!("LoadBarrier Statistics:");
         println!("  Total invocations: {}", self.total_invocations);
@@ -106,8 +106,8 @@ impl LoadBarrierStats {
 
 /// AtomicLoadBarrierStats - thread-safe stats collector
 ///
-/// Version atomic untuk collecting stats dari multiple threads
-/// tanpa lock overhead.
+/// Atomic version for collecting stats from multiple threads
+/// without lock overhead.
 pub struct AtomicLoadBarrierStats {
     /// Total barrier invocations
     total_invocations: AtomicU64,
@@ -240,9 +240,9 @@ impl Default for AtomicLoadBarrierStats {
     }
 }
 
-/// Per-thread stats untuk mengurangi contention
+/// Per-thread stats for reducing contention
 ///
-/// Setiap GC thread punya local stats yang di-merge di akhir GC cycle.
+/// Each GC thread has local stats that are merged at the end of GC cycle.
 pub struct ThreadLocalStats {
     /// Local stats
     local: LoadBarrierStats,

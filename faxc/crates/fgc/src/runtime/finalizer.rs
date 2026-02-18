@@ -1,23 +1,23 @@
 //! Finalizer - Object Finalization
 //!
-//! Finalizer queue untuk objects yang perlu cleanup sebelum dikoleksi.
-//! Finalizers dipanggil setelah object menjadi unreachable tapi sebelum
-//! memory di-reclaim.
+//! Finalizer queue for objects that need cleanup before being collected.
+//! Finalizers are called after object becomes unreachable but before
+//! memory is reclaimed.
 //!
-//! Warning: Finalizers harus dihindari jika memungkinkan karena:
+//! Warning: Finalizers should be avoided if possible because:
 //! - Performance overhead
 //! - Unpredictable timing
 //! - Potential memory leaks
 //!
-//! Gunakan hanya untuk cleanup native resources.
+//! Use only for cleanup of native resources.
 
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 
-/// Finalizer - manager untuk object finalization
+/// Finalizer - manager for object finalization
 ///
-/// Mengelola finalizer queue dan execution.
+/// Manages finalizer queue and execution.
 pub struct Finalizer {
     /// Finalizer queue
     queue: Arc<std::sync::Mutex<VecDeque<FinalizerEntry>>>,
@@ -63,7 +63,7 @@ impl Finalizer {
 
                 drop(queue_guard);
 
-                // Sleep sebentar
+                // Sleep briefly
                 std::thread::sleep(std::time::Duration::from_millis(100));
             }
         });
@@ -84,7 +84,7 @@ impl Finalizer {
         Ok(())
     }
 
-    /// Register finalizer untuk object
+    /// Register finalizer for object
     ///
     /// # Arguments
     /// * `object` - Object address
@@ -107,7 +107,7 @@ impl Finalizer {
         self.pending_count.load(Ordering::Relaxed)
     }
 
-    /// Check jika ada pending finalizers
+    /// Check if there are pending finalizers
     pub fn has_pending(&self) -> bool {
         self.pending_count.load(Ordering::Relaxed) > 0
     }

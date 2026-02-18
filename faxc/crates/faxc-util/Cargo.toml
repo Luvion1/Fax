@@ -7,9 +7,27 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+# Core dependencies
 indexmap.workspace = true
 rustc-hash.workspace = true
 thiserror.workspace = true
 bumpalo = "3.14"
 
+# Concurrency and hashing improvements
+dashmap = "5.5"
+ahash = "0.8"
+
+# Compile-time assertions
+static_assertions = "1.1"
+
 [dev-dependencies]
+# Property-based testing
+quickcheck = "1.0"
+quickcheck_macros = "1.0"
+
+# Benchmarking (requires nightly for benches)
+criterion = "0.5"
+
+[[bench]]
+name = "symbol_bench"
+harness = false

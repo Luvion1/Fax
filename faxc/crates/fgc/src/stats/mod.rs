@@ -1,6 +1,6 @@
 //! Stats Module - GC Performance Monitoring
 //!
-//! Module ini mengumpulkan statistik performa GC untuk:
+//! This module collects GC performance statistics for:
 //! - Performance tuning
 //! - Production monitoring
 //! - Debugging & profiling
@@ -22,9 +22,9 @@ pub use metrics::GcMetrics;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 
-/// GcStats - statistics collector untuk GC
+/// GcStats - statistics collector for GC
 ///
-/// Central repository untuk semua GC metrics.
+/// Central repository for all GC metrics.
 pub struct GcStats {
     /// Total GC cycles
     total_cycles: AtomicU64,

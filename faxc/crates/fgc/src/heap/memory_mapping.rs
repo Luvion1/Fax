@@ -1,8 +1,8 @@
 //! Memory Mapping - Cross-Platform Wrapper for memmap2
 //!
-//! Module ini menyediakan abstraksi cross-platform untuk memory mapping
-//! menggunakan crate memmap2. Mendukung:
-//! - Anonymous mappings (tanpa file backing)
+//! This module provides cross-platform abstraction for memory mapping
+//! using the memmap2 crate. Supports:
+//! - Anonymous mappings (without file backing)
 //! - Read/Write memory
 //! - Memory protection changes
 //!
@@ -28,38 +28,38 @@ use memmap2::{MmapMut, MmapOptions};
 use std::io::{Read, Write};
 use std::sync::Arc;
 
-/// MemoryMapping - wrapper untuk memory mapped region
+/// MemoryMapping - wrapper for memory mapped region
 ///
-/// Thread-safe melalui Arc<MmapMut>.
-/// Mendukung read/write operations ke mapped memory.
+/// Thread-safe via Arc<MmapMut>.
+/// Supports read/write operations to mapped memory.
 pub struct MemoryMapping {
     /// Inner mmap handle
     mmap: Arc<MmapMut>,
 
-    /// Base address dari mapping
+    /// Base address of mapping
     base: usize,
 
-    /// Size dari mapping dalam bytes
+    /// Size of mapping in bytes
     size: usize,
 
-    /// Apakah memory saat ini readable
+    /// Whether memory is currently readable
     readable: bool,
 
-    /// Apakah memory saat ini writable
+    /// Whether memory is currently writable
     writable: bool,
 }
 
 impl MemoryMapping {
     /// Create anonymous memory mapping
     ///
-    /// Membuat memory mapping tanpa file backing.
-    /// Memory diinisialisasi dengan zeros.
+    /// Creates memory mapping without file backing.
+    /// Memory is initialized with zeros.
     ///
     /// # Arguments
-    /// * `size` - Size dalam bytes (akan di-round ke page boundary)
+    /// * `size` - Size in bytes (will be rounded to page boundary)
     ///
     /// # Returns
-    /// MemoryMapping instance atau error
+    /// MemoryMapping instance or error
     ///
     /// # Examples
     /// ```
@@ -87,13 +87,13 @@ impl MemoryMapping {
         })
     }
 
-    /// Create anonymous mapping dengan hint address
+    /// Create anonymous mapping with hint address
     ///
-    /// Memberikan hint ke OS tentang preferred address.
-    /// OS tidak dijamin menggunakan hint ini.
+    /// Provides a hint to the OS about preferred address.
+    /// OS is not guaranteed to use this hint.
     ///
     /// # Arguments
-    /// * `size` - Size dalam bytes
+    /// * `size` - Size in bytes
     /// * `hint` - Preferred base address (optional)
     pub fn anonymous_with_hint(size: usize, hint: Option<usize>) -> Result<Self> {
         let aligned_size = crate::heap::page::align_to_page(size);
@@ -102,8 +102,8 @@ impl MemoryMapping {
         opts.len(aligned_size);
 
         if let Some(addr) = hint {
-            // Note: memmap2 tidak langsung support hint address
-            // Kita bisa coba dengan stack allocation pattern
+            // Note: memmap2 does not directly support hint address
+            // We can try with stack allocation pattern
             opts.stack();
         }
 
@@ -122,44 +122,44 @@ impl MemoryMapping {
         })
     }
 
-    /// Get base address dari mapping
+    /// Get base address of mapping
     pub fn base(&self) -> usize {
         self.base
     }
 
-    /// Get size dari mapping
+    /// Get size of mapping
     pub fn size(&self) -> usize {
         self.size
     }
 
-    /// Check jika memory readable
+    /// Check if memory readable
     pub fn is_readable(&self) -> bool {
         self.readable
     }
 
-    /// Check jika memory writable
+    /// Check if memory writable
     pub fn is_writable(&self) -> bool {
         self.writable
     }
 
-    /// Check jika address dalam range mapping
+    /// Check if address in mapping range
     pub fn contains(&self, addr: usize) -> bool {
         addr >= self.base && addr < self.base + self.size
     }
 
-    /// Check jika range dalam mapping
+    /// Check if range in mapping
     pub fn contains_range(&self, offset: usize, len: usize) -> bool {
         offset.saturating_add(len) <= self.size
     }
 
-    /// Read bytes dari mapping
+    /// Read bytes from mapping
     ///
     /// # Arguments
-    /// * `offset` - Offset dari base address
-    /// * `buf` - Buffer untuk menyimpan bytes
+    /// * `offset` - Offset from base address
+    /// * `buf` - Buffer to store bytes
     ///
     /// # Safety
-    /// Offset + buf.len() harus <= size
+    /// Offset + buf.len() must be <= size
     pub fn read(&self, offset: usize, buf: &mut [u8]) -> Result<()> {
         if !self.readable {
             return Err(FgcError::VirtualMemoryError(
@@ -176,21 +176,21 @@ impl MemoryMapping {
             )));
         }
 
-        // Get slice dari mmap
+        // Get slice from mmap
         let data = &self.mmap[offset..offset + buf.len()];
         buf.copy_from_slice(data);
 
         Ok(())
     }
 
-    /// Write bytes ke mapping
+    /// Write bytes to mapping
     ///
     /// # Arguments
-    /// * `offset` - Offset dari base address
-    /// * `data` - Bytes untuk write
+    /// * `offset` - Offset from base address
+    /// * `data` - Bytes to write
     ///
     /// # Safety
-    /// Offset + data.len() harus <= size
+    /// Offset + data.len() must be <= size
     pub fn write(&mut self, offset: usize, data: &[u8]) -> Result<()> {
         if !self.writable {
             return Err(FgcError::VirtualMemoryError(
@@ -207,10 +207,10 @@ impl MemoryMapping {
             )));
         }
 
-        // Flush sebelum write untuk memastikan consistency
+        // Flush before write to ensure consistency
         self.flush()?;
 
-        // Get mutable slice dan copy data
+        // Get mutable slice and copy data
         let mmap = Arc::get_mut(&mut self.mmap).ok_or_else(|| {
             FgcError::VirtualMemoryError(
                 "Cannot get mutable reference to shared mapping".to_string(),
@@ -222,17 +222,17 @@ impl MemoryMapping {
         Ok(())
     }
 
-    /// Flush changes ke kernel
+    /// Flush changes to kernel
     ///
-    /// Memastikan writes visible ke kernel dan potentially ke disk
-    /// (untuk file-backed mappings).
+    /// Ensures writes are visible to kernel and potentially to disk
+    /// (for file-backed mappings).
     pub fn flush(&self) -> Result<()> {
         self.mmap
             .flush()
             .map_err(|e| FgcError::VirtualMemoryError(format!("Failed to flush mapping: {}", e)))
     }
 
-    /// Flush range ke kernel
+    /// Flush range to kernel
     pub fn flush_range(&self, offset: usize, len: usize) -> Result<()> {
         if offset.saturating_add(len) > self.size {
             return Err(FgcError::VirtualMemoryError(
@@ -245,19 +245,19 @@ impl MemoryMapping {
             .map_err(|e| FgcError::VirtualMemoryError(format!("Failed to flush range: {}", e)))
     }
 
-    /// Get pointer ke memory
+    /// Get pointer to memory
     ///
     /// # Safety
-    /// Caller bertanggung jawab untuk tidak melebihi bounds.
+    /// Caller is responsible for not exceeding bounds.
     pub fn as_ptr(&self) -> *const u8 {
         self.mmap.as_ptr()
     }
 
-    /// Get mutable pointer ke memory
+    /// Get mutable pointer to memory
     ///
     /// # Safety
-    /// Caller bertanggung jawab untuk tidak melebihi bounds dan
-    /// handle concurrent access.
+    /// Caller is responsible for not exceeding bounds and
+    /// handling concurrent access.
     pub fn as_mut_ptr(&mut self) -> Result<*mut u8> {
         let mmap = Arc::get_mut(&mut self.mmap).ok_or_else(|| {
             FgcError::VirtualMemoryError("Cannot get mutable pointer to shared mapping".to_string())
@@ -265,7 +265,7 @@ impl MemoryMapping {
         Ok(mmap.as_mut_ptr())
     }
 
-    /// Get slice dari mapping
+    /// Get slice from mapping
     ///
     /// # Arguments
     /// * `offset` - Start offset
@@ -279,7 +279,7 @@ impl MemoryMapping {
         Ok(&self.mmap[offset..offset + len])
     }
 
-    /// Get mutable slice dari mapping
+    /// Get mutable slice from mapping
     pub fn as_mut_slice(&mut self, offset: usize, len: usize) -> Result<&mut [u8]> {
         if offset.saturating_add(len) > self.size {
             return Err(FgcError::VirtualMemoryError(
@@ -294,7 +294,7 @@ impl MemoryMapping {
         Ok(&mut mmap[offset..offset + len])
     }
 
-    /// Fill memory dengan value
+    /// Fill memory with value
     pub fn fill(&mut self, offset: usize, len: usize, value: u8) -> Result<()> {
         let slice = self.as_mut_slice(offset, len)?;
         slice.fill(value);
@@ -306,7 +306,7 @@ impl MemoryMapping {
         self.fill(offset, len, 0)
     }
 
-    /// Clone reference ke mapping (shares underlying memory)
+    /// Clone reference to mapping (shares underlying memory)
     pub fn clone_ref(&self) -> Self {
         Self {
             mmap: Arc::clone(&self.mmap),
@@ -324,10 +324,10 @@ impl Clone for MemoryMapping {
     }
 }
 
-/// OwnedMemoryMapping - memory mapping dengan ownership eksklusif
+/// OwnedMemoryMapping - memory mapping with exclusive ownership
 ///
-/// Berbeda dengan MemoryMapping, ini tidak menggunakan Arc
-/// sehingga bisa dapat mutable reference secara unik.
+/// Unlike MemoryMapping, this does not use Arc
+/// so it can get unique mutable references.
 pub struct OwnedMemoryMapping {
     mmap: MmapMut,
     base: usize,
@@ -335,7 +335,7 @@ pub struct OwnedMemoryMapping {
 }
 
 impl OwnedMemoryMapping {
-    /// Create anonymous mapping dengan exclusive ownership
+    /// Create anonymous mapping with exclusive ownership
     pub fn anonymous(size: usize) -> Result<Self> {
         let aligned_size = crate::heap::page::align_to_page(size);
 
@@ -451,7 +451,7 @@ mod tests {
     fn test_mapping_fill() {
         let mut mapping = MemoryMapping::anonymous(4096).unwrap();
 
-        // Fill dengan value
+        // Fill with value
         mapping.fill(0, 100, 0x42).unwrap();
 
         // Verify

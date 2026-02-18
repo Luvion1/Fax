@@ -1,7 +1,7 @@
 //! GC Threads - Worker Threads for Parallel Marking
 //!
-//! Module ini mengimplementasikan worker threads untuk concurrent marking.
-//! Menggunakan work-stealing untuk load balancing antar threads.
+//! This module implements worker threads for concurrent marking.
+//! Uses work-stealing for load balancing between threads.
 //!
 //! Architecture:
 //! ```
@@ -20,9 +20,9 @@
 //! ```
 //!
 //! Work Stealing Algorithm:
-//! 1. Worker process dari local queue sendiri
-//! 2. Jika local queue kosong, steal dari worker lain
-//! 3. Jika semua queue kosong, idle/wait
+//! 1. Worker processes from its own local queue
+//! 2. If local queue is empty, steal from other workers
+//! 3. If all queues are empty, idle/wait
 
 use crate::marker::{Marker, MarkQueue};
 use crate::error::Result;
@@ -34,16 +34,16 @@ use parking_lot::Mutex as ParkingMutex;
 
 /// GC Worker Thread
 ///
-/// Worker thread yang memproses marking work dari queue.
-/// Setiap worker memiliki local queue untuk mengurangi contention.
+/// Worker thread that processes marking work from queue.
+/// Each worker has a local queue to reduce contention.
 pub struct GcWorker {
-    /// Worker ID (unique dalam pool)
+    /// Worker ID (unique within pool)
     id: usize,
 
-    /// Reference ke marker
+    /// Reference to marker
     marker: Arc<Marker>,
 
-    /// Local work queue untuk mengurangi contention
+    /// Local work queue to reduce contention
     local_queue: Arc<ParkingMutex<Vec<usize>>>,
 
     /// Statistics - processed object count
@@ -55,7 +55,7 @@ pub struct GcWorker {
     /// Worker should stop
     should_stop: AtomicBool,
 
-    /// Reference ke global queue untuk work stealing
+    /// Reference to global queue for work stealing
     global_queue: Arc<MarkQueue>,
 }
 
@@ -63,9 +63,9 @@ impl GcWorker {
     /// Create new GC worker
     ///
     /// # Arguments
-    /// * `id` - Worker ID (unique dalam pool)
-    /// * `marker` - Reference ke marker
-    /// * `global_queue` - Global mark queue untuk work stealing
+    /// * `id` - Worker ID (unique within pool)
+    /// * `marker` - Reference to marker
+    /// * `global_queue` - Global mark queue for work stealing
     pub fn new(id: usize, marker: Arc<Marker>, global_queue: Arc<MarkQueue>) -> Self {
         Self {
             id,
@@ -83,12 +83,12 @@ impl GcWorker {
         self.id
     }
 
-    /// Check jika worker idle
+    /// Check if worker is idle
     pub fn is_idle(&self) -> bool {
         self.idle.load(Ordering::Relaxed)
     }
 
-    /// Check jika worker should stop
+    /// Check if worker should stop
     pub fn should_stop(&self) -> bool {
         self.should_stop.load(Ordering::Relaxed)
     }
@@ -100,10 +100,10 @@ impl GcWorker {
 
     /// Start worker thread
     ///
-    /// Returns JoinHandle untuk thread yang dijalankan.
+    /// Returns JoinHandle for the spawned thread.
     pub fn start(self: &Arc<Self>) -> JoinHandle<()> {
         let worker = Arc::clone(self);
-        
+
         thread::Builder::new()
             .name(format!("gc-worker-{}", self.id))
             .spawn(move || {
@@ -115,17 +115,17 @@ impl GcWorker {
     /// Main worker loop
     fn run(&self) {
         while !self.should_stop.load(Ordering::Relaxed) {
-            // Try get work dari local queue
+            // Try get work from local queue
             if let Some(object) = self.pop_local_work() {
                 self.idle.store(false, Ordering::Relaxed);
-                
+
                 // Process work
                 match self.process_object(object) {
                     Ok(_) => {
                         self.processed_count.fetch_add(1, Ordering::Relaxed);
                     }
                     Err(e) => {
-                        log::error!("[GC Worker {}] Error processing object {:#x}: {:?}", 
+                        log::error!("[GC Worker {}] Error processing object {:#x}: {:?}",
                                    self.id, object, e);
                     }
                 }
@@ -135,29 +135,29 @@ impl GcWorker {
             // Local queue empty, try global queue
             if let Some(object) = self.global_queue.pop() {
                 self.idle.store(false, Ordering::Relaxed);
-                
+
                 match self.process_object(object) {
                     Ok(_) => {
                         self.processed_count.fetch_add(1, Ordering::Relaxed);
                     }
                     Err(e) => {
-                        log::error!("[GC Worker {}] Error processing object {:#x}: {:?}", 
+                        log::error!("[GC Worker {}] Error processing object {:#x}: {:?}",
                                    self.id, object, e);
                     }
                 }
                 continue;
             }
 
-            // Try steal work dari worker lain
+            // Try steal work from other workers
             if let Some(object) = self.steal_work() {
                 self.idle.store(false, Ordering::Relaxed);
-                
+
                 match self.process_object(object) {
                     Ok(_) => {
                         self.processed_count.fetch_add(1, Ordering::Relaxed);
                     }
                     Err(e) => {
-                        log::error!("[GC Worker {}] Error processing object {:#x}: {:?}", 
+                        log::error!("[GC Worker {}] Error processing object {:#x}: {:?}",
                                    self.id, object, e);
                     }
                 }
@@ -172,49 +172,49 @@ impl GcWorker {
                 break;
             }
 
-            // Sleep sebentar sebelum check lagi
+            // Sleep briefly before checking again
             thread::sleep(Duration::from_micros(100));
         }
 
         self.idle.store(true, Ordering::Relaxed);
     }
 
-    /// Pop work dari local queue
+    /// Pop work from local queue
     fn pop_local_work(&self) -> Option<usize> {
         let mut queue = self.local_queue.lock();
         queue.pop()
     }
 
-    /// Push work ke local queue
+    /// Push work to local queue
     pub fn push_local_work(&self, work: usize) {
         let mut queue = self.local_queue.lock();
         queue.push(work);
     }
 
-    /// Steal work dari worker lain
+    /// Steal work from other workers
     ///
-    /// Work stealing dilakukan dengan mencoba steal dari worker
-    /// lain secara round-robin.
+    /// Work stealing is done by trying to steal from other workers
+    /// in round-robin fashion.
     fn steal_work(&self) -> Option<usize> {
-        // Work stealing akan di-handle oleh GcThreadPool
-        // yang memiliki referensi ke semua workers
+        // Work stealing will be handled by GcThreadPool
+        // which has references to all workers
         None
     }
 
     /// Process single object
     fn process_object(&self, object: usize) -> Result<()> {
-        // Delegate ke marker untuk processing
-        // Marker akan scan object dan enqueue references
+        // Delegate to marker for processing
+        // Marker will scan object and enqueue references
         self.marker.process_mark_work(object)
     }
 
-    /// Check jika worker harus terminate
+    /// Check if worker should terminate
     fn should_terminate(&self) -> bool {
-        // Terminate jika:
-        // 1. Marking tidak lagi in progress
-        // 2. Global queue empty
-        // 3. Local queue empty
-        !self.marker.is_marking_in_progress() 
+        // Terminate if:
+        // 1. Marking is no longer in progress
+        // 2. Global queue is empty
+        // 3. Local queue is empty
+        !self.marker.is_marking_in_progress()
             && self.global_queue.is_empty()
             && self.local_queue.lock().is_empty()
     }
@@ -237,8 +237,8 @@ impl GcWorker {
 
 /// GC Thread Pool Manager
 ///
-/// Mengelola pool dari GC worker threads.
-/// Responsible untuk:
+/// Manages pool of GC worker threads.
+/// Responsible for:
 /// - Spawning worker threads
 /// - Work distribution
 /// - Work stealing coordination
@@ -256,7 +256,7 @@ pub struct GcThreadPool {
     /// Total workers
     total_workers: usize,
 
-    /// Reference ke marker
+    /// Reference to marker
     marker: Arc<Marker>,
 
     /// Global mark queue
@@ -270,8 +270,8 @@ impl GcThreadPool {
     /// Create new GC thread pool
     ///
     /// # Arguments
-    /// * `marker` - Reference ke marker
-    /// * `num_workers` - Jumlah worker threads
+    /// * `marker` - Reference to marker
+    /// * `num_workers` - Number of worker threads
     pub fn new(marker: Arc<Marker>, num_workers: usize) -> Self {
         let global_queue = marker.get_global_queue();
         let mut workers = Vec::with_capacity(num_workers);
@@ -292,7 +292,7 @@ impl GcThreadPool {
         }
     }
 
-    /// Start semua worker threads
+    /// Start all worker threads
     pub fn start(&mut self) {
         if self.active.load(Ordering::Relaxed) {
             log::warn!("GC thread pool already active");
@@ -310,7 +310,7 @@ impl GcThreadPool {
         self.active.store(true, Ordering::Relaxed);
     }
 
-    /// Stop semua worker threads
+    /// Stop all worker threads
     pub fn stop(&self) {
         if !self.active.load(Ordering::Relaxed) {
             return;
@@ -318,12 +318,12 @@ impl GcThreadPool {
 
         log::info!("[GC ThreadPool] Stopping {} worker threads", self.total_workers);
 
-        // Signal semua workers untuk stop
+        // Signal all workers to stop
         for worker in &self.workers {
             worker.stop();
         }
 
-        // Wait untuk semua threads selesai
+        // Wait for all threads to finish
         let mut handles = self.handles.lock();
         for handle in handles.drain(..) {
             if let Err(e) = handle.join() {
@@ -334,22 +334,22 @@ impl GcThreadPool {
         self.active.store(false, Ordering::Relaxed);
     }
 
-    /// Wait completion - tunggu semua workers idle dan queue empty
+    /// Wait completion - wait until all workers are idle and queues are empty
     pub fn wait_completion(&self) -> Result<()> {
         log::info!("[GC ThreadPool] Waiting for completion...");
 
         loop {
-            // Check jika semua workers idle
+            // Check if all workers are idle
             let all_idle = self.workers.iter().all(|w| w.is_idle());
-            
-            // Check jika queues empty
+
+            // Check if queues are empty
             let global_empty = self.global_queue.is_empty();
             let locals_empty = self.workers.iter().all(|w| w.local_queue.lock().is_empty());
 
             if all_idle && global_empty && locals_empty {
-                // Double-check dengan delay kecil
+                // Double-check with small delay
                 thread::sleep(Duration::from_millis(1));
-                
+
                 let still_all_idle = self.workers.iter().all(|w| w.is_idle());
                 let still_global_empty = self.global_queue.is_empty();
                 let still_locals_empty = self.workers.iter().all(|w| w.local_queue.lock().is_empty());
@@ -359,15 +359,15 @@ impl GcThreadPool {
                 }
             }
 
-            // Check jika marking sudah selesai
+            // Check if marking is finished
             if !self.marker.is_marking_in_progress() {
-                // Wait sebentar untuk final processing
+                // Wait briefly for final processing
                 thread::sleep(Duration::from_millis(1));
-                
-                // Check lagi
+
+                // Check again
                 let all_idle = self.workers.iter().all(|w| w.is_idle());
                 let global_empty = self.global_queue.is_empty();
-                
+
                 if all_idle && global_empty {
                     break;
                 }
@@ -380,9 +380,9 @@ impl GcThreadPool {
         Ok(())
     }
 
-    /// Distribute work ke workers
+    /// Distribute work to workers
     ///
-    /// Work didistribusikan secara round-robin ke local queues.
+    /// Work is distributed round-robin to local queues.
     pub fn distribute_work(&self, work_items: &[usize]) {
         for (i, &work) in work_items.iter().enumerate() {
             let worker_idx = i % self.total_workers;
@@ -390,7 +390,7 @@ impl GcThreadPool {
         }
     }
 
-    /// Get statistics dari pool
+    /// Get statistics from pool
     pub fn get_stats(&self) -> GcPoolStats {
         let mut worker_stats = Vec::with_capacity(self.total_workers);
         let mut total_processed = 0;
@@ -426,7 +426,7 @@ impl GcThreadPool {
         self.total_workers
     }
 
-    /// Check jika pool active
+    /// Check if pool is active
     pub fn is_active(&self) -> bool {
         self.active.load(Ordering::Relaxed)
     }
@@ -440,7 +440,7 @@ impl Drop for GcThreadPool {
     }
 }
 
-/// Statistics untuk GC worker
+/// Statistics for GC worker
 #[derive(Debug, Clone)]
 pub struct GcWorkerStats {
     /// Worker ID
@@ -453,7 +453,7 @@ pub struct GcWorkerStats {
     pub local_queue_size: usize,
 }
 
-/// Statistics untuk GC thread pool
+/// Statistics for GC thread pool
 #[derive(Debug, Clone)]
 pub struct GcPoolStats {
     /// Total workers
@@ -565,16 +565,16 @@ mod tests {
         let mut pool = GcThreadPool::new(marker.clone(), 2);
         
         assert!(!pool.is_active());
-        
+
         pool.start();
-        
-        // Wait untuk threads start
+
+        // Wait for threads to start
         thread::sleep(Duration::from_millis(10));
-        
+
         assert!(pool.is_active());
-        
+
         pool.stop();
-        
+
         assert!(!pool.is_active());
     }
 

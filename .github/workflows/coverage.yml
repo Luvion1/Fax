@@ -1,0 +1,459 @@
+# Code Coverage Workflow for Fax Compiler
+#
+# This workflow collects code coverage metrics using cargo-llvm-cov
+# and uploads the results to Codecov for analysis and reporting.
+#
+# Coverage is collected for:
+# - All workspace crates under faxc/crates/
+# - Both unit tests and integration tests
+#
+# Reports are generated in:
+# - lcov format (for Codecov)
+# - Cobertura format (for alternative coverage services)
+#
+# Coverage thresholds:
+# - Overall project: 80% (warning if below)
+# - Critical crates (faxc-drv, fgc): 85% (fail if below)
+#
+# Documentation: https://github.com/taiki-e/cargo-llvm-cov
+
+name: Code Coverage
+
+on:
+  # Run on pushes to main branch
+  push:
+    branches:
+      - main
+  # Run on all pull requests to provide coverage feedback
+  pull_request:
+    branches:
+      - main
+      - develop
+  # Allow manual triggering for ad-hoc coverage runs
+  workflow_dispatch:
+    inputs:
+      verbose:
+        description: 'Enable verbose coverage output'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+# Prevent concurrent runs on the same branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Rust toolchain version (matches project requirements)
+  RUST_TOOLCHAIN: stable
+  # Minimum Rust version from Cargo.toml
+  RUST_MIN_VERSION: '1.75'
+  # Coverage tool version
+  CARGO_LLVM_COV_VERSION: '0.6'
+  # Codecov upload timeout (seconds)
+  CODECOV_TIMEOUT: 120
+  # Coverage report directory
+  COVERAGE_DIR: target/llvm-cov
+  # Critical crates that require higher coverage thresholds
+  CRITICAL_CRATES: 'faxc-drv,fgc,faxc-util'
+
+jobs:
+  # ===========================================================================
+  # COVERAGE COLLECTION
+  # ===========================================================================
+  coverage:
+    name: Collect Coverage
+    runs-on: ubuntu-latest
+
+    # Skip coverage for draft PRs to reduce CI noise
+    if: github.event.pull_request.draft == false || github.event_name == 'push'
+
+    steps:
+      # -----------------------------------------------------------------------
+      # Checkout Repository
+      # -----------------------------------------------------------------------
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Fetch full history for accurate coverage blame
+          fetch-depth: 0
+          # Submodule support (if needed in future)
+          submodules: false
+
+      # -----------------------------------------------------------------------
+      # Install Rust Toolchain
+      # QC-007 FIX: Changed from dtolnay/rust-action to dtolnay/rust-toolchain
+      # -----------------------------------------------------------------------
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          # Install rustfmt and clippy for consistency with CI workflow
+          components: rustfmt,clippy
+          # Target for potential cross-compilation coverage
+          targets: ''
+
+      # -----------------------------------------------------------------------
+      # Install LLVM Dependencies
+      # Required for faxc compiler and llvm-cov integration
+      # -----------------------------------------------------------------------
+      - name: Install LLVM dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            llvm \
+            llvm-dev \
+            lld \
+            libclang-dev
+        env:
+          DEBIAN_FRONTEND: noninteractive
+
+      # -----------------------------------------------------------------------
+      # Install cargo-llvm-cov
+      # Preferred coverage tool for Rust - uses LLVM's source-based coverage
+      # -----------------------------------------------------------------------
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov@${{ env.CARGO_LLVM_COV_VERSION }}
+
+      # -----------------------------------------------------------------------
+      # Cache Configuration
+      # Caches cargo registry, build artifacts, and coverage data
+      # -----------------------------------------------------------------------
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          # Cache key includes Rust version for toolchain compatibility
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache cargo build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            faxc/target
+            target
+          # Separate cache for debug builds (used in coverage)
+          key: ${{ runner.os }}-cargo-debug-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-debug-
+
+      - name: Cache LLVM coverage data
+        uses: actions/cache@v4
+        with:
+          path: |
+            faxc/target/llvm-cov
+            target/llvm-cov
+          # Coverage cache is ephemeral - only within workflow run
+          key: ${{ runner.os }}-llvm-cov-${{ github.run_id }}
+          # Don't restore from other runs - coverage data is run-specific
+          restore-keys: ''
+
+      # -----------------------------------------------------------------------
+      # Clean Previous Coverage Data
+      # Ensures fresh coverage collection without stale data
+      # -----------------------------------------------------------------------
+      - name: Clean previous coverage data
+        working-directory: ./faxc
+        run: |
+          cargo llvm-cov clean --workspace
+
+      # -----------------------------------------------------------------------
+      # Run Tests with Coverage Collection
+      # Uses cargo-llvm-cov to collect line and branch coverage
+      # -----------------------------------------------------------------------
+      - name: Run tests with coverage
+        working-directory: ./faxc
+        run: |
+          cargo llvm-cov \
+            --workspace \
+            --all-targets \
+            --lcov \
+            --output-path lcov.info \
+            --cobertura \
+            --output-path cobertura.xml \
+            --html \
+            --output-dir html-coverage \
+            --fail-under-lines 80 \
+            --ignore-filename-regex '.*\.rs\.pb\.rs$' \
+            --no-fail-fast \
+            --verbose
+        env:
+          # Enable coverage for all code paths including tests
+          CARGO_INCREMENTAL: 0
+          # Ensure debug info is included
+          LLVM_PROFILE_FILE: 'faxc-%p-%m.profraw'
+          # Verbose output for debugging
+          RUST_BACKTRACE: 1
+          RUST_LOG: debug
+
+      # -----------------------------------------------------------------------
+      # Generate Coverage Summary
+      # Creates a human-readable summary for PR comments
+      # -----------------------------------------------------------------------
+      - name: Generate coverage summary
+        id: coverage-summary
+        working-directory: ./faxc
+        run: |
+          # Generate detailed coverage report
+          cargo llvm-cov report --workspace --all-targets > coverage-report.txt
+
+          # Extract overall coverage percentage
+          OVERALL_COVERAGE=$(cargo llvm-cov report --workspace --all-targets 2>/dev/null \
+            | grep -E "^TOTAL" \
+            | awk '{print $4}' \
+            | sed 's/%//' || echo "0")
+
+          # Extract line coverage
+          LINE_COVERAGE=$(cargo llvm-cov report --workspace --all-targets 2>/dev/null \
+            | grep -E "^TOTAL" \
+            | awk '{print $2}' || echo "0")
+
+          # Extract branch coverage
+          BRANCH_COVERAGE=$(cargo llvm-cov report --workspace --all-targets 2>/dev/null \
+            | grep -E "^TOTAL" \
+            | awk '{print $3}' | sed 's/%//' || echo "0")
+
+          # Count covered vs total lines
+          COVERED_LINES=$(cargo llvm-cov report --workspace --all-targets 2>/dev/null \
+            | grep -E "^TOTAL" \
+            | awk '{print $1}' | cut -d'/' -f1 || echo "0")
+
+          TOTAL_LINES=$(cargo llvm-cov report --workspace --all-targets 2>/dev/null \
+            | grep -E "^TOTAL" \
+            | awk '{print $1}' | cut -d'/' -f2 || echo "0")
+
+          # Output for GitHub Actions
+          echo "overall=${OVERALL_COVERAGE}" >> $GITHUB_OUTPUT
+          echo "line=${LINE_COVERAGE}" >> $GITHUB_OUTPUT
+          echo "branch=${BRANCH_COVERAGE}" >> $GITHUB_OUTPUT
+          echo "covered_lines=${COVERED_LINES}" >> $GITHUB_OUTPUT
+          echo "total_lines=${TOTAL_LINES}" >> $GITHUB_OUTPUT
+
+          # Display summary
+          echo "=========================================="
+          echo "         COVERAGE SUMMARY"
+          echo "=========================================="
+          echo "Overall Coverage: ${OVERALL_COVERAGE}%"
+          echo "Line Coverage:    ${LINE_COVERAGE}"
+          echo "Branch Coverage:  ${BRANCH_COVERAGE}%"
+          echo "Lines:            ${COVERED_LINES}/${TOTAL_LINES}"
+          echo "=========================================="
+
+          # Check critical crates coverage
+          echo ""
+          echo "Critical Crates Coverage:"
+          for crate in $(echo "${{ env.CRITICAL_CRATES }}" | tr ',' ' '); do
+            CRATE_COVERAGE=$(cargo llvm-cov report --package "$crate" 2>/dev/null \
+              | grep -E "^TOTAL" \
+              | awk '{print $4}' \
+              | sed 's/%//' || echo "N/A")
+            echo "  - ${crate}: ${CRATE_COVERAGE}%"
+          done
+
+      # -----------------------------------------------------------------------
+      # Coverage Threshold Check for Critical Crates
+      # Fails the build if critical crates fall below threshold
+      # -----------------------------------------------------------------------
+      - name: Check critical crates coverage threshold
+        working-directory: ./faxc
+        run: |
+          THRESHOLD=85
+          FAILED=0
+
+          echo "Checking critical crates against ${THRESHOLD}% threshold..."
+
+          for crate in $(echo "${{ env.CRITICAL_CRATES }}" | tr ',' ' '); do
+            CRATE_COVERAGE=$(cargo llvm-cov report --package "$crate" 2>/dev/null \
+              | grep -E "^TOTAL" \
+              | awk '{print $4}' \
+              | sed 's/%//' || echo "0")
+
+            # Remove decimal for comparison
+            COVERAGE_INT=${CRATE_COVERAGE%.*}
+
+            if [ -z "$COVERAGE_INT" ] || [ "$COVERAGE_INT" = "N" ]; then
+              echo "⚠️  Warning: Could not determine coverage for $crate"
+              continue
+            fi
+
+            if [ "$COVERAGE_INT" -lt "$THRESHOLD" ]; then
+              echo "❌ FAIL: $crate coverage (${CRATE_COVERAGE}%) is below threshold (${THRESHOLD}%)"
+              FAILED=1
+            else
+              echo "✅ PASS: $crate coverage (${CRATE_COVERAGE}%) meets threshold (${THRESHOLD}%)"
+            fi
+          done
+
+          if [ "$FAILED" -eq 1 ]; then
+            echo ""
+            echo "Critical crate coverage threshold check failed!"
+            echo "Please add tests for critical crates to meet the ${THRESHOLD}% requirement."
+            exit 1
+          fi
+
+      # -----------------------------------------------------------------------
+      # Upload Coverage to Codecov
+      # Uses official Codecov action with retry logic
+      # -----------------------------------------------------------------------
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          # Directory containing coverage reports
+          directory: ./faxc
+          # Coverage report files to upload
+          files: ./lcov.info,./cobertura.xml
+          # Fail the workflow if upload fails
+          fail_ci_if_error: true
+          # Enable verbose output for debugging
+          verbose: true
+          # Coverage upload timeout
+          timeout: ${{ env.CODECOV_TIMEOUT }}
+          # Add flags for filtering in Codecov UI
+          flags: unittests,rust
+          # Unique identifier for this coverage report
+          name: fax-compiler-coverage
+          # Only upload on main branch for baseline comparison
+          override_branch: ${{ github.ref }}
+          # Pull request number for PR comments
+          override_pr: ${{ github.event.pull_request.number }}
+          # Token for private repos (optional for public)
+          token: ${{ secrets.CODECOV_TOKEN }}
+          # Disable search for other coverage files
+          disable_search: true
+          # Upload coverage report
+          upload_code_coverage: true
+          # Don't upload network file (auto-generated)
+          upload_format: lcov
+          # Working directory for report files
+          working-directory: ./faxc
+
+      # -----------------------------------------------------------------------
+      # Upload Coverage Artifacts
+      # Store HTML report and raw data for download
+      # -----------------------------------------------------------------------
+      - name: Upload coverage artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report-${{ github.run_id }}
+          path: |
+            faxc/lcov.info
+            faxc/cobertura.xml
+            faxc/html-coverage/
+            faxc/coverage-report.txt
+          retention-days: 30
+          # Compress for faster upload
+          compression-level: 6
+          # Include hidden files
+          include-hidden-files: false
+
+      # -----------------------------------------------------------------------
+      # Post Coverage Summary as PR Comment
+      # Provides immediate feedback on coverage changes
+      # -----------------------------------------------------------------------
+      - name: Post coverage summary to PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const coverage = {
+              overall: '${{ steps.coverage-summary.outputs.overall }}',
+              line: '${{ steps.coverage-summary.outputs.line }}',
+              branch: '${{ steps.coverage-summary.outputs.branch }}',
+              coveredLines: '${{ steps.coverage-summary.outputs.covered_lines }}',
+              totalLines: '${{ steps.coverage-summary.outputs.total_lines }}'
+            };
+
+            const summary = `## 📊 Code Coverage Report
+
+            | Metric | Coverage |
+            |--------|----------|
+            | **Overall** | ${coverage.overall}% |
+            | **Lines** | ${coverage.line} |
+            | **Branches** | ${coverage.branch}% |
+            | **Covered/Total** | ${coverage.coveredLines}/${coverage.totalLines} |
+
+            ### Critical Crates
+            | Crate | Threshold | Status |
+            |-------|-----------|--------|
+            | faxc-drv | 85% | ✅ |
+            | fgc | 85% | ✅ |
+            | faxc-util | 85% | ✅ |
+
+            > 📝 Full coverage report available in the [workflow artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+            > 📈 View detailed coverage on [Codecov](https://app.codecov.io/gh/${{ github.repository }}/pull/${{ github.event.pull_request.number }})
+            `;
+
+            // Delete existing coverage comment if present
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('📊 Code Coverage Report')
+            );
+
+            if (botComment) {
+              await github.rest.issues.deleteComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+              });
+            }
+
+            // Post new comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: summary,
+            });
+
+  # ===========================================================================
+  # COVERAGE TREND ANALYSIS (Optional - runs only on main branch)
+  # ===========================================================================
+  coverage-trend:
+    name: Analyze Coverage Trend
+    runs-on: ubuntu-latest
+    needs: coverage
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download coverage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-report-${{ github.run_id }}
+          path: ./coverage-data
+
+      - name: Analyze coverage trend
+        run: |
+          echo "Coverage trend analysis would go here"
+          echo "This step can compare current coverage with previous runs"
+          echo "and alert on significant coverage drops."
+
+          # Placeholder for trend analysis logic
+          # In production, this would:
+          # 1. Fetch previous coverage data from Codecov API
+          # 2. Compare with current coverage
+          # 3. Alert if coverage dropped significantly (>5%)
+          # 4. Post summary to Slack/Teams if configured

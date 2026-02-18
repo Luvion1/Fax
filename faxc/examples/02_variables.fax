@@ -1,0 +1,50 @@
+// 02_variables.fax - Variables and Types in Fax
+// ==============================================
+// Demonstrates variable declaration, mutability, and basic types.
+//
+// Features demonstrated:
+// - Immutable variables with `let` (default)
+// - Mutable variables with `let mut`
+// - Type inference
+// - Basic types: i32, f64, bool, str
+// - Variable reassignment
+//
+// Expected output:
+//   x = 42
+//   y = 10
+//   y after reassignment = 20
+//   pi = 3.14
+//   is_valid = true
+//   message = Hello from Fax!
+
+fn main() {
+    // Immutable variable (default) - type inferred as i32
+    let x = 42
+    println("x = ")
+    println(x)
+
+    // Mutable variable - can be reassigned
+    let mut y = 10
+    println("y = ")
+    println(y)
+
+    // Reassign mutable variable
+    y = 20
+    println("y after reassignment = ")
+    println(y)
+
+    // Explicit type annotation - f64 (floating point)
+    let pi: f64 = 3.14
+    println("pi = ")
+    println(pi)
+
+    // Boolean type
+    let is_valid = true
+    println("is_valid = ")
+    println(is_valid)
+
+    // String type
+    let message = "Hello from Fax!"
+    println("message = ")
+    println(message)
+}

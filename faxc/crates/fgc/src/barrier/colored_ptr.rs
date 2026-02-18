@@ -1,28 +1,27 @@
 //! Colored Pointer Implementation
 //!
-//! Colored pointer adalah teknik dimana metadata GC disimpan langsung di bit-bit
-//! yang tidak terpakai dari pointer 64-bit. Ini memungkinkan concurrent operations
-//! tanpa mengubah struktur object.
+//! Colored pointer is a technique where GC metadata is stored directly in the unused bits
+//! of a 64-bit pointer. This enables concurrent operations without modifying the object structure.
 //!
-//! Layout Pointer 64-bit:
-//! - Bit 48-63: Unused (reserved untuk masa depan)
-//! - Bit 44-47: Metadata (Finalizable, Remapped, Marked1, Marked0)
-//! - Bit 0-43:  Alamat memori aktual (44 bit = 16TB addressable)
+//! 64-bit Pointer Layout:
+//! - Bits 48-63: Unused (reserved for future)
+//! - Bits 44-47: Metadata (Finalizable, Remapped, Marked1, Marked0)
+//! - Bits 0-43:  Actual memory address (44 bit = 16TB addressable)
 //!
 //! Color Bits:
-//! - Marked0 (bit 44): Object marked di GC cycle even
-//! - Marked1 (bit 45): Object marked di GC cycle odd
-//! - Remapped (bit 46): Pointer sudah di-remap ke alamat baru
-//! - Finalizable (bit 47): Object perlu finalization sebelum dikoleksi
+//! - Marked0 (bit 44): Object marked in GC cycle even
+//! - Marked1 (bit 45): Object marked in GC cycle odd
+//! - Remapped (bit 46): Pointer has been remapped to new address
+//! - Finalizable (bit 47): Object needs finalization before collection
 //!
 //! Multi-Mapping Technique:
-//! Physical address yang sama bisa diakses via 3 virtual addresses berbeda.
-//! Hardware MMU menangani translation, software hanya perlu set color bits.
+//! The same physical address can be accessed via 3 different virtual addresses.
+//! Hardware MMU handles translation, software only needs to set color bits.
 //!
 //! ## Thread Safety
 //!
-//! `ColoredPointer` sendiri tidak thread-safe (menggunakan `usize`).
-//! Untuk concurrent operations, gunakan atomic variants dengan `AtomicUsize`:
+//! `ColoredPointer` itself is not thread-safe (uses `usize`).
+//! For concurrent operations, use atomic variants with `AtomicUsize`:
 //!
 //! ```rust
 //! use std::sync::atomic::{AtomicUsize, Ordering};
@@ -34,15 +33,15 @@
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-/// ColoredPointer - wrapper untuk pointer dengan metadata bits
+/// ColoredPointer - wrapper for pointer with metadata bits
 ///
-/// Representasi pointer 64-bit dengan color bits di bit 44-47.
-/// Address effectif ada di bit 0-43 (44 bits = 16TB address space).
+/// Representation of a 64-bit pointer with color bits in bits 44-47.
+/// Effective address is in bits 0-43 (44 bits = 16TB address space).
 ///
 /// # Examples
 ///
 /// ```rust
-/// // Create pointer dari address
+/// // Create pointer from address
 /// let ptr = ColoredPointer::new(0x1234);
 /// assert_eq!(ptr.address(), 0x1234);
 ///
@@ -53,35 +52,35 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ColoredPointer {
-    /// Raw 64-bit value dengan color bits
+    /// Raw 64-bit value with color bits
     /// Bit layout: [unused:16][finalizable:1][remapped:1][marked1:1][marked0:1][address:44]
     raw: usize,
 }
 
 impl ColoredPointer {
-    /// Mask untuk Marked0 bit (bit 44)
+    /// Mask for Marked0 bit (bit 44)
     pub const MARKED0_MASK: usize = 1 << 44;
 
-    /// Mask untuk Marked1 bit (bit 45)
+    /// Mask for Marked1 bit (bit 45)
     pub const MARKED1_MASK: usize = 1 << 45;
 
-    /// Mask untuk Remapped bit (bit 46)
+    /// Mask for Remapped bit (bit 46)
     pub const REMAPPED_MASK: usize = 1 << 46;
 
-    /// Mask untuk Finalizable bit (bit 47)
+    /// Mask for Finalizable bit (bit 47)
     pub const FINALIZABLE_MASK: usize = 1 << 47;
 
-    /// Mask untuk semua color bits (bits 44-47)
+    /// Mask for all color bits (bits 44-47)
     const COLOR_MASK: usize =
         Self::MARKED0_MASK | Self::MARKED1_MASK | Self::REMAPPED_MASK | Self::FINALIZABLE_MASK;
 
-    /// Mask untuk address bits (bits 0-43)
+    /// Mask for address bits (bits 0-43)
     pub const ADDRESS_MASK: usize = (1 << 44) - 1;
 
-    /// Membuat pointer baru dari address murni
+    /// Create new pointer from pure address
     ///
-    /// Address di-mask untuk memastikan hanya 44 bit address.
-    /// Color bits diinisialisasi 0 (no color).
+    /// Address is masked to ensure only 44 address bits.
+    /// Color bits are initialized to 0 (no color).
     ///
     /// # Arguments
     /// * `address` - Physical address (44 bit max)
@@ -91,52 +90,52 @@ impl ColoredPointer {
         }
     }
 
-    /// Mengembalikan address murni tanpa color bits
+    /// Returns pure address without color bits
     ///
-    /// Menggunakan bitwise AND dengan ADDRESS_MASK untuk
-    /// menghilangkan semua color bits.
+    /// Uses bitwise AND with ADDRESS_MASK to
+    /// remove all color bits.
     pub fn address(&self) -> usize {
         self.raw & Self::ADDRESS_MASK
     }
 
-    /// Mengecek apakah pointer memiliki Marked0 bit set
+    /// Check if pointer has Marked0 bit set
     ///
-    /// Marked0 menandakan object sudah di-mark di GC cycle even.
+    /// Marked0 indicates object was marked in GC cycle even.
     pub fn is_marked0(&self) -> bool {
         (self.raw & Self::MARKED0_MASK) != 0
     }
 
-    /// Mengecek apakah pointer memiliki Marked1 bit set
+    /// Check if pointer has Marked1 bit set
     ///
-    /// Marked1 menandakan object sudah di-mark di GC cycle odd.
+    /// Marked1 indicates object was marked in GC cycle odd.
     pub fn is_marked1(&self) -> bool {
         (self.raw & Self::MARKED1_MASK) != 0
     }
 
-    /// Mengecek apakah pointer sudah marked (either Marked0 atau Marked1)
+    /// Check if pointer is already marked (either Marked0 or Marked1)
     pub fn is_marked(&self) -> bool {
         self.is_marked0() || self.is_marked1()
     }
 
-    /// Mengecek apakah pointer sudah remapped
+    /// Check if pointer is already remapped
     ///
-    /// Remapped bit menandakan pointer sudah di-update ke alamat baru
-    /// setelah relocation.
+    /// Remapped bit indicates pointer has been updated to new address
+    /// after relocation.
     pub fn is_remapped(&self) -> bool {
         (self.raw & Self::REMAPPED_MASK) != 0
     }
 
-    /// Mengecek apakah pointer perlu finalization
+    /// Check if pointer needs finalization
     ///
-    /// Finalizable bit menandakan object memiliki finalizer yang
-    /// harus dijalankan sebelum memory di-reclaim.
+    /// Finalizable bit indicates object has a finalizer that
+    /// must be run before memory is reclaimed.
     pub fn is_finalizable(&self) -> bool {
         (self.raw & Self::FINALIZABLE_MASK) != 0
     }
 
     /// Set Marked0 bit
     ///
-    /// Menggunakan bitwise OR untuk set bit tanpa mengubah bits lain.
+    /// Uses bitwise OR to set bit without modifying other bits.
     pub fn set_marked0(&mut self) {
         self.raw |= Self::MARKED0_MASK;
     }
@@ -156,10 +155,10 @@ impl ColoredPointer {
         self.raw |= Self::FINALIZABLE_MASK;
     }
 
-    /// Clear semua color bits (buat jadi no-color / remapped view)
+    /// Clear all color bits (make no-color / remapped view)
     ///
-    /// Menggunakan bitwise AND dengan ADDRESS_MASK untuk
-    /// menghilangkan semua color bits.
+    /// Uses bitwise AND with ADDRESS_MASK to
+    /// remove all color bits.
     pub fn clear_color(&mut self) {
         self.raw &= Self::ADDRESS_MASK;
     }
@@ -211,7 +210,7 @@ impl ColoredPointer {
         ptr.fetch_or(Self::FINALIZABLE_MASK, Ordering::Acquire);
     }
 
-    /// Clear semua color bits atomically
+    /// Clear all color bits atomically
     ///
     /// Thread-safe variant of `clear_color()`. Uses atomic fetch_and
     /// to clear color bits while preserving address.
@@ -325,10 +324,10 @@ impl ColoredPointer {
         }
     }
 
-    /// Flip Marked0 <-> Marked1 untuk GC cycle baru
+    /// Flip Marked0 <-> Marked1 for new GC cycle
     ///
-    /// Dipanggil saat GC cycle berganti (even -> odd atau sebaliknya).
-    /// Ini menghindari kebutuhan untuk clear mark bits di awal cycle.
+    /// Called when GC cycle changes (even -> odd or vice versa).
+    /// This avoids the need to clear mark bits at the start of a cycle.
     ///
     /// # Behavior
     /// - Marked0=1, Marked1=0 → Marked0=0, Marked1=1 (swap)
@@ -367,25 +366,25 @@ impl ColoredPointer {
         }
     }
 
-    /// Get raw value untuk pointer
+    /// Get raw value for pointer
     ///
-    /// Untuk debugging dan low-level operations.
+    /// For debugging and low-level operations.
     pub fn raw(&self) -> usize {
         self.raw
     }
 
-    /// Create colored pointer dari raw value
+    /// Create colored pointer from raw value
     ///
-    /// Tidak melakukan validation, gunakan dengan hati-hati.
+    /// Does not perform validation, use with caution.
     pub fn from_raw(raw: usize) -> Self {
         Self { raw }
     }
 
-    /// Check jika pointer perlu processing oleh load barrier
+    /// Check if pointer needs processing by load barrier
     ///
-    /// Pointer perlu processing jika:
-    /// - Belum marked (saat marking phase)
-    /// - Di relocation set (saat relocating phase)
+    /// Pointer needs processing if:
+    /// - Not yet marked (during marking phase)
+    /// - In relocation set (during relocating phase)
     pub fn needs_processing(&self, gc_phase: GcPhase) -> bool {
         match gc_phase {
             GcPhase::Marking => !self.is_marked(),
@@ -395,10 +394,10 @@ impl ColoredPointer {
     }
 }
 
-/// GC Phase untuk menentukan load barrier behavior
+/// GC Phase for determining load barrier behavior
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GcPhase {
-    /// Idle - tidak ada GC berjalan
+    /// Idle - no GC running
     Idle,
     /// Marking phase
     Marking,
@@ -408,7 +407,7 @@ pub enum GcPhase {
     Cleanup,
 }
 
-/// Color - enum untuk tipe color bit
+/// Color - enum for color bit type
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Color {
     /// No color set (remapped view)
@@ -424,7 +423,7 @@ pub enum Color {
 }
 
 impl From<Color> for usize {
-    /// Convert Color ke mask value
+    /// Convert Color to mask value
     fn from(color: Color) -> usize {
         match color {
             Color::None => 0,

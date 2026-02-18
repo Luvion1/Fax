@@ -141,7 +141,11 @@ impl GarbageCollector {
     /// # Arguments
     /// * `generation` - Generation to collect
     /// * `reason` - Reason for GC trigger (for logging/stats)
-    pub fn request_gc(&self, generation: GcGeneration, reason: GcReason) {
+    ///
+    /// # Errors
+    /// Returns `LockPoisoned` error if another thread panicked while holding
+    /// the generation mutex.
+    pub fn request_gc(&self, generation: GcGeneration, reason: GcReason) -> Result<(), FgcError> {
         if self.config.verbose {
             println!(
                 "[GC] Requesting {:?} GC, reason: {:?}",
@@ -149,8 +153,14 @@ impl GarbageCollector {
             );
         }
 
-        *self.current_generation.lock().unwrap() = generation;
+        // QC-009 FIX: Use map_err instead of unwrap()
+        let mut gen_guard = self.current_generation.lock()
+            .map_err(|e| FgcError::LockPoisoned(format!("generation mutex poisoned: {}", e)))?;
+        *gen_guard = generation;
+        drop(gen_guard);
+        
         self.gc_requested.store(true, Ordering::SeqCst);
+        Ok(())
     }
 
     /// Execute GC cycle
@@ -158,51 +168,67 @@ impl GarbageCollector {
     /// Main GC entry point. Runs the entire GC cycle
     /// from marking through cleanup.
     ///
-    /// # Returns
-    /// Result with statistics from the GC cycle
+    /// # Errors
+    /// Returns `LockPoisoned` error if another thread panicked while holding
+    /// the generation mutex.
     pub fn collect(&self) -> Result<()> {
-        let generation = *self.current_generation.lock().unwrap();
+        // QC-009 FIX: Use map_err instead of unwrap()
+        let generation = {
+            let gen_guard = self.current_generation.lock()
+                .map_err(|e| FgcError::LockPoisoned(format!("generation mutex poisoned: {}", e)))?;
+            *gen_guard
+        };
+        
         let timer = crate::stats::GcTimer::new();
 
-        // Update state
+        self.execute_gc_cycle()?;
+
+        self.finalize_gc_cycle(generation, &timer);
+
+        Ok(())
+    }
+
+    /// Execute the GC cycle phases with state transitions
+    ///
+    /// Orchestrates all GC phases from mark start through cleanup.
+    /// Manages state transitions between phases.
+    ///
+    /// # Returns
+    /// Result indicating success or GC error
+    fn execute_gc_cycle(&self) -> Result<()> {
+        // Marking phase
         *self.state.lock().unwrap() = GcState::Marking;
-
-        // Setup marking, scan roots
         self.pause_mark_start()?;
-
-        // Concurrent marking
         self.concurrent_mark()?;
-
-        // Finalize marking
         self.pause_mark_end()?;
 
-        // Update state
+        // Relocating phase
         *self.state.lock().unwrap() = GcState::Relocating;
-
-        // Setup forwarding tables
         self.prepare_relocation()?;
-
-        // Concurrent object relocation
         self.concurrent_relocate()?;
 
-        // Cleanup after relocation
+        // Cleanup phase
         self.cleanup()?;
-
-        // Update state
         *self.state.lock().unwrap() = GcState::Idle;
 
-        // Update stats
+        Ok(())
+    }
+
+    /// Finalize GC cycle with stats and logging
+    ///
+    /// Records statistics, updates cycle count, and logs completion.
+    ///
+    /// # Arguments
+    /// * `generation` - Generation that was collected
+    /// * `timer` - Timer measuring GC duration
+    fn finalize_gc_cycle(&self, generation: GcGeneration, timer: &crate::stats::GcTimer) {
         let duration = timer.elapsed();
         self.stats.record_collection(
             self.cycle_count.load(Ordering::Relaxed),
             generation,
             duration,
         );
-
-        // Increment cycle count
         self.cycle_count.fetch_add(1, Ordering::Relaxed);
-
-        // Clear request flag
         self.gc_requested.store(false, Ordering::SeqCst);
 
         if self.config.verbose {
@@ -211,8 +237,6 @@ impl GarbageCollector {
                 duration.as_secs_f64() * 1000.0
             );
         }
-
-        Ok(())
     }
 
     /// Pause Mark Start

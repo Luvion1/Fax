@@ -1,19 +1,19 @@
 //! Object Scanner - Traces References Within Objects
 //!
-//! Object scanner bertanggung jawab untuk:
-//! - Membaca reference map dari object
-//! - Menemukan semua pointer fields dalam object
-//! - Mengembalikan references untuk further tracing
+//! Object scanner is responsible for:
+//! - Reading reference map from object
+//! - Finding all pointer fields in object
+//! - Returning references for further tracing
 //!
 //! # Scanning Modes
 //!
-//! 1. **Precise Scanning** - Menggunakan reference map dari class metadata
-//! 2. **Conservative Scanning** - Scan word-by-word, anggap semua non-zero sebagai pointer
+//! 1. **Precise Scanning** - Uses reference map from class metadata
+//! 2. **Conservative Scanning** - Scan word-by-word, treat all non-zero as pointer
 //!
 //! # Thread Safety
 //!
-//! Semua fungsi scanner adalah thread-safe dan dapat dipanggil
-//! dari multiple threads secara concurrent.
+//! All scanner functions are thread-safe and can be called
+//! from multiple threads concurrently.
 
 use crate::object::{ObjectHeader, ReferenceMap, HEADER_SIZE, OBJECT_ALIGNMENT};
 use crate::memory;
@@ -21,15 +21,15 @@ use crate::memory;
 /// Object scanning statistics
 #[derive(Debug, Default, Clone)]
 pub struct ObjectScanStats {
-    /// Jumlah objects yang di-scan
+    /// Number of objects scanned
     pub objects_scanned: u64,
-    /// Total references yang ditemukan
+    /// Total references found
     pub references_found: u64,
-    /// Rata-rata refs per object
+    /// Average refs per object
     pub avg_refs_per_object: f64,
-    /// Maximum refs dalam satu object
+    /// Maximum refs in one object
     pub max_refs_in_object: usize,
-    /// Minimum refs dalam satu object
+    /// Minimum refs in one object
     pub min_refs_in_object: usize,
 }
 
@@ -58,7 +58,7 @@ impl ObjectScanStats {
         }
     }
 
-    /// Merge dengan stats lain
+    /// Merge with other stats
     pub fn merge(&mut self, other: &ObjectScanStats) {
         if other.objects_scanned == 0 {
             return;
@@ -71,28 +71,28 @@ impl ObjectScanStats {
         self.references_found = total_refs;
         self.avg_refs_per_object = total_refs as f64 / total_objects as f64;
         self.max_refs_in_object = self.max_refs_in_object.max(other.max_refs_in_object);
-        
+
         if other.min_refs_in_object > 0 && (self.min_refs_in_object == 0 || other.min_refs_in_object < self.min_refs_in_object) {
             self.min_refs_in_object = other.min_refs_in_object;
         }
     }
 }
 
-/// Scan object dan yield semua reference fields
+/// Scan object and yield all reference fields
 ///
-/// Ini adalah precise scanning mode - menggunakan reference map
-/// untuk menemukan hanya pointer fields yang sebenarnya.
+/// This is precise scanning mode - uses reference map
+/// to find only the actual pointer fields.
 ///
 /// # Arguments
 /// * `obj_addr` - Address of object (points to ObjectHeader)
-/// * `ref_map` - Reference map untuk object type ini
+/// * `ref_map` - Reference map for this object type
 /// * `callback` - Called for each reference found (receives reference address)
 ///
 /// # Returns
 /// Number of references found (non-null only)
 ///
 /// # Safety
-/// `obj_addr` harus point ke valid GC-managed object dengan header yang valid
+/// `obj_addr` must point to valid GC-managed object with valid header
 ///
 /// # Examples
 ///
@@ -139,11 +139,11 @@ where
     }
 }
 
-/// Scan object dengan reference map dari header
+/// Scan object with reference map from header
 ///
-/// Convenience wrapper yang mendapatkan reference map dari
-/// object header (dalam implementasi penuh, ini akan lookup
-/// dari class metadata).
+/// Convenience wrapper that gets reference map from
+/// object header (in full implementation, this will lookup
+/// from class metadata).
 ///
 /// # Arguments
 /// * `obj_addr` - Address of object
@@ -178,7 +178,7 @@ where
                 let ref_addr = data_start + offset;
 
                 // Validate reference address is readable
-                if memory::is_readable(ref_addr) {
+                if memory::is_readable(ref_addr).unwrap_or(false) {
                     let ref_value = memory::read_pointer(ref_addr);
 
                     // Only yield non-null references
@@ -196,14 +196,14 @@ where
 
 /// Conservative reference scanner
 ///
-/// Scans memory word-by-word dan treats any non-zero value sebagai
-/// potential reference. Ini kurang precise tapi bekerja tanpa
+/// Scans memory word-by-word and treats any non-zero value as
+/// potential reference. This is less precise but works without
 /// type information.
 ///
 /// # Warning
 ///
 /// May produce false positives (treat non-pointers as pointers).
-/// Gunakan hanya jika precise reference map tidak tersedia.
+/// Use only if precise reference map is not available.
 ///
 /// # Arguments
 /// * `obj_addr` - Address of object
@@ -233,7 +233,7 @@ where
             let word_addr = data_start + (i * std::mem::size_of::<usize>());
 
             // Check if address is readable
-            if memory::is_readable(word_addr) {
+            if memory::is_readable(word_addr).unwrap_or(false) {
                 let word_value = memory::read_pointer(word_addr);
 
                 // Conservative: treat any non-zero value as potential reference
@@ -248,7 +248,7 @@ where
     }
 }
 
-/// Hybrid scanner - precise jika ada reference map, conservative jika tidak
+/// Hybrid scanner - precise if reference map exists, conservative if not
 ///
 /// # Arguments
 /// * `obj_addr` - Address of object
@@ -267,24 +267,24 @@ where
     }
 }
 
-/// Get reference map untuk object
+/// Get reference map for object
 ///
-/// Dalam implementasi penuh, ini akan:
-/// 1. Read class pointer dari object header
+/// In full implementation, this will:
+/// 1. Read class pointer from object header
 /// 2. Lookup class metadata
-/// 3. Return reference map dari metadata
+/// 3. Return reference map from metadata
 ///
-/// Untuk sekarang, returns conservative map (assumes semua fields adalah references)
+/// For now, returns conservative map (assumes all fields are references)
 ///
 /// # Safety
-/// `obj_addr` harus point ke valid object
+/// `obj_addr` must point to valid object
 fn get_reference_map_for_object(obj_addr: usize) -> ReferenceMap {
     unsafe {
         let header = &*(obj_addr as *const ObjectHeader);
         let data_size = header.get_data_size();
 
-        // Create map assuming semua 8-byte slots contain references
-        // Ini adalah conservative fallback
+        // Create map assuming all 8-byte slots contain references
+        // This is conservative fallback
         let mut offsets = Vec::new();
         for i in 0..(data_size / OBJECT_ALIGNMENT) {
             offsets.push(i * OBJECT_ALIGNMENT);
@@ -296,7 +296,7 @@ fn get_reference_map_for_object(obj_addr: usize) -> ReferenceMap {
 
 /// Object scanner iterator
 ///
-/// Iterator untuk scanning object tanpa callback
+/// Iterator for scanning object without callback
 pub struct ObjectScanner {
     /// Object address
     obj_addr: usize,
@@ -314,7 +314,7 @@ impl ObjectScanner {
     /// Create new object scanner
     ///
     /// # Safety
-    /// `obj_addr` harus point ke valid object
+    /// `obj_addr` must point to valid object
     pub unsafe fn new(obj_addr: usize) -> Option<Self> {
         let header = &*(obj_addr as *const ObjectHeader);
 
@@ -356,7 +356,7 @@ impl Iterator for ObjectScanner {
 
                 // Check if reference is non-null
                 unsafe {
-                    if memory::is_readable(ref_addr) {
+                    if memory::is_readable(ref_addr).unwrap_or(false) {
                         let ref_value = memory::read_pointer(ref_addr);
                         if ref_value != 0 {
                             self.current_offset = offset;

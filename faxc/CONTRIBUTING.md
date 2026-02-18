@@ -1,5 +1,27 @@
 # Contributing to Fax Compiler
 
+## Minimum Supported Rust Version (MSRV)
+
+This project supports **Rust 1.75 and later**. All contributions must be compatible with MSRV.
+
+### MSRV Guidelines
+
+- **Do not use** language features stabilized after Rust 1.75
+- **Do not depend** on crate versions that require newer Rust
+- **Test locally** with MSRV before submitting PRs:
+
+```bash
+# Install MSRV toolchain
+rustup install 1.75
+
+# Test with MSRV
+rustup run 1.75 cargo check --workspace
+rustup run 1.75 cargo test --workspace
+rustup run 1.75 cargo clippy --workspace -- -D warnings
+```
+
+- CI automatically tests all PRs against Rust 1.75
+
 ## Getting Started
 
 1. Install Rust: https://rustup.rs/

@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: GitHub Discussions
+    url: https://github.com/username/faxc/discussions
+    about: Please ask and answer questions here.
+  - name: Security Reports
+    url: https://github.com/username/faxc/security/advisories/new
+    about: Please report security vulnerabilities here.
+  - name: Language Specification
+    url: https://github.com/username/faxc/blob/main/SPEC.md
+    about: Check the language specification for feature details.

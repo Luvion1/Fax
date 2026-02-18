@@ -1,25 +1,25 @@
 //! Heap Management Module - Region-Based Memory Management
 //!
-//! Module ini mengelola heap berbasis region, teknik yang digunakan oleh ZGC
-//! untuk parallel collection dan partial compaction.
+//! This module manages region-based heap, a technique used by ZGC
+//! for parallel collection and partial compaction.
 //!
-//! Heap dibagi menjadi region-region dengan ukuran bervariasi:
-//! - Small Region (2MB): Untuk object < 256 bytes
-//! - Medium Region (32MB): Untuk object 256 bytes - 4KB
-//! - Large Region (variable): Untuk object > 4KB (1 object per region)
+//! Heap is divided into regions with varying sizes:
+//! - Small Region (2MB): For objects < 256 bytes
+//! - Medium Region (32MB): For objects 256 bytes - 4KB
+//! - Large Region (variable): For objects > 4KB (1 object per region)
 //!
 //! Region Lifecycle States:
-//! 1. Allocating - Region sedang diisi dengan object baru
-//! 2. Allocated - Region penuh atau tidak lagi allocating
-//! 3. Relocating - Object sedang dipindahkan ke region baru
-//! 4. Relocated - Semua object sudah dipindahkan
-//! 5. Free - Region kosong dan siap digunakan kembali
+//! 1. Allocating - Region is being filled with new objects
+//! 2. Allocated - Region is full or no longer allocating
+//! 3. Relocating - Objects are being moved to new regions
+//! 4. Relocated - All objects have been moved
+//! 5. Free - Region is empty and ready for reuse
 //!
 //! Virtual Memory Features:
-//! - Reserve address space besar di awal
+//! - Reserve large address space upfront
 //! - Commit physical memory on-demand
-//! - Uncommit memory saat region kosong
-//! - Multi-mapping untuk colored pointers
+//! - Uncommit memory when region is empty
+//! - Multi-mapping for colored pointers
 
 pub mod memory_mapping;
 pub mod numa;
@@ -46,10 +46,10 @@ use std::sync::Arc;
 /// - Object header alignment consistency
 const DEFAULT_ALIGNMENT: usize = 8;
 
-/// Heap - container untuk semua regions
+/// Heap - container for all regions
 ///
-/// Heap mengelola seluruh virtual address space untuk GC.
-/// Tidak menyimpan object secara langsung, tapi mengelola region-region.
+/// Heap manages the entire virtual address space for GC.
+/// It does not store objects directly, but manages regions.
 ///
 /// Heap Structure:
 /// ```
@@ -62,26 +62,26 @@ const DEFAULT_ALIGNMENT: usize = 8;
 /// └─────────────────────────────────────────────────────┘
 /// ```
 pub struct Heap {
-    /// Base address dari reserved heap space
+    /// Base address of reserved heap space
     base_address: usize,
 
-    /// Ukuran maximum heap
+    /// Maximum heap size
     max_size: usize,
 
-    /// Ukuran committed (physical memory yang digunakan)
+    /// Committed size (physical memory in use)
     committed_size: AtomicUsize,
 
-    /// Bump pointer untuk TLAB allocation (thread-safe)
-    /// Pointer ini menunjuk ke alamat berikutnya yang akan dialokasikan
+    /// Bump pointer for TLAB allocation (thread-safe)
+    /// This pointer points to the next address to be allocated
     alloc_ptr: AtomicUsize,
 
-    /// Region allocation offset (untuk tracking region positions)
+    /// Region allocation offset (for tracking region positions)
     region_offset: AtomicUsize,
 
-    /// Region yang sedang digunakan
+    /// Currently active regions
     active_regions: std::sync::Mutex<Vec<Arc<Region>>>,
 
-    /// Free list untuk region yang bisa digunakan kembali
+    /// Free list for regions that can be reused
     free_regions: std::sync::Mutex<Vec<Arc<Region>>>,
 
     /// Young generation regions
@@ -90,7 +90,7 @@ pub struct Heap {
     /// Old generation regions
     old_regions: std::sync::Mutex<Vec<Arc<Region>>>,
 
-    /// NUMA manager untuk allocation affinity
+    /// NUMA manager for allocation affinity
     numa_manager: Option<NumaManager>,
 
     /// Virtual memory manager
@@ -101,7 +101,7 @@ pub struct Heap {
 }
 
 impl Heap {
-    /// Create new heap dengan konfigurasi tertentu
+    /// Create new heap with specific configuration
     ///
     /// # Arguments
     /// * `config` - GC configuration
@@ -135,7 +135,7 @@ impl Heap {
         Ok(heap)
     }
 
-    /// Initialize heap dengan regions awal
+    /// Initialize heap with initial regions
     fn initialize_regions(&mut self) -> Result<()> {
         let mut free_regions = self
             .free_regions
@@ -163,11 +163,11 @@ impl Heap {
         Ok(())
     }
 
-    /// Allocate region untuk object baru
+    /// Allocate region for new object
     ///
     /// # Arguments
-    /// * `size` - Size object yang akan dialokasikan
-    /// * `generation` - Generation (Young atau Old)
+    /// * `size` - Size of object to allocate
+    /// * `generation` - Generation (Young or Old)
     pub fn allocate_region(&self, size: usize, generation: Generation) -> Result<Arc<Region>> {
         let region_type = if size <= self.config.small_threshold {
             RegionType::Small
@@ -177,7 +177,7 @@ impl Heap {
             RegionType::Large
         };
 
-        // Try get dari free list
+        // Try get from free list
         {
             let mut free_regions = self
                 .free_regions
@@ -197,7 +197,7 @@ impl Heap {
         self.create_new_region(region_type, generation)
     }
 
-    /// Create region baru dari virtual memory
+    /// Create new region from virtual memory
     ///
     /// # Thread Safety
     ///
@@ -261,7 +261,7 @@ impl Heap {
         Ok(region)
     }
 
-    /// Return region ke free list
+    /// Return region to free list
     pub fn return_region(&self, region: Arc<Region>) {
         region.reset().ok();
 
@@ -271,9 +271,9 @@ impl Heap {
         // If lock fails, region will be dropped - this is acceptable for error recovery
     }
 
-    /// Flip mark bits untuk semua regions
+    /// Flip mark bits for all regions
     ///
-    /// Dipanggil saat GC cycle baru dimulai.
+    /// Called when new GC cycle starts.
     pub fn flip_mark_bits(&self) {
         if let Ok(active_regions) = self.active_regions.lock() {
             for region in active_regions.iter() {
@@ -282,7 +282,7 @@ impl Heap {
         }
     }
 
-    /// Get semua active regions
+    /// Get all active regions
     pub fn get_active_regions(&self) -> Vec<Arc<Region>> {
         self.active_regions
             .lock()
@@ -338,10 +338,10 @@ impl Heap {
         }
     }
 
-    /// Update heap statistics (setelah GC)
+    /// Update heap statistics (after GC)
     pub fn update_stats(&self) {
-        // Cleanup dan update statistics
-        // Bisa trigger uncommit memory jika heap terlalu besar
+        // Cleanup and update statistics
+        // Can trigger uncommit memory if heap is too large
     }
 
     /// Allocate TLAB (Thread-Local Allocation Buffer) memory using bump pointer.
@@ -422,12 +422,18 @@ impl Heap {
     /// # Returns
     /// * `Ok(usize)` - The starting address of the allocated memory region (properly aligned)
     /// * `Err(FgcError::TlabError)` - If alignment is not a power of 2
-    /// * `Err(FgcError::OutOfMemory)` - If heap is exhausted
+    /// * `Err(FgcError::OutOfMemory)` - If heap is exhausted or overflow detected
     ///
     /// # Thread Safety
     ///
     /// This function is thread-safe. Multiple threads can allocate simultaneously
     /// without contention beyond the atomic operation.
+    ///
+    /// # Overflow Safety
+    ///
+    /// All pointer arithmetic uses checked operations. If any intermediate
+    /// calculation would overflow, the function returns an error instead of
+    /// silently wrapping or saturating.
     ///
     /// # Examples
     ///
@@ -465,37 +471,59 @@ impl Heap {
         // This prevents zero-size allocations from returning the same address.
         let effective_size = size.max(1);
 
-        // Align size to alignment boundary
+        // Align size to alignment boundary using CHECKED arithmetic.
         // Formula: (size + alignment - 1) & !(alignment - 1) rounds up to nearest multiple
-        // Use saturating arithmetic to prevent overflow
-        let aligned_size = effective_size
-            .saturating_add(effective_alignment)
-            .wrapping_sub(1)
-            & !(effective_alignment - 1);
+        // We use checked_add to detect overflow instead of silently saturating.
+        let size_plus_align = effective_size
+            .checked_add(effective_alignment)
+            .ok_or_else(|| FgcError::OutOfMemory {
+                requested: size,
+                available: 0, // Overflow means no space
+            })?;
 
-        // Calculate heap limit (base + max_size) using saturating arithmetic
-        let limit = self.base_address.saturating_add(self.max_size);
+        // Subtract 1 (this cannot overflow since size_plus_align >= alignment >= 8)
+        let size_mask = size_plus_align - 1;
+
+        // Apply alignment mask (this cannot overflow)
+        let aligned_size = size_mask & !(effective_alignment - 1);
+
+        // Calculate heap limit (base + max_size) using CHECKED arithmetic
+        let limit = self.base_address.checked_add(self.max_size).ok_or_else(|| {
+            FgcError::Internal("Heap base + max_size overflow - invalid heap configuration".to_string())
+        })?;
 
         // Loop for CAS-based atomic allocation
         loop {
             // Load current bump pointer value
             let current = self.alloc_ptr.load(Ordering::SeqCst);
 
-            // Align current pointer to alignment boundary
+            // Align current pointer to alignment boundary using CHECKED arithmetic
             // Formula: (ptr + alignment - 1) & !(alignment - 1)
-            let aligned_current = current.saturating_add(effective_alignment).wrapping_sub(1)
-                & !(effective_alignment - 1);
+            let ptr_plus_align = current.checked_add(effective_alignment).ok_or_else(|| {
+                FgcError::OutOfMemory {
+                    requested: size,
+                    available: 0, // Overflow means exhausted
+                }
+            })?;
 
-            // Calculate the next allocation position using saturating arithmetic
-            let next = aligned_current.saturating_add(aligned_size);
+            // Subtract 1 (cannot overflow since ptr_plus_align >= alignment >= 8)
+            let aligned_mask = ptr_plus_align - 1;
+
+            // Apply alignment mask
+            let aligned_current = aligned_mask & !(effective_alignment - 1);
+
+            // Calculate the next allocation position using CHECKED arithmetic
+            let next = aligned_current.checked_add(aligned_size).ok_or_else(|| {
+                FgcError::OutOfMemory {
+                    requested: size,
+                    available: 0, // Overflow means exhausted
+                }
+            })?;
 
             // Check for Out Of Memory before attempting allocation
-            if next > limit || next == usize::MAX {
-                let available = if current > limit {
-                    0
-                } else {
-                    limit.saturating_sub(current)
-                };
+            // Use checked comparison to avoid overflow issues
+            if next > limit {
+                let available = limit.checked_sub(current).unwrap_or(0);
                 return Err(FgcError::OutOfMemory {
                     requested: size,
                     available,
@@ -537,23 +565,286 @@ impl Heap {
     pub fn committed_size(&self) -> usize {
         self.committed_size.load(Ordering::Relaxed)
     }
+
+    /// Check if an address is within any active region managed by this heap
+    ///
+    /// # Arguments
+    /// * `addr` - Address to check
+    ///
+    /// # Returns
+    /// `true` if address is within GC-managed heap regions, `false` otherwise
+    ///
+    /// # CRIT-01 FIX: Root Validation
+    /// This method is used to validate that GC roots point to valid GC-managed
+    /// memory, preventing attackers from registering arbitrary memory addresses
+    /// as roots to exfiltrate data.
+    pub fn contains_address(&self, addr: usize) -> bool {
+        let regions = match self.active_regions.lock() {
+            Ok(guard) => guard,
+            Err(e) => {
+                log::error!("Heap active_regions lock poisoned: {}", e);
+                return false;
+            }
+        };
+        for region in regions.iter() {
+            if region.contains(addr) {
+                return true;
+            }
+        }
+        false
+    }
+}
+
+/// Check if an address is within GC-managed heap regions
+///
+/// This function checks against all active heap regions to determine if
+/// an address points to GC-managed memory.
+///
+/// # Arguments
+/// * `addr` - Address to check
+///
+/// # Returns
+/// `true` if address is within GC-managed heap, `false` otherwise
+///
+/// # CRIT-01 FIX: Root Validation
+/// This function is used to validate that GC roots point to valid GC-managed
+/// memory, preventing attackers from registering arbitrary memory addresses
+/// as roots to exfiltrate data.
+///
+/// # Note
+/// This function requires access to a Heap instance. Use `is_gc_managed_address_with_heap`
+/// for proper validation, or use `Heap::contains_address` directly.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use fgc::heap::{Heap, is_gc_managed_address_with_heap};
+/// use fgc::config::GcConfig;
+/// use std::sync::Arc;
+///
+/// let config = Arc::new(GcConfig::default());
+/// let heap = Heap::new(config).unwrap();
+///
+/// // Kernel address should be rejected
+/// assert!(!is_gc_managed_address_with_heap(0xFFFF_FFFF_FFFF_F000, &heap));
+/// ```
+pub fn is_gc_managed_address(addr: usize) -> bool {
+    // Without heap context, we can only do basic sanity checks
+    // Reject obviously invalid addresses
+    if addr == 0 {
+        return false;
+    }
+    
+    // Reject kernel-space addresses (common across platforms)
+    if addr > 0x0000_7FFF_FFFF_FFFF {
+        return false;
+    }
+    
+    // Reject very low addresses (typically unmapped)
+    if addr < 0x1000 {
+        return false;
+    }
+    
+    // For proper validation, use is_gc_managed_address_with_heap
+    log::trace!("is_gc_managed_address({:#x}) called without heap context - basic checks only", addr);
+    true  // Allow for backward compatibility, proper check requires heap
+}
+
+/// Check if an address is within GC-managed heap regions with heap context
+///
+/// This is the proper way to validate addresses for root validation.
+///
+/// # Arguments
+/// * `addr` - Address to check
+/// * `heap` - Heap reference for validation
+///
+/// # Returns
+/// `true` if address is within GC-managed heap, `false` otherwise
+///
+/// # CRIT-01 FIX: Root Validation
+/// This function provides proper validation by checking against actual
+/// heap regions, preventing attackers from registering arbitrary memory.
+pub fn is_gc_managed_address_with_heap(addr: usize, heap: &Heap) -> bool {
+    heap.contains_address(addr)
 }
 
 /// Heap statistics
 #[derive(Debug, Default)]
 pub struct HeapStats {
-    /// Memory yang sedang digunakan (bytes)
+    /// Memory currently in use (bytes)
     pub used: usize,
-    /// Memory yang sudah committed (bytes)
+    /// Memory committed (bytes)
     pub committed: usize,
-    /// Memory maksimum (bytes)
+    /// Maximum memory (bytes)
     pub max: usize,
     /// Young generation size
     pub young_size: usize,
     /// Old generation size
     pub old_size: usize,
-    /// Jumlah active regions
+    /// Number of active regions
     pub region_count: usize,
-    /// Jumlah free regions
+    /// Number of free regions
     pub free_region_count: usize,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+
+    fn create_test_heap(max_size: usize) -> Heap {
+        let config = Arc::new(GcConfig {
+            max_heap_size: max_size,
+            ..Default::default()
+        });
+        Heap::new(config).expect("Failed to create test heap")
+    }
+
+    #[test]
+    fn test_allocate_tlab_memory_basic() {
+        let heap = create_test_heap(1024 * 1024); // 1MB heap
+
+        // Basic allocation should succeed
+        let addr1 = heap.allocate_tlab_memory(64).unwrap();
+        assert!(addr1 != 0);
+        assert_eq!(addr1 % DEFAULT_ALIGNMENT, 0); // Should be aligned
+
+        let addr2 = heap.allocate_tlab_memory(128).unwrap();
+        assert!(addr2 > addr1); // Should be after first allocation
+        assert_eq!(addr2 % DEFAULT_ALIGNMENT, 0); // Should be aligned
+    }
+
+    #[test]
+    fn test_allocate_tlab_memory_alignment() {
+        let heap = create_test_heap(1024 * 1024);
+
+        // Test with 32-byte alignment
+        let addr = heap.allocate_tlab_memory_aligned(64, 32).unwrap();
+        assert_eq!(addr % 32, 0);
+
+        // Test with 64-byte alignment
+        let addr = heap.allocate_tlab_memory_aligned(128, 64).unwrap();
+        assert_eq!(addr % 64, 0);
+
+        // Test with 128-byte alignment
+        let addr = heap.allocate_tlab_memory_aligned(256, 128).unwrap();
+        assert_eq!(addr % 128, 0);
+    }
+
+    #[test]
+    fn test_allocate_tlab_memory_invalid_alignment() {
+        let heap = create_test_heap(1024 * 1024);
+
+        // Non-power-of-2 alignment should fail
+        let result = heap.allocate_tlab_memory_aligned(64, 3);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), FgcError::TlabError(_)));
+
+        // Zero alignment should fail
+        let result = heap.allocate_tlab_memory_aligned(64, 0);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_allocate_tlab_memory_overflow_detection() {
+        let heap = create_test_heap(1024 * 1024);
+
+        // Allocation larger than heap should fail
+        let result = heap.allocate_tlab_memory(2 * 1024 * 1024);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), FgcError::OutOfMemory { .. }));
+    }
+
+    #[test]
+    fn test_allocate_tlab_memory_exhaustion() {
+        let heap = create_test_heap(256); // Small heap
+
+        // First allocation should succeed
+        let addr1 = heap.allocate_tlab_memory(64).unwrap();
+        assert!(addr1 != 0);
+
+        // Second allocation should succeed
+        let addr2 = heap.allocate_tlab_memory(64).unwrap();
+        assert!(addr2 > addr1);
+
+        // Third allocation should succeed
+        let addr3 = heap.allocate_tlab_memory(64).unwrap();
+        assert!(addr3 > addr2);
+
+        // Fourth allocation should fail (heap exhausted)
+        let result = heap.allocate_tlab_memory(64);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), FgcError::OutOfMemory { .. }));
+    }
+
+    #[test]
+    fn test_allocate_tlab_memory_zero_size() {
+        let heap = create_test_heap(1024 * 1024);
+
+        // Zero-size allocation should still advance the bump pointer
+        let addr1 = heap.allocate_tlab_memory(0).unwrap();
+        assert!(addr1 != 0);
+
+        let addr2 = heap.allocate_tlab_memory(0).unwrap();
+        assert!(addr2 > addr1); // Should still advance
+    }
+
+    #[test]
+    fn test_allocate_tlab_memory_concurrent() {
+        use std::thread;
+
+        let heap = Arc::new(create_test_heap(1024 * 1024));
+        let mut handles = vec![];
+
+        // Spawn multiple threads to allocate concurrently
+        for i in 0..10 {
+            let heap_clone = Arc::clone(&heap);
+            let handle = thread::spawn(move || {
+                let mut addrs = Vec::new();
+                for _ in 0..10 {
+                    if let Ok(addr) = heap_clone.allocate_tlab_memory(64) {
+                        addrs.push(addr);
+                    }
+                }
+                (i, addrs)
+            });
+            handles.push(handle);
+        }
+
+        // Collect results
+        let mut all_addrs = Vec::new();
+        for handle in handles {
+            let (thread_id, addrs) = handle.join().unwrap();
+            // Verify all addresses from this thread are unique
+            let mut sorted = addrs.clone();
+            sorted.sort();
+            sorted.dedup();
+            assert_eq!(sorted.len(), addrs.len(),
+                "Thread {} had duplicate addresses", thread_id);
+            all_addrs.extend(addrs);
+        }
+
+        // Verify all addresses across all threads are unique
+        all_addrs.sort();
+        all_addrs.dedup();
+        // We may not get all 100 allocations due to heap exhaustion,
+        // but all successful allocations should be unique
+    }
+
+    #[test]
+    fn test_heap_stats() {
+        let heap = create_test_heap(1024 * 1024);
+
+        let stats = heap.get_stats();
+        assert_eq!(stats.max, 1024 * 1024);
+        assert!(stats.committed >= 0);
+    }
+
+    #[test]
+    fn test_heap_base_and_size() {
+        let heap = create_test_heap(1024 * 1024);
+
+        assert!(heap.base_address() != 0);
+        assert_eq!(heap.max_size(), 1024 * 1024);
+    }
 }

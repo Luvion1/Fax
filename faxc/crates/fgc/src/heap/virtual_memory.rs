@@ -4,11 +4,11 @@
 //! OVERVIEW VIRTUAL MEMORY
 //! ============================================================================
 //!
-//! Module ini mengelola virtual memory operations:
+//! This module manages virtual memory operations:
 //! - Reserve address space
 //! - Commit physical memory
 //! - Uncommit memory (return to OS)
-//! - Memory mapping untuk multi-mapping
+//! - Memory mapping for multi-mapping
 //!
 //! ============================================================================
 //! VIRTUAL MEMORY LAYOUT
@@ -42,14 +42,14 @@
 //! ```
 //!
 //! ============================================================================
-//! MULTI-MAPPING UNTUK COLORED POINTERS
+//! MULTI-MAPPING FOR COLORED POINTERS
 //! ============================================================================
 //!
-//! Virtual memory memungkinkan FGC untuk:
-//! - Reserve large address space di awal tanpa allocate physical memory
-//! - Commit memory on-demand saat dibutuhkan
-//! - Uncommit memory saat tidak digunakan (reduce memory footprint)
-//! - Multi-mapping untuk colored pointers
+//! Virtual memory enables FGC to:
+//! - Reserve large address space upfront without allocating physical memory
+//! - Commit memory on-demand when needed
+//! - Uncommit memory when not in use (reduce memory footprint)
+//! - Multi-mapping for colored pointers
 //!
 //! Multi-Mapping Concept:
 //! ```
@@ -61,8 +61,8 @@
 //! 0x1000_0000      0x2000_0000       0x3000_0000
 //! ```
 //!
-//! Dengan multi-mapping, pointer color bisa ditentukan dari virtual address
-//! tanpa mengubah object header.
+//! With multi-mapping, pointer color can be determined from virtual address
+//! without modifying the object header.
 
 use crate::error::{FgcError, Result};
 use crate::heap::memory_mapping::MemoryMapping;
@@ -71,29 +71,29 @@ use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::RwLock;
 
-/// VirtualMemory - manager untuk virtual memory operations
+/// VirtualMemory - manager for virtual memory operations
 ///
-/// Mengelola reserved address space dan committed memory ranges.
-/// Thread-safe untuk concurrent access.
+/// Manages reserved address space and committed memory ranges.
+/// Thread-safe for concurrent access.
 ///
 /// # Thread Safety
 ///
-/// VirtualMemory dirancang untuk diakses dari multiple threads.
-/// - committed_ranges menggunakan RwLock untuk concurrent read
-/// - committed_size menggunakan atomic operations
-/// - Memory mapping bersifat immutable setelah creation
+/// VirtualMemory is designed to be accessed from multiple threads.
+/// - committed_ranges uses RwLock for concurrent read
+/// - committed_size uses atomic operations
+/// - Memory mapping is immutable after creation
 pub struct VirtualMemory {
     /// Base address reserved space
     base_address: usize,
 
-    /// Total reserved size dalam bytes
+    /// Total reserved size in bytes
     reserved_size: usize,
 
     /// Committed ranges: offset -> size
-    /// Menggunakan BTreeMap untuk efficient range queries
+    /// Uses BTreeMap for efficient range queries
     committed_ranges: RwLock<BTreeMap<usize, usize>>,
 
-    /// Total committed size (cached untuk performance)
+    /// Total committed size (cached for performance)
     committed_size: AtomicUsize,
 
     /// Memory mapping (backing storage)
@@ -112,187 +112,14 @@ pub struct VirtualMemory {
 impl VirtualMemory {
     /// Reserve virtual address space
     ///
-    /// Reserve address space tanpa allocate physical memory.
-    /// Physical memory akan di-commit on-demand.
+    /// Reserve address space without allocating physical memory.
+    /// Physical memory will be committed on-demand.
     ///
     /// # Arguments
-    /// * `size` - Size address space untuk reserve
+    /// * `size` - Size of address space to reserve
     ///
     /// # Returns
-    /// VirtualMemory instance atau error
-    ///
-    /// # Examples
-    /// ```rust
-    /// let vm = VirtualMemory::reserve(64 * 1024 * 1024)?;
-    /// assert!(vm.base_address() > 0);
-    /// ```
-    pub fn reserve(size: usize) -> Result<Self> {
-        let aligned_size = page::align_to_page(size);
-
-        let mapping = MemoryMapping::anonymous(aligned_size)?;
-        let base_address = mapping.base();
-
-        Ok(Self {
-            base_address,
-            reserved_size: aligned_size,
-            committed_ranges: RwLock::new(BTreeMap::new()),
-            committed_size: AtomicUsize::new(0),
-            mapping: Some(mapping),
-            sparse: true,
-            initialized: AtomicBool::new(true),
-            page_allocator: page::PageAllocator::new(),
-        })
-    }
-
-    /// Reserve with pre-committed memory
-    ///
-    /// Reserve dan langsung commit seluruh memory.
-    /// Lebih sederhana tapi langsung menggunakan physical memory.
-    ///
-    /// # Arguments
-    /// * `size` - Size address space untuk reserve dan commit
-    ///
-    /// # Examples
-    /// ```rust
-    /// let vm = VirtualMemory::reserve_committed(1024 * 1024)?;
-    /// assert_eq!(vm.committed_size(), 1024 * 1024);
-    /// ```
-    pub fn reserve_committed(size: usize) -> Result<Self> {
-        let aligned_size = page::align_to_page(size);
-
-        let mapping = MemoryMapping::anonymous(aligned_size)?;
-        let base_address = mapping.base();
-
-        Ok(Self {
-            base_address,
-            reserved_size: aligned_size,
-            committed_ranges: RwLock::new(BTreeMap::from([(0, aligned_size)])),
-            committed_size: AtomicUsize::new(aligned_size),
-            mapping: Some(mapping),
-            sparse: false,
-            initialized: AtomicBool::new(true),
-            page_allocator: page::PageAllocator::new(),
-        })
-    }
-
-    /// Commit memory di range tertentu
-    ///
-    /// Allocate physical memory untuk address range.
-    ///
-    /// # Arguments
-    /// * `offset` - Offset dari base address
-    /// * `size` - Size untuk commit dalam bytes
-    ///
-    /// # Returns
-    /// Ok(()) jika berhasil, error jika gagal
-    ///
-    /// # Examples
-    /// ```rust
-    /// let vm = VirtualMemory::reserve(64 * 1024 * 1024)?;
-    /// vm.commit(0, 4096)?;
-    /// assert!(vm.is_committed(0));
-    /// ```
-    pub fn commit(&self, offset: usize, size: usize) -> Result<()> {
-        // Zero-size commit adalah no-op
-        if size == 0 {
-            return Ok(());
-        }
-
-        // Gunakan saturating_add untuk prevent overflow
-        let end_offset = offset.saturating_add(size);
-
-        if end_offset > self.reserved_size {
-            return Err(FgcError::VirtualMemoryError(format!(
-                "Commit exceeds reserved size: offset={}, size={}, end={}, reserved={}",
-                offset, size, end_offset, self.reserved_size
-            )));
-        }
-
-        // Align ke page boundaries
-        let aligned_offset = page::align_down_to_page(offset);
-        let aligned_end = page::align_up_to_page(offset + size);
-        let aligned_size = aligned_end.saturating_sub(aligned_offset);
-
-        let mut ranges = self.committed_ranges.write().unwrap();
-
-        // Skip jika sudah committed (overlap check)
-        if self.overlaps_committed(&ranges, aligned_offset, aligned_size) {
-            return Ok(());
-        }
-
-        // Insert new committed range
-        ranges.insert(aligned_offset, aligned_size);
-
-        // Update statistics
-        let page_count = page::bytes_to_pages(aligned_size);
-        self.page_allocator.allocate(page_count);
-        self.committed_size.fetch_add(aligned_size, Ordering::Release);
-
-        Ok(())
-    }
-
-    /// Uncommit memory di range tertentu
-    ///
-    /// Return physical memory ke OS.
-    ///
-    /// # Arguments
-    /// * `offset` - Offset dari base address
-    /// * `size` - Size untuk uncommit dalam bytes
-    ///
-    /// # Examples
-    /// ```rust
-    /// let vm = VirtualMemory::reserve(64 * 1024 * 1024)?;
-    /// vm.commit(0, 4096)?;
-    /// vm.uncommit(0, 4096)?;
-    /// assert_eq!(vm.committed_size(), 0);
-    /// ```
-    pub fn uncommit(&self, offset: usize, size: usize) -> Result<()> {
-        if size == 0 {
-            return Ok(());
-        }
-
-        let aligned_offset = page::align_down_to_page(offset);
-        let aligned_end = page::align_up_to_page(offset.saturating_add(size));
-        let aligned_size = aligned_end.saturating_sub(aligned_offset);
-
-        if aligned_size == 0 {
-            return Ok(());
-        }
-
-        let mut ranges = self.committed_ranges.write().unwrap();
-
-        // Find and remove/update committed range
-        if let Some(&existing_size) = ranges.get(&aligned_offset) {
-            if existing_size == aligned_size {
-                // Exact match - remove entirely
-                ranges.remove(&aligned_offset);
-            } else if existing_size > aligned_size {
-                // Partial uncommit - split the range
-                let remaining_size = existing_size - aligned_size;
-                ranges.remove(&aligned_offset);
-                ranges.insert(aligned_offset.saturating_add(aligned_size), remaining_size);
-            }
-        }
-
-        // Update statistics
-        let page_count = page::bytes_to_pages(aligned_size);
-        self.page_allocator.free(page_count);
-        self.committed_size.fetch_sub(aligned_size, Ordering::Release);
-
-        Ok(())
-    }
-
-impl VirtualMemory {
-    /// Reserve virtual address space
-    ///
-    /// Reserve address space tanpa allocate physical memory.
-    /// Physical memory akan di-commit on-demand.
-    ///
-    /// # Arguments
-    /// * `size` - Size address space untuk reserve
-    ///
-    /// # Returns
-    /// VirtualMemory instance atau error
+    /// VirtualMemory instance or error
     ///
     /// # Examples
     /// ```
@@ -319,8 +146,8 @@ impl VirtualMemory {
 
     /// Reserve with pre-committed memory
     ///
-    /// Reserve dan langsung commit seluruh memory.
-    /// Lebih sederhana tapi langsung menggunakan physical memory.
+    /// Reserve and immediately commit all memory.
+    /// Simpler but uses physical memory immediately.
     pub fn reserve_committed(size: usize) -> Result<Self> {
         let aligned_size = page::align_to_page(size);
 
@@ -341,17 +168,17 @@ impl VirtualMemory {
         })
     }
 
-    /// Commit memory di range tertentu
+    /// Commit memory in a specific range
     ///
-    /// Allocate physical memory untuk address range.
+    /// Allocate physical memory for address range.
     ///
     /// # Arguments
-    /// * `offset` - Offset dari base address
-    /// * `size` - Size untuk commit
+    /// * `offset` - Offset from base address
+    /// * `size` - Size to commit
     ///
     /// # Errors
-    /// - `VirtualMemoryError` jika offset+size melebihi reserved size
-    /// - `LockPoisoned` jika mutex poisoned
+    /// - `VirtualMemoryError` if offset+size exceeds reserved size
+    /// - `LockPoisoned` if mutex is poisoned
     pub fn commit(&self, offset: usize, size: usize) -> Result<()> {
         // Validate arguments
         if size == 0 {
@@ -408,16 +235,16 @@ impl VirtualMemory {
         Ok(())
     }
 
-    /// Uncommit memory di range tertentu
+    /// Uncommit memory in a specific range
     ///
-    /// Return physical memory ke OS.
+    /// Return physical memory to OS.
     ///
     /// # Arguments
-    /// * `offset` - Offset dari base address
-    /// * `size` - Size untuk uncommit
+    /// * `offset` - Offset from base address
+    /// * `size` - Size to uncommit
     ///
     /// # Errors
-    /// - `LockPoisoned` jika mutex poisoned
+    /// - `LockPoisoned` if mutex is poisoned
     pub fn uncommit(&self, offset: usize, size: usize) -> Result<()> {
         if size == 0 {
             return Ok(());
@@ -696,17 +523,17 @@ impl std::fmt::Display for PageStats {
     }
 }
 
-/// Helper untuk align address ke page boundary
+/// Helper to align address to page boundary
 pub fn align_to_page(address: usize) -> usize {
     page::align_to_page(address)
 }
 
-/// Helper untuk convert bytes ke pages
+/// Helper to convert bytes to pages
 pub fn bytes_to_pages(bytes: usize) -> usize {
     page::bytes_to_pages(bytes)
 }
 
-/// Helper untuk convert pages ke bytes
+/// Helper to convert pages to bytes
 pub fn pages_to_bytes(pages: usize) -> usize {
     page::pages_to_bytes(pages)
 }

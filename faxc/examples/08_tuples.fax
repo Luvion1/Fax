@@ -1,0 +1,94 @@
+// 08_tuples.fax - Tuples in Fax
+// ==============================
+// Demonstrates tuple creation, access, and destructuring.
+//
+// Features demonstrated:
+// - Tuple literal syntax (a, b, c)
+// - Tuple type annotation (type1, type2)
+// - Field access with dot notation (.0, .1, .2)
+// - Tuple destructuring
+// - Tuples as function return values
+// - Nested tuples
+//
+// Expected output:
+//   First: 1
+//   Second: hello
+//   Swapped: (hello, 1)
+//   x = 10, y = 20
+//   Nested: 42
+
+fn main() {
+    // ===== Tuple creation =====
+    // Heterogeneous types in one tuple
+    let pair = (1, "hello")
+
+    // ===== Tuple field access =====
+    // Access elements by index (.0, .1, .2, ...)
+    let first = pair.0
+    let second = pair.1
+
+    println("First: ")
+    println(first)
+    println("Second: ")
+    println(second)
+
+    // ===== Tuple with explicit type =====
+    let triple: (i32, f64, str) = (42, 3.14, "answer")
+    println("Triple first: ")
+    println(triple.0)
+    println("Triple second: ")
+    println(triple.1)
+    println("Triple third: ")
+    println(triple.2)
+
+    // ===== Function returning tuple =====
+    // Swap two values using tuple
+    let swapped = swap(1, "hello")
+    println("Swapped: (")
+    println(swapped.0)
+    println(", ")
+    println(swapped.1)
+    println(")")
+
+    // ===== Tuple destructuring =====
+    let coords = (10, 20)
+    // Destructure tuple into separate variables
+    let (x, y) = coords
+    println("x = ")
+    println(x)
+    println(", y = ")
+    println(y)
+
+    // ===== Ignore tuple elements =====
+    let data = (100, 200, 300)
+    // Use underscore to ignore elements
+    let (a, _, c) = data
+    println("a = ")
+    println(a)
+    println(", c = ")
+    println(c)
+
+    // ===== Nested tuples =====
+    let nested = (1, (2, 3))
+    println("Nested outer first: ")
+    println(nested.0)
+    println("Nested inner: (")
+    println(nested.1.0)
+    println(", ")
+    println(nested.1.1)
+    println(")")
+
+    // ===== Destructure nested tuple =====
+    let (outer, (inner1, inner2)) = nested
+    println("Destructured: ")
+    println(outer)
+    println(", ")
+    println(inner1)
+    println(", ")
+    println(inner2)
+}
+
+// Function that returns a tuple (swapped values)
+fn swap(a: i32, b: str) -> (str, i32) {
+    (b, a)
+}

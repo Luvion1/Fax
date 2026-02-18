@@ -1,0 +1,261 @@
+# Release-plz Configuration for Fax Compiler
+# Documentation: https://release-plz.ieni.dev/docs/configuration
+
+# =============================================================================
+# Global Configuration
+# =============================================================================
+
+[workspace]
+# Git configuration
+git_release_enable = true
+git_tag_enable = true
+git_tag_name = "{{ prefix }}-{{ version }}"
+git_release_name = "{{ prefix }}-{{ version }}"
+git_release_body = """
+{{ changelog }}
+
+{% if remote.contributors %}
+### Contributors
+{% for contributor in remote.contributors %}
+- @{{ contributor.username }}
+{% endfor %}
+{% endif %}
+"""
+git_release_draft = false
+git_release_pre_release = false
+git_release_latest = true
+
+# PR configuration for version updates
+pr_name = "chore: release {{ package }} {{ version }}"
+pr_branch = "release-{{ package }}-{{ version }}"
+pr_labels = ["release", "automated"]
+pr_draft = false
+
+# Changelog configuration
+changelog_config = "cliff.toml"
+changelog_update = true
+changelog_path = "CHANGELOG.md"
+changelog_include = []
+
+# Version bumping based on conventional commits
+# - feat: minor version bump
+# - fix: patch version bump
+# - breaking: major version bump
+semver_check = true
+
+# Cargo publish configuration (optional - uncomment to enable crates.io publishing)
+# publish = true
+# publish_timeout = "30m"
+# publish_allow_dirty = false
+
+# Release communication
+release_commits = "^feat:|^fix:|^perf:|^refactor:|^docs:|^chore:|^style:|^test:"
+
+# Dependencies handling
+dependencies_update = false
+allow_dirty = false
+
+# =============================================================================
+# Package-Specific Configuration
+# =============================================================================
+
+# Main compiler driver crate (faxc-drv) - primary release artifact
+[[package]]
+name = "faxc-drv"
+# This is the main binary crate that gets released
+git_release_enable = true
+git_tag_enable = true
+# Don't publish to crates.io if this is an application, not a library
+# publish = false
+changelog_path = "crates/faxc-drv/CHANGELOG.md"
+changelog_update = true
+
+# Compiler frontend crates (libraries)
+[[package]]
+name = "faxc-lex"
+git_release_enable = true
+git_tag_enable = true
+# Enable if publishing to crates.io
+# publish = true
+changelog_path = "crates/faxc-lex/CHANGELOG.md"
+changelog_update = true
+
+[[package]]
+name = "faxc-par"
+git_release_enable = true
+git_tag_enable = true
+# publish = true
+changelog_path = "crates/faxc-par/CHANGELOG.md"
+changelog_update = true
+
+[[package]]
+name = "faxc-sem"
+git_release_enable = true
+git_tag_enable = true
+# publish = true
+changelog_path = "crates/faxc-sem/CHANGELOG.md"
+changelog_update = true
+
+# Intermediate representation crates
+[[package]]
+name = "faxc-mir"
+git_release_enable = true
+git_tag_enable = true
+# publish = true
+changelog_path = "crates/faxc-mir/CHANGELOG.md"
+changelog_update = true
+
+[[package]]
+name = "faxc-lir"
+git_release_enable = true
+git_tag_enable = true
+# publish = true
+changelog_path = "crates/faxc-lir/CHANGELOG.md"
+changelog_update = true
+
+# Code generation crate
+[[package]]
+name = "faxc-gen"
+git_release_enable = true
+git_tag_enable = true
+# publish = true
+changelog_path = "crates/faxc-gen/CHANGELOG.md"
+changelog_update = true
+
+# Frontend compiler (fgc)
+[[package]]
+name = "fgc"
+git_release_enable = true
+git_tag_enable = true
+# publish = true
+changelog_path = "crates/fgc/CHANGELOG.md"
+changelog_update = true
+
+# Utility crate
+[[package]]
+name = "faxc-util"
+git_release_enable = true
+git_tag_enable = true
+# publish = true
+changelog_path = "crates/faxc-util/CHANGELOG.md"
+changelog_update = true
+
+# =============================================================================
+# GitHub Configuration
+# =============================================================================
+
+[github]
+# Base URL for GitHub API (default: https://api.github.com)
+# base_url = "https://api.github.com"
+
+# Enable GitHub releases
+release = true
+
+# Enable GitHub tags
+tag = true
+
+# Enable pull requests for version updates
+pr = true
+
+# Labels to add to release PRs
+pr_labels = ["release", "automated"]
+
+# =============================================================================
+# Changelog Configuration (git-cliff)
+# =============================================================================
+
+[changelog]
+# Header for the changelog
+header = """
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+"""
+
+# Body template for changelog entries
+body = """
+{% if version %}\
+    ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+    ## [Unreleased]
+{% endif %}\
+
+{% for group, commits in commits | group_by(attribute="group") %}
+    ### {{ group | upper_first }}
+    {% for commit in commits %}
+        - {% if commit.breaking %}**[BREAKING]** {% endif %}{{ commit.message | upper_first }} ([{{ commit.id | truncate(length=7, end="") }}](${{ commit.id }}))\
+          {% if commit.remote.username %} by @{{ commit.remote.username }}{% endif %}\
+          {% if commit.remote.pr_number %} in [#{{ commit.remote.pr_number }}](${{ commit.remote.pr_url }}){% endif %}
+    {% endfor %}
+{% endfor %}
+
+{% if remote.contributors %}
+### Contributors
+{% for contributor in remote.contributors %}
+- @{{ contributor.username }}
+{% endfor %}
+{% endif %}
+"""
+
+# Footer for the changelog
+footer = """
+<!-- generated by git-cliff -->
+"""
+
+# Trim the changelog
+trim = true
+
+# Preprocessors
+preprocessors = []
+
+# =============================================================================
+# Commit Parsers (Conventional Commits)
+# =============================================================================
+
+[commit_parsers]
+# Features - minor version bump
+{ message = "^feat", group = "Features" }
+# Bug fixes - patch version bump
+{ message = "^fix", group = "Bug Fixes" }
+# Documentation changes
+{ message = "^docs", group = "Documentation" }
+# Performance improvements
+{ message = "^perf", group = "Performance" }
+# Code refactoring (no functional changes)
+{ message = "^refactor", group = "Refactoring" }
+# Style changes (formatting, etc.)
+{ message = "^style", group = "Style" }
+# Test additions/modifications
+{ message = "^test", group = "Tests" }
+# Build system, CI/CD changes
+{ message = "^build", group = "Build System" }
+{ message = "^ci", group = "CI/CD" }
+# Chores (maintenance, dependencies, etc.)
+{ message = "^chore", group = "Chores" }
+# Reverts
+{ message = "^revert", group = "Reverts" }
+
+# Breaking changes detection
+[[commit_parsers]]
+message = ".*"
+body = ".*BREAKING CHANGE.*"
+group = "Breaking Changes"
+breaking = true
+
+# Skip certain commits
+{ message = "^chore\\(release\\)", skip = true }
+{ message = "^chore: release", skip = true }
+{ message = "^chore: bump", skip = true }
+
+# =============================================================================
+# Link Parsers
+# =============================================================================
+
+[link_parsers]
+# Parse issue references
+{ pattern = "#(\\d+)", href = "https://github.com/fax-lang/faxc/issues/$1" }
+# Parse PR references
+{ pattern = "!?(\\d+)", href = "https://github.com/fax-lang/faxc/pull/$1" }

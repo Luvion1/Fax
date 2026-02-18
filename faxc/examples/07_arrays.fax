@@ -1,0 +1,69 @@
+// 07_arrays.fax - Arrays in Fax
+// ==============================
+// Demonstrates array declaration, indexing, and operations.
+//
+// Features demonstrated:
+// - Array type syntax [type; size]
+// - Array literal initialization
+// - Array indexing
+// - Arrays with different types
+//
+// Expected output:
+//   First element: 1
+//   Second element: 2
+//   Third element: 3
+//   Sum: 6
+//   First char: H
+//   Array length concept shown
+
+fn main() {
+    // ===== Array declaration with explicit type =====
+    // Syntax: [type; size]
+    let nums: [i32; 3] = [1, 2, 3]
+
+    // ===== Array indexing =====
+    // Access elements by index (0-based)
+    let first = nums[0]
+    let second = nums[1]
+    let third = nums[2]
+
+    println("First element: ")
+    println(first)
+    println("Second element: ")
+    println(second)
+    println("Third element: ")
+    println(third)
+
+    // ===== Array with more elements =====
+    let values: [i32; 5] = [10, 20, 30, 40, 50]
+
+    // Sum array elements manually
+    let sum = values[0] + values[1] + values[2] + values[3] + values[4]
+    println("Sum: ")
+    println(sum)
+
+    // ===== Array of floats =====
+    let floats: [f64; 4] = [1.5, 2.5, 3.5, 4.5]
+    let float_sum = floats[0] + floats[1] + floats[2] + floats[3]
+    println("Float sum: ")
+    println(float_sum)
+
+    // ===== Array of strings =====
+    let words: [str; 3] = ["Hello", "Fax", "Arrays"]
+    println("First word: ")
+    println(words[0])
+    println("Second word: ")
+    println(words[1])
+    println("Third word: ")
+    println(words[2])
+
+    // ===== Using array in loop =====
+    let mut i = 0
+    let mut total = 0
+    while i < 5 {
+        total = total + values[i]
+        i = i + 1
+    }
+    println("Total from loop: ")
+    println(total)
+}

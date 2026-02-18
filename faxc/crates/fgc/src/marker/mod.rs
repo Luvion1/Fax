@@ -1,12 +1,12 @@
 //! Marker Module - Concurrent Marking System
 //!
-//! Module ini mengimplementasikan concurrent marking untuk mengidentifikasi
-//! object mana yang masih "hidup" (direference) dan mana yang garbage.
+//! This module implements concurrent marking to identify
+//! which objects are still "alive" (referenced) and which are garbage.
 //!
 //! Marking Algorithm:
 //! - Tri-color marking (White, Grey, Black)
-//! - Concurrent dengan aplikasi berjalan
-//! - Load barriers mark objects saat diakses
+//! - Concurrent with application running
+//! - Load barriers mark objects when accessed
 //!
 //! Marking Phases:
 //! 1. Pause Mark Start (STW < 1ms) - Setup, scan roots
@@ -38,15 +38,15 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use parking_lot::Mutex as ParkingMutex;
 
-/// Marker - orchestrator untuk concurrent marking
+/// Marker - orchestrator for concurrent marking
 ///
-/// Marker mengelola seluruh proses marking:
+/// Marker manages the entire marking process:
 /// - Root scanning
 /// - Mark queue management
 /// - GC thread coordination
 /// - Termination detection
 pub struct Marker {
-    /// Reference ke heap
+    /// Reference to heap
     heap: Arc<Heap>,
 
     /// Global mark queue
@@ -67,7 +67,7 @@ pub struct Marker {
     /// Marked object count
     marked_count: AtomicU64,
 
-    /// GC threads untuk marking
+    /// GC threads for marking
     thread_count: usize,
 
     /// GC thread pool (optional, created during marking)
@@ -95,8 +95,8 @@ impl Marker {
 
     /// Start concurrent marking phase
     ///
-    /// Dipanggil saat GC cycle memasuki marking phase.
-    /// Setup state dan spawn GC threads.
+    /// Called when GC cycle enters marking phase.
+    /// Setup state and spawn GC threads.
     pub fn start_marking(&self) -> Result<()> {
         self.marking_in_progress.store(true, Ordering::SeqCst);
         self.marked_count.store(0, Ordering::Relaxed);
@@ -104,16 +104,16 @@ impl Marker {
         // Clear mark queues
         self.global_queue.clear();
 
-        // Scan roots dan enqueue
+        // Scan roots and enqueue
         self.scan_roots()?;
 
         Ok(())
     }
 
-    /// Scan semua roots
+    /// Scan all roots
     ///
-    /// Dipanggil di awal marking untuk initial work.
-    /// Menemukan semua live references dari roots dan enqueue untuk marking.
+    /// Called at the start of marking for initial work.
+    /// Finds all live references from roots and enqueues them for marking.
     pub fn scan_roots(&self) -> Result<()> {
         // Scan all roots using the new root scanner
         let mut root_count = 0;
@@ -133,11 +133,11 @@ impl Marker {
 
     /// Concurrent marking loop
     ///
-    /// Dipanggil oleh GC worker threads.
-    /// Process mark queue sampai empty.
+    /// Called by GC worker threads.
+    /// Process mark queue until empty.
     pub fn concurrent_mark(&self) -> Result<()> {
         while self.marking_in_progress.load(Ordering::Relaxed) {
-            // Get work dari queue
+            // Get work from queue
             if let Some(object) = self.global_queue.pop() {
                 // Process object
                 self.process_object(object)?;
@@ -147,7 +147,7 @@ impl Marker {
                     break;
                 }
 
-                // Sleep sebentar
+                // Sleep briefly
                 std::thread::sleep(std::time::Duration::from_micros(100));
             }
         }
@@ -157,9 +157,9 @@ impl Marker {
 
     /// Process single object
     ///
-    /// Scan fields object dan enqueue reachable references.
+    /// Scan object fields and enqueue reachable references.
     fn process_object(&self, object: usize) -> Result<()> {
-        // Check jika sudah marked
+        // Check if already marked
         if self.is_marked(object) {
             return Ok(());
         }
@@ -167,7 +167,7 @@ impl Marker {
         // Mark object
         self.mark_object(object)?;
 
-        // Scan object fields dan enqueue references menggunakan object scanner
+        // Scan object fields and enqueue references using object scanner
         let ref_count = scan_object(object, |ref_addr| {
             unsafe {
                 let ref_value = crate::memory::read_pointer(ref_addr);
@@ -183,9 +183,9 @@ impl Marker {
         Ok(())
     }
 
-    /// Mark object di bitmap
+    /// Mark object in bitmap
     fn mark_object(&self, object: usize) -> Result<()> {
-        // Find region untuk object
+        // Find region for object
         let regions = self.heap.get_active_regions();
 
         for region in regions {
@@ -199,7 +199,7 @@ impl Marker {
         Ok(())
     }
 
-    /// Check jika object sudah marked
+    /// Check if object is already marked
     pub fn is_marked(&self, object: usize) -> bool {
         let regions = self.heap.get_active_regions();
 
@@ -212,9 +212,9 @@ impl Marker {
         false
     }
 
-    /// Wait sampai marking complete
+    /// Wait until marking is complete
     pub fn wait_marking_complete(&self) -> Result<()> {
-        // Wait sampai queue empty dan semua threads idle
+        // Wait until queue is empty and all threads are idle
         while !self.global_queue.is_empty() {
             std::thread::sleep(std::time::Duration::from_millis(1));
         }
@@ -234,7 +234,7 @@ impl Marker {
         Ok(())
     }
 
-    /// Check jika marking harus terminate
+    /// Check if marking should terminate
     fn should_terminate(&self) -> bool {
         self.global_queue.is_empty() && !self.marking_in_progress.load(Ordering::Relaxed)
     }
@@ -254,7 +254,7 @@ impl Marker {
         self.global_queue.clone()
     }
 
-    /// Check jika marking in progress
+    /// Check if marking is in progress
     pub fn is_marking_in_progress(&self) -> bool {
         self.marking_in_progress.load(Ordering::Relaxed)
     }
@@ -264,7 +264,7 @@ impl Marker {
     /// This method is called by worker threads to process marking work.
     /// It scans the object and enqueues any references found.
     pub fn process_mark_work(&self, object: usize) -> Result<()> {
-        // Check jika sudah marked
+        // Check if already marked
         if self.is_marked(object) {
             return Ok(());
         }
@@ -272,7 +272,7 @@ impl Marker {
         // Mark object
         self.mark_object(object)?;
 
-        // Scan object fields dan enqueue references menggunakan object scanner
+        // Scan object fields and enqueue references using object scanner
         let ref_count = scan_object(object, |ref_addr| {
             unsafe {
                 let ref_value = crate::memory::read_pointer(ref_addr);
@@ -288,20 +288,20 @@ impl Marker {
         Ok(())
     }
 
-    /// Start concurrent marking dengan worker threads
+    /// Start concurrent marking with worker threads
     ///
-    /// Method ini memulai concurrent marking phase dengan spawn worker threads.
+    /// This method starts the concurrent marking phase by spawning worker threads.
     ///
     /// # Arguments
-    /// * `num_threads` - Jumlah worker threads untuk marking
+    /// * `num_threads` - Number of worker threads for marking
     ///
     /// # Returns
-    /// Result dengan OK jika berhasil start marking
+    /// Result with OK if successfully started marking
     pub fn start_concurrent_marking(&self, num_threads: usize) -> Result<()> {
         // Start marking phase
         self.start_marking()?;
 
-        // Create dan start GC thread pool
+        // Create and start GC thread pool
         let marker_arc = Arc::new(self.clone_for_pool());
         let mut pool = GcThreadPool::new(marker_arc, num_threads);
         
@@ -315,16 +315,16 @@ impl Marker {
         Ok(())
     }
 
-    /// Wait untuk semua worker threads selesai
+    /// Wait for all worker threads to complete
     ///
-    /// Method ini menunggu semua worker threads menyelesaikan marking.
+    /// This method waits for all worker threads to finish marking.
     pub fn wait_completion(&self) -> Result<()> {
-        // Wait untuk GC thread pool completion
+        // Wait for GC thread pool completion
         let pool_guard = self.gc_thread_pool.lock();
         if let Some(ref pool) = *pool_guard {
             pool.wait_completion()?;
         } else {
-            // Fallback ke single-threaded wait
+            // Fallback to single-threaded wait
             self.wait_marking_complete()?;
         }
 
@@ -337,12 +337,16 @@ impl Marker {
         pool_guard.as_ref().map(|pool| pool.get_stats())
     }
 
-    /// Clone marker untuk thread pool (creates Arc-compatible version)
+    /// Clone marker for thread pool (creates Arc-compatible version)
     fn clone_for_pool(&self) -> Marker {
+        let bitmaps_clone = self.bitmaps.lock()
+            .map(|g| g.clone())
+            .unwrap_or_else(|_| std::collections::HashMap::new());
+        
         Marker {
             heap: self.heap.clone(),
             global_queue: self.global_queue.clone(),
-            bitmaps: std::sync::Mutex::new(self.bitmaps.lock().unwrap().clone()),
+            bitmaps: std::sync::Mutex::new(bitmaps_clone),
             root_scanner: self.root_scanner.clone(),
             current_mark_bit: AtomicBool::new(self.current_mark_bit.load(Ordering::Relaxed)),
             marking_in_progress: AtomicBool::new(self.marking_in_progress.load(Ordering::Relaxed)),
@@ -360,10 +364,14 @@ impl Marker {
 
 impl Clone for Marker {
     fn clone(&self) -> Self {
+        let bitmaps_clone = self.bitmaps.lock()
+            .map(|g| g.clone())
+            .unwrap_or_else(|_| std::collections::HashMap::new());
+        
         Self {
             heap: self.heap.clone(),
             global_queue: self.global_queue.clone(),
-            bitmaps: std::sync::Mutex::new(self.bitmaps.lock().unwrap().clone()),
+            bitmaps: std::sync::Mutex::new(bitmaps_clone),
             root_scanner: self.root_scanner.clone(),
             current_mark_bit: AtomicBool::new(self.current_mark_bit.load(Ordering::Relaxed)),
             marking_in_progress: AtomicBool::new(self.marking_in_progress.load(Ordering::Relaxed)),

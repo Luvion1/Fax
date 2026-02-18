@@ -1,38 +1,49 @@
 //! Mark Bitmap - Tracking Marked Objects
 //!
-//! Mark bitmap adalah struktur data untuk tracking object yang sudah marked.
-//! 1 bit per N bytes (biasanya 64 bytes) untuk efisiensi memory.
+//! Mark bitmap is a data structure for tracking marked objects.
+//! 1 bit per N bytes (typically 64 bytes) for memory efficiency.
 //!
-//! Bitmap Structure:
-//! ```
-//! Region: 2MB (2,097,152 bytes)
-//! Granularity: 64 bytes per bit
-//! Bitmap size: 2MB / 64 = 32,768 bits = 4KB
+//! # Memory Ordering Model
 //!
-//! Object at address 0x1000 (4096):
-//! - Offset: 4096 - region_start
-//! - Bit index: 4096 / 64 = 64
-//! - Byte index: 64 / 8 = 8
-//! - Bit offset: 64 % 8 = 0
-//! ```
+//! This module uses the following atomic ordering strategy:
+//!
+//! ## Bitmap Mark Operations
+//! - **mark():** `Ordering::Relaxed` - Bitmap is only accessed during GC safepoint.
+//!   All GC threads synchronize externally (e.g., via barrier).
+//!   No data race as mutators are stopped during marking.
+//!
+//! - **is_marked():** `Ordering::Relaxed` - Same rationale as mark().
+//!   During concurrent marking phase, external synchronization ensures
+//!   visibility. For purely concurrent checks, Acquire would be needed.
+//!
+//! ## Rationale
+//!
+//! The relaxed ordering is safe because:
+//! 1. Bitmap modifications happen during GC safepoint
+//! 2. All GC threads synchronize via barriers before accessing bitmap
+//! 3. Mutator threads are stopped and cannot modify bitmap
+//!
+//! If concurrent marking is enabled (mutators run during mark phase),
+//! change `is_marked()` to use `Ordering::Acquire`.
 
+use crate::error::{FgcError, Result};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-/// MarkBitmap - bitmap untuk tracking marked objects per region
+/// MarkBitmap - bitmap for tracking marked objects per region
 ///
-/// Bitmap yang menunjukkan object mana yang sudah di-mark.
+/// Bitmap that shows which objects are marked.
 pub struct MarkBitmap {
     /// Raw bitmap data
     /// 1 bit per 64 bytes (granularity)
     bits: Vec<AtomicU64>,
 
-    /// Ukuran region yang dicover
+    /// Size of covered region
     region_size: usize,
 
     /// Granularity (bytes per bit)
     granularity: usize,
 
-    /// Base address region
+    /// Base address of region
     base_address: usize,
 }
 
@@ -53,14 +64,53 @@ impl Clone for MarkBitmap {
 }
 
 impl MarkBitmap {
-    /// Create new bitmap untuk region dengan ukuran tertentu
+    /// Create new bitmap for region with specific size
     ///
     /// # Arguments
-    /// * `region_size` - Size region dalam bytes
+    /// * `region_size` - Size of region in bytes
     /// * `granularity` - Bytes per bit (default 64)
-    /// * `base_address` - Base address region
-    pub fn new(region_size: usize, granularity: usize, base_address: usize) -> Self {
-        // Calculate jumlah bits yang dibutuhkan
+    /// * `base_address` - Base address of region
+    ///
+    /// # Returns
+    /// * `Ok(Self)` - Successfully created bitmap
+    /// * `Err(FgcError::InvalidArgument)` - Invalid parameters
+    ///
+    /// # Validation
+    /// - `region_size` must be greater than 0
+    /// - `granularity` must be a power of two
+    /// - `granularity` must be between 1 and 1024 bytes
+    /// - `base_address` must be aligned to granularity
+    pub fn new(region_size: usize, granularity: usize, base_address: usize) -> Result<Self> {
+        // Validate region_size > 0
+        if region_size == 0 {
+            return Err(FgcError::InvalidArgument(
+                "region_size must be greater than 0".to_string()
+            ));
+        }
+
+        // Validate granularity is power of two
+        if !granularity.is_power_of_two() {
+            return Err(FgcError::InvalidArgument(
+                format!("granularity ({}) must be a power of two", granularity)
+            ));
+        }
+
+        // Validate granularity is reasonable
+        if granularity < 1 || granularity > 1024 {
+            return Err(FgcError::InvalidArgument(
+                format!("granularity ({}) must be between 1 and 1024 bytes", granularity)
+            ));
+        }
+
+        // Validate base_address is aligned to granularity
+        if base_address % granularity != 0 {
+            return Err(FgcError::InvalidArgument(
+                format!("base_address ({:#x}) must be aligned to granularity ({})",
+                       base_address, granularity)
+            ));
+        }
+
+        // Calculate number of bits needed
         let bit_count = (region_size + granularity - 1) / granularity;
         let word_count = (bit_count + 63) / 64; // 64 bits per word
 
@@ -68,53 +118,99 @@ impl MarkBitmap {
             .map(|_| AtomicU64::new(0))
             .collect();
 
-        Self {
+        Ok(Self {
             bits,
             region_size,
             granularity,
             base_address,
-        }
+        })
     }
 
-    /// Mark object di specific address
+    /// Mark object at specific address
     ///
-    /// Set bit untuk address tersebut.
+    /// Set bit for that address.
+    /// Silently ignores invalid addresses (safe behavior).
     ///
     /// # Arguments
     /// * `address` - Object address
+    ///
+    /// # Safety
+    ///
+    /// This function is safe to call with any address. Invalid addresses
+    /// (outside the region bounds) are silently ignored.
+    ///
+    /// # Memory Ordering
+    ///
+    /// Uses `Relaxed` ordering because:
+    /// - Bitmap is only accessed during GC safepoint
+    /// - All GC threads synchronize externally (e.g., via barrier)
+    /// - No data race as mutators are stopped
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use fgc::marker::bitmap::MarkBitmap;
+    ///
+    /// let bitmap = MarkBitmap::new(2 * 1024 * 1024, 64, 0x1000);
+    /// bitmap.mark(0x1000);
+    /// assert!(bitmap.is_marked(0x1000));
+    /// ```
     pub fn mark(&self, address: usize) {
-        let (word_index, bit_index) = self.calculate_indices(address);
-
-        if word_index < self.bits.len() {
+        // CRIT-06 FIX: Use checked indices calculation
+        if let Some((word_index, bit_index)) = self.calculate_indices(address) {
+            // Relaxed: safe due to GC safepoint protocol (see module docs)
             self.bits[word_index].fetch_or(1 << bit_index, Ordering::Relaxed);
         }
+        // Silently ignore invalid addresses (safe)
     }
 
-    /// Check jika object sudah marked
+    /// Check if object is already marked
     ///
     /// # Arguments
     /// * `address` - Object address
     ///
     /// # Returns
-    /// True jika marked
+    /// True if marked, false if invalid address or not marked
+    ///
+    /// # Safety
+    ///
+    /// This function is safe to call with any address. Invalid addresses
+    /// (outside the region bounds) return false.
+    ///
+    /// # Memory Ordering
+    ///
+    /// Uses `Relaxed` ordering because:
+    /// - Bitmap is only accessed during GC safepoint
+    /// - External synchronization ensures visibility
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use fgc::marker::bitmap::MarkBitmap;
+    ///
+    /// let bitmap = MarkBitmap::new(2 * 1024 * 1024, 64, 0x1000);
+    /// bitmap.mark(0x1000);
+    /// assert!(bitmap.is_marked(0x1000));
+    /// assert!(!bitmap.is_marked(0x2000)); // Not marked
+    /// ```
     pub fn is_marked(&self, address: usize) -> bool {
-        let (word_index, bit_index) = self.calculate_indices(address);
-
-        if word_index >= self.bits.len() {
-            return false;
+        // CRIT-06 FIX: Use checked indices calculation
+        if let Some((word_index, bit_index)) = self.calculate_indices(address) {
+            // Relaxed: safe due to GC safepoint protocol (see module docs)
+            (self.bits[word_index].load(Ordering::Relaxed) & (1 << bit_index)) != 0
+        } else {
+            false  // Invalid address treated as not marked
         }
-
-        (self.bits[word_index].load(Ordering::Relaxed) & (1 << bit_index)) != 0
     }
 
-    /// Clear semua bits
+    /// Clear all bits
     pub fn clear(&self) {
         for word in &self.bits {
             word.store(0, Ordering::Relaxed);
         }
     }
 
-    /// Count jumlah marked objects
+    /// Count number of marked objects
     pub fn count_marked(&self) -> usize {
         self.bits
             .iter()
@@ -137,14 +233,41 @@ impl MarkBitmap {
         self.count_marked() as f32 / total_bits as f32
     }
 
-    /// Calculate word dan bit indices untuk address
-    fn calculate_indices(&self, address: usize) -> (usize, usize) {
-        let offset = address - self.base_address;
+    /// Calculate word and bit indices for address
+    ///
+    /// Returns None if address is out of bounds.
+    ///
+    /// # Arguments
+    /// * `address` - Object address
+    ///
+    /// # Returns
+    /// Some((word_index, bit_offset)) if valid, None if out of bounds
+    fn calculate_indices(&self, address: usize) -> Option<(usize, usize)> {
+        // CRIT-06 FIX: Validate address is within region
+        // Check if address is before base (would cause underflow)
+        if address < self.base_address {
+            return None;
+        }
+
+        // Use checked_sub to prevent underflow
+        let offset = address.checked_sub(self.base_address)?;
+
+        // Check if offset is within region
+        if offset >= self.region_size {
+            return None;
+        }
+
+        // Calculate bit index with overflow check
         let bit_index = offset / self.granularity;
         let word_index = bit_index / 64;
-        let bit_offset = bit_index % 64;
 
-        (word_index, bit_offset)
+        // Bounds check on bitmap array
+        if word_index >= self.bits.len() {
+            return None;
+        }
+
+        let bit_offset = bit_index % 64;
+        Some((word_index, bit_offset))
     }
 
     /// Get bitmap size in bytes
@@ -163,16 +286,16 @@ impl MarkBitmap {
     }
 }
 
-/// MarkBitmap dengan word-at-a-time operations
+/// MarkBitmap with word-at-a-time operations
 ///
-/// Optimized untuk scanning bitmap dengan 64 bits per iteration.
+/// Optimized for scanning bitmap with 64 bits per iteration.
 pub struct MarkBitmapScanner<'a> {
     bitmap: &'a MarkBitmap,
     current_word: usize,
 }
 
 impl<'a> MarkBitmapScanner<'a> {
-    /// Create scanner untuk bitmap
+    /// Create scanner for bitmap
     pub fn new(bitmap: &'a MarkBitmap) -> Self {
         Self {
             bitmap,
@@ -182,18 +305,18 @@ impl<'a> MarkBitmapScanner<'a> {
 
     /// Scan next marked object
     ///
-    /// Returns address object berikutnya yang marked.
+    /// Returns address of next marked object.
     pub fn next_marked(&mut self) -> Option<usize> {
         while self.current_word < self.bitmap.bits.len() {
             let word = self.bitmap.bits[self.current_word].load(Ordering::Relaxed);
 
             if word != 0 {
-                // Ada marked bits di word ini
+                // Has marked bits in this word
                 let bit_index = word.trailing_zeros() as usize;
                 let bit_position = self.current_word * 64 + bit_index;
                 let address = self.bitmap.base_address + (bit_position * self.bitmap.granularity);
 
-                // Clear bit untuk next iteration
+                // Clear bit for next iteration
                 self.bitmap.bits[self.current_word]
                     .fetch_and(!(1 << bit_index), Ordering::Relaxed);
 
@@ -206,12 +329,12 @@ impl<'a> MarkBitmapScanner<'a> {
         None
     }
 
-    /// Reset scanner ke awal
+    /// Reset scanner to beginning
     pub fn reset(&mut self) {
         self.current_word = 0;
     }
 
-    /// Check jika ada lebih banyak marked objects
+    /// Check if more marked objects exist
     pub fn has_more(&self) -> bool {
         for i in self.current_word..self.bitmap.bits.len() {
             if self.bitmap.bits[i].load(Ordering::Relaxed) != 0 {
@@ -228,7 +351,7 @@ mod tests {
 
     #[test]
     fn test_mark_and_check() {
-        let bitmap = MarkBitmap::new(2 * 1024 * 1024, 64, 0x1000);
+        let bitmap = MarkBitmap::new(2 * 1024 * 1024, 64, 0x1000).unwrap();
 
         // Mark objects at addresses that map to distinct bit indices
         // With granularity=64: bit_index = (address - base) / 64
@@ -248,7 +371,7 @@ mod tests {
 
     #[test]
     fn test_clear() {
-        let bitmap = MarkBitmap::new(2 * 1024 * 1024, 64, 0x1000);
+        let bitmap = MarkBitmap::new(2 * 1024 * 1024, 64, 0x1000).unwrap();
 
         bitmap.mark(0x1000);
         bitmap.mark(0x1040);
@@ -261,7 +384,7 @@ mod tests {
 
     #[test]
     fn test_count_marked() {
-        let bitmap = MarkBitmap::new(2 * 1024 * 1024, 64, 0x1000);
+        let bitmap = MarkBitmap::new(2 * 1024 * 1024, 64, 0x1000).unwrap();
 
         bitmap.mark(0x1000);
         bitmap.mark(0x1040);

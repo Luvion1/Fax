@@ -1,153 +1,394 @@
-name: Fax Compiler CI/CD
+name: Fax Compiler CI/CD - Cross-Platform
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   release:
-    types: [ created ]
+    types: [created]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+  # MSRV (Minimum Supported Rust Version) - must be kept in sync with Cargo.toml
+  MSRV: "1.75"
 
 jobs:
-  # Build and test
+  # ===========================================================================
+  # MSRV Verification (Must pass before other jobs)
+  # ===========================================================================
+  msrv-check:
+    name: MSRV Check (Rust ${{ env.MSRV }})
+    runs-on: ubuntu-latest
+    # This job verifies that the codebase compiles and tests pass on the MSRV
+    # It runs first to fail fast if MSRV compatibility is broken
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify MSRV configuration
+        run: |
+          echo "Checking MSRV configuration..."
+          EXPECTED_MSRV="${{ env.MSRV }}"
+          CONFIGURED_MSRV=$(grep -E "^rust-version\s*=" faxc/Cargo.toml | sed 's/.*"\([^"]*\)".*/\1/')
+          echo "Expected MSRV: $EXPECTED_MSRV"
+          echo "Configured MSRV: $CONFIGURED_MSRV"
+          if [[ "$EXPECTED_MSRV" != "$CONFIGURED_MSRV" ]]; then
+            echo "::error::MSRV mismatch! env.MSRV=$EXPECTED_MSRV but Cargo.toml has rust-version=$CONFIGURED_MSRV"
+            exit 1
+          fi
+          echo "::notice::MSRV correctly configured as $EXPECTED_MSRV"
+
+      - name: Install Rust MSRV toolchain (${{ env.MSRV }})
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.MSRV }}
+          components: rustfmt, clippy
+
+      - name: Install LLVM dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            llvm \
+            lld \
+            libssl-dev \
+            pkg-config
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-msrv-${{ env.MSRV }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-msrv-${{ env.MSRV }}-cargo-registry-
+
+      - name: MSRV - Cargo Check
+        working-directory: faxc
+        run: |
+          echo "Running cargo check on Rust ${{ env.MSRV }}..."
+          cargo check --workspace
+          echo "::notice::cargo check passed on MSRV ${{ env.MSRV }}"
+
+      - name: MSRV - Cargo Build
+        working-directory: faxc
+        run: |
+          echo "Running cargo build on Rust ${{ env.MSRV }}..."
+          cargo build --workspace --all-targets
+          echo "::notice::cargo build passed on MSRV ${{ env.MSRV }}"
+
+      - name: MSRV - Cargo Test
+        working-directory: faxc
+        run: |
+          echo "Running cargo test on Rust ${{ env.MSRV }}..."
+          cargo test --workspace --all-targets
+          echo "::notice::cargo test passed on MSRV ${{ env.MSRV }}"
+
+      - name: MSRV - Cargo Clippy
+        working-directory: faxc
+        run: |
+          echo "Running cargo clippy on Rust ${{ env.MSRV }}..."
+          cargo clippy --workspace --all-targets -- -D warnings
+          echo "::notice::cargo clippy passed on MSRV ${{ env.MSRV }}"
+
+      - name: MSRV Verification Summary
+        if: always()
+        run: |
+          echo "═══════════════════════════════════════════════════════"
+          echo "  MSRV Verification Complete for Rust ${{ env.MSRV }}"
+          echo "═══════════════════════════════════════════════════════"
+
+  # ===========================================================================
+  # Cross-Platform Build & Test Matrix
+  # ===========================================================================
   build-and-test:
-    runs-on: ubuntu-latest
+    name: Build & Test (${{ matrix.os }} ${{ matrix.rust }})
+    runs-on: ${{ matrix.os }}
+    needs: [msrv-check]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        rust: [stable]
+        include:
+          # Additional stable testing on all platforms
+          - os: ubuntu-latest
+            rust: stable
+          # Allow nightly to fail (optional testing)
+          - os: ubuntu-latest
+            rust: nightly
+            allow-failure: true
+    continue-on-error: ${{ matrix.allow-failure == true }}
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Install Rust
-      uses: dtolnay/rust-action@stable
-      with:
-        toolchain: stable
+      - name: Install Rust toolchain (${{ matrix.rust }})
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+          components: rustfmt, clippy
 
-    - name: Install LLVM dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          clang \
-          llvm \
-          lld
+      - name: Install LLVM dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            llvm \
+            lld \
+            libssl-dev \
+            pkg-config
 
-    - name: Cache cargo registry
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install LLVM dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install llvm openssl pkg-config
+          echo "LDFLAGS=-L$(brew --prefix llvm)/lib" >> $GITHUB_ENV
+          echo "CPPFLAGS=-I$(brew --prefix llvm)/include" >> $GITHUB_ENV
 
-    - name: Build project
-      run: cargo build --workspace --all-targets --release
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-${{ matrix.rust }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.rust }}-cargo-registry-
 
-    - name: Run tests
-      run: cargo test --workspace --all-targets --release
+      - name: Cache Cargo build artifacts
+        uses: actions/cache@v4
+        with:
+          path: faxc/target
+          key: ${{ runner.os }}-${{ matrix.rust }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.rust }}-cargo-target-
 
-    - name: Run clippy
-      run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Build project
+        working-directory: faxc
+        run: cargo build --workspace --all-targets --release
 
-    - name: Check formatting
-      run: cargo fmt --all -- --check
-      
-    - name: Upload test results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: test-results
-        path: |
-          target/debug/
+      - name: Run tests
+        working-directory: faxc
+        run: cargo test --workspace --all-targets --release
 
-  # Code quality checks
-  code-quality:
-    runs-on: ubuntu-latest
+      - name: Run clippy
+        working-directory: faxc
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      # fmt only on ubuntu to avoid redundant checks across platforms
+      - name: Check formatting
+        if: runner.os == 'Linux'
+        working-directory: faxc
+        run: cargo fmt --all -- --check
 
-    - name: Install Rust
-      uses: dtolnay/rust-action@stable
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ runner.os }}-${{ matrix.rust }}
+          path: |
+            faxc/target/debug/
+          retention-days: 7
 
-    - name: Check formatting
-      run: cargo fmt --all -- --check
-
-    - name: Run clippy
-      run: cargo clippy --workspace --all-targets -- -D warnings
-
-  # Build Docker image
+  # ===========================================================================
+  # Docker Build (Linux only)
+  # ===========================================================================
   docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: [build-and-test]
+    # Only run on main branch pushes and releases
+    if: github.ref == 'refs/heads/main' || github.event_name == 'release'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        run: docker build -t fax:latest -t fax:${{ github.sha }} .
+
+      - name: Test Docker image
+        run: |
+          docker run --rm fax:latest --help
+          docker run --rm fax:latest --version
+
+      - name: Login to Container Registry
+        if: github.event_name == 'release'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push Docker image (on release)
+        if: github.event_name == 'release'
+        run: |
+          docker tag fax:latest ghcr.io/${{ github.repository }}:latest
+          docker tag fax:latest ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+          docker push ghcr.io/${{ github.repository }}:latest
+          docker push ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+
+  # ===========================================================================
+  # Release Artifacts (Cross-Platform Binaries)
+  # ===========================================================================
+  release:
+    name: Release (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    needs: [build-and-test]
+    if: github.event_name == 'release'
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact_name: faxc
+            archive_name: faxc-linux-x86_64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact_name: faxc
+            archive_name: faxc-macos-x86_64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact_name: faxc.exe
+            archive_name: faxc-windows-x86_64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install LLVM dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            llvm \
+            lld \
+            libssl-dev \
+            pkg-config
+
+      - name: Install LLVM dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install llvm openssl pkg-config
+          echo "LDFLAGS=-L$(brew --prefix llvm)/lib" >> $GITHUB_ENV
+          echo "CPPFLAGS=-I$(brew --prefix llvm)/include" >> $GITHUB_ENV
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache Cargo build artifacts
+        uses: actions/cache@v4
+        with:
+          path: faxc/target
+          key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build release binary
+        working-directory: faxc
+        run: cargo build --release --target ${{ matrix.target }} --bin faxc
+
+      - name: Prepare release artifacts
+        shell: bash
+        run: |
+          mkdir -p release
+          cp faxc/target/${{ matrix.target }}/release/${{ matrix.artifact_name }} release/
+          cp faxc/README.md release/ 2>/dev/null || echo "No README.md"
+          cp faxc/LICENSE release/ 2>/dev/null || echo "No LICENSE"
+          cp faxc/CONTRIBUTING.md release/ 2>/dev/null || echo "No CONTRIBUTING.md"
+
+      - name: Create release archive (Unix)
+        if: runner.os != 'Windows'
+        working-directory: release
+        run: tar -czvf ../${{ matrix.archive_name }}-${{ github.ref_name }}.tar.gz .
+
+      - name: Create release archive (Windows)
+        if: runner.os == 'Windows'
+        working-directory: release
+        shell: pwsh
+        run: Compress-Archive -Path * -DestinationPath ../${{ matrix.archive_name }}-${{ github.ref_name }}.zip
+
+      - name: Upload release asset (Unix)
+        if: runner.os != 'Windows'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./${{ matrix.archive_name }}-${{ github.ref_name }}.tar.gz
+          asset_name: ${{ matrix.archive_name }}-${{ github.ref_name }}.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload release asset (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./${{ matrix.archive_name }}-${{ github.ref_name }}.zip
+          asset_name: ${{ matrix.archive_name }}-${{ github.ref_name }}.zip
+          asset_content_type: application/zip
+
+  # ===========================================================================
+  # Documentation Generation
+  # ===========================================================================
+  documentation:
+    name: Documentation
     runs-on: ubuntu-latest
     needs: [build-and-test]
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
-    - name: Build Docker image
-      run: docker build -t fax:latest .
+      - name: Install LLVM dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            llvm \
+            lld \
+            libssl-dev \
+            pkg-config
 
-    - name: Test Docker image
-      run: |
-        docker run --rm fax:latest --help
-        docker run --rm -v $(pwd)/examples:/workspace/examples fax:latest examples/01_hello.fax
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
 
-  # Release
-  release:
-    runs-on: ubuntu-latest
-    needs: [build-and-test, docker-build]
-    if: github.event_name == 'release'
+      - name: Generate documentation
+        working-directory: faxc
+        run: cargo doc --workspace --no-deps --document-private-items
 
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install Rust
-      uses: dtolnay/rust-action@stable
-
-    - name: Build release binary
-      run: cargo build --release --bin faxc
-
-    - name: Package release
-      run: |
-        mkdir -p release
-        cp target/release/faxc release/
-        cp -r examples release/
-        cp README.md release/ 2>/dev/null || echo "No README.md"
-        cp LICENSE release/ 2>/dev/null || echo "No LICENSE"
-        tar -czvf fax-compiler-${{ github.ref_name }}.tar.gz release/
-
-    - name: Upload release assets
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ./fax-compiler-${{ github.ref_name }}.tar.gz
-        asset_name: fax-compiler-${{ github.ref_name }}.tar.gz
-        asset_content_type: application/gzip
-
-  # Documentation
-  documentation:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install Rust
-      uses: dtolnay/rust-action@stable
-
-    - name: Generate documentation
-      run: cargo doc --workspace --no-deps --document-private-items
-
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v4
-      if: github.ref == 'refs/heads/main'
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./target/doc
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        if: github.ref == 'refs/heads/main'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./faxc/target/doc

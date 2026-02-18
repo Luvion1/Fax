@@ -1,7 +1,7 @@
 //! Mark Queue - Concurrent Work Queue for Marking
 //!
-//! Mark queue adalah concurrent queue untuk menyimpan object yang perlu di-mark.
-//! Menggunakan work-stealing untuk load balancing antar GC threads.
+//! Mark queue is a concurrent queue for storing objects that need to be marked.
+//! Uses work-stealing for load balancing between GC threads.
 //!
 //! Architecture:
 //! ```
@@ -20,22 +20,22 @@
 //! ```
 //!
 //! Work Stealing:
-//! Setiap GC thread punya local queue. Jika local queue kosong,
-//! thread akan "steal" work dari queue GC thread lain.
+//! Each GC thread has a local queue. If local queue is empty,
+//! thread will "steal" work from another GC thread's queue.
 
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
-/// MarkQueue - concurrent queue untuk marking work
+/// MarkQueue - concurrent queue for marking work
 ///
-/// Implementasi thread-safe queue dengan multiple producers
-/// dan multiple consumers (GC threads).
+/// Thread-safe queue implementation with multiple producers
+/// and multiple consumers (GC threads).
 pub struct MarkQueue {
     /// Underlying concurrent queue
     queue: Arc<Mutex<VecDeque<usize>>>,
 
-    /// Counter untuk statistik
+    /// Counter for statistics
     enqueued_count: AtomicUsize,
     processed_count: AtomicUsize,
 
@@ -54,12 +54,12 @@ impl MarkQueue {
         }
     }
 
-    /// Push object ke queue
+    /// Push object to queue
     ///
-    /// Thread-safe, bisa dipanggil dari multiple threads.
+    /// Thread-safe, can be called from multiple threads.
     ///
     /// # Arguments
-    /// * `object` - Object address untuk di-mark
+    /// * `object` - Object address to be marked
     pub fn push(&self, object: usize) {
         if self.closed.load(Ordering::Relaxed) {
             return;
@@ -70,9 +70,9 @@ impl MarkQueue {
         self.enqueued_count.fetch_add(1, Ordering::Relaxed);
     }
 
-    /// Pop object dari queue
+    /// Pop object from queue
     ///
-    /// Returns None jika queue empty.
+    /// Returns None if queue is empty.
     pub fn pop(&self) -> Option<usize> {
         let mut queue = self.queue.lock().unwrap();
         let object = queue.pop_front();
@@ -84,9 +84,9 @@ impl MarkQueue {
         object
     }
 
-    /// Steal work dari queue (untuk work stealing)
+    /// Steal work from queue (for work stealing)
     ///
-    /// Steal dari belakang queue (LIFO untuk stealers).
+    /// Steal from back of queue (LIFO for stealers).
     pub fn steal(&self) -> Option<usize> {
         let mut queue = self.queue.lock().unwrap();
         let object = queue.pop_back();
@@ -98,7 +98,7 @@ impl MarkQueue {
         object
     }
 
-    /// Check jika queue is empty
+    /// Check if queue is empty
     pub fn is_empty(&self) -> bool {
         let queue = self.queue.lock().unwrap();
         queue.is_empty()
@@ -121,7 +121,7 @@ impl MarkQueue {
         self.closed.store(true, Ordering::SeqCst);
     }
 
-    /// Check jika queue closed
+    /// Check if queue is closed
     pub fn is_closed(&self) -> bool {
         self.closed.load(Ordering::Relaxed)
     }
@@ -152,7 +152,7 @@ impl Default for MarkQueue {
     }
 }
 
-/// Statistics untuk mark queue
+/// Statistics for mark queue
 #[derive(Debug, Default)]
 pub struct MarkQueueStats {
     /// Total enqueued objects
@@ -163,9 +163,9 @@ pub struct MarkQueueStats {
     pub pending: usize,
 }
 
-/// Local work queue untuk GC thread
+/// Local work queue for GC thread
 ///
-/// Lock-free queue untuk single producer, single consumer.
+/// Lock-free queue for single producer, single consumer.
 pub struct LocalWorkQueue {
     /// Queue data
     data: Vec<usize>,
@@ -176,7 +176,7 @@ pub struct LocalWorkQueue {
 }
 
 impl LocalWorkQueue {
-    /// Create new local queue dengan capacity tertentu
+    /// Create new local queue with specific capacity
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             data: Vec::with_capacity(capacity),
@@ -185,7 +185,7 @@ impl LocalWorkQueue {
         }
     }
 
-    /// Push work ke queue
+    /// Push work to queue
     pub fn push(&mut self, work: usize) {
         if self.tail >= self.data.len() {
             self.data.reserve(self.data.len().max(64));
@@ -194,7 +194,7 @@ impl LocalWorkQueue {
         self.tail += 1;
     }
 
-    /// Pop work dari queue
+    /// Pop work from queue
     pub fn pop(&mut self) -> Option<usize> {
         if self.head < self.tail {
             let work = self.data[self.head];
@@ -205,7 +205,7 @@ impl LocalWorkQueue {
         }
     }
 
-    /// Steal work dari queue (dari belakang)
+    /// Steal work from queue (from back)
     pub fn steal(&mut self) -> Option<usize> {
         if self.head < self.tail {
             self.tail -= 1;
@@ -215,7 +215,7 @@ impl LocalWorkQueue {
         }
     }
 
-    /// Check jika queue empty
+    /// Check if queue is empty
     pub fn is_empty(&self) -> bool {
         self.head >= self.tail
     }

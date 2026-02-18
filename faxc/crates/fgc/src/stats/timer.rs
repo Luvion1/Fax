@@ -1,11 +1,11 @@
 //! GC Timer - Timing Utilities
 //!
-//! Utility untuk timing GC operations.
-//! Menggunakan high-precision timer (nanoseconds).
+//! Utility for timing GC operations.
+//! Using high-precision timer (nanoseconds).
 
 use std::time::Duration;
 
-/// GcTimer - timer untuk measuring GC operations
+/// GcTimer - timer for measuring GC operations
 pub struct GcTimer {
     start: std::time::Instant,
 }
@@ -45,7 +45,7 @@ impl Default for GcTimer {
     }
 }
 
-/// Scoped timer untuk automatic timing
+/// Scoped timer for automatic timing
 pub struct ScopedTimer<'a> {
     name: &'a str,
     start: std::time::Instant,

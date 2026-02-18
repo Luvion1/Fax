@@ -1,33 +1,33 @@
 //! Root Scanning - GC Root Identification and Management
 //!
-//! Roots adalah starting points untuk marking. Semua object reachable
-//! dari roots harus di-mark sebagai live.
+//! Roots are starting points for marking. All objects reachable
+//! from roots must be marked as live.
 //!
 //! # Root Types
 //!
-//! 1. **Stack Roots** - Local variables di thread stacks
-//! 2. **Global Roots** - Static/global variables  
-//! 3. **Class Roots** - Class loaders dan loaded classes
+//! 1. **Stack Roots** - Local variables in thread stacks
+//! 2. **Global Roots** - Static/global variables
+//! 3. **Class Roots** - Class loaders and loaded classes
 //! 4. **VM Internal Roots** - Monitors, thread local storage, etc.
 //!
 //! # Root Scanning Challenge
 //!
-//! Saat concurrent marking, thread mutator sedang running dan stack
-//! berubah terus. FGC menggunakan concurrent stack scanning dengan
-//! watermark untuk handle ini.
+//! During concurrent marking, mutator threads are running and the stack
+//! keeps changing. FGC uses concurrent stack scanning with
+//! watermarks to handle this.
 //!
 //! # Thread Safety
 //!
-//! RootScanner adalah thread-safe. Multiple threads dapat:
-//! - Register/unregister roots secara concurrent
-//! - Scan roots secara concurrent
-//! - Query statistics secara concurrent
+//! RootScanner is thread-safe. Multiple threads can:
+//! - Register/unregister roots concurrently
+//! - Scan roots concurrently
+//! - Query statistics concurrently
 
-use crate::error::Result;
+use crate::error::{FgcError, Result};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::RwLock;
 
-/// Root types untuk kategorisasi
+/// Root types for categorization
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RootType {
     /// Stack roots (local variables, parameters)
@@ -57,25 +57,25 @@ impl std::fmt::Display for RootType {
     }
 }
 
-/// Root descriptor - mendeskripsikan satu root reference
+/// Root descriptor - describes a single root reference
 ///
-/// Struct ini menyimpan informasi lengkap tentang satu root:
-/// - Address dimana reference disimpan
-/// - Type root untuk kategorisasi
-/// - Optional name untuk debugging
-/// - Status active untuk tracking lifecycle
-/// - Root ID untuk identification
+/// This struct stores complete information about a single root:
+/// - Address where the reference is stored
+/// - Root type for categorization
+/// - Optional name for debugging
+/// - Active status for lifecycle tracking
+/// - Root ID for identification
 #[derive(Debug)]
 pub struct RootDescriptor {
-    /// Address dimana reference disimpan (pointer ke pointer)
+    /// Address where reference is stored (pointer to pointer)
     pub address: usize,
-    /// Type root
+    /// Root type
     pub root_type: RootType,
-    /// Optional name untuk debugging
+    /// Optional name for debugging
     pub name: Option<String>,
-    /// Root ID untuk identification
+    /// Root ID for identification
     pub root_id: usize,
-    /// Apakah root ini active
+    /// Whether this root is active
     pub active: AtomicBool,
 }
 
@@ -83,9 +83,9 @@ impl RootDescriptor {
     /// Create new root descriptor
     ///
     /// # Arguments
-    /// * `address` - Address dimana reference disimpan
-    /// * `root_type` - Type root
-    /// * `name` - Optional name untuk debugging
+    /// * `address` - Address where reference is stored
+    /// * `root_type` - Root type
+    /// * `name` - Optional name for debugging
     /// * `root_id` - Unique root ID
     pub fn new(address: usize, root_type: RootType, name: Option<&str>, root_id: usize) -> Self {
         Self {
@@ -97,39 +97,119 @@ impl RootDescriptor {
         }
     }
 
-    /// Read reference value dari address
+    /// Read reference value from address
     ///
     /// # Safety
-    /// Address harus valid dan aligned untuk membaca usize
-    pub fn read_reference(&self) -> usize {
+    /// Address must be valid and aligned for reading usize.
+    /// This function validates the address before reading to prevent
+    /// undefined behavior from invalid memory access.
+    ///
+    /// # CRIT-01 FIX: Root Validation
+    /// This method now validates that the root address points to GC-managed
+    /// heap memory, preventing attackers from reading arbitrary memory.
+    pub fn read_reference(&self) -> Result<usize> {
+        // Check for null address
+        if self.address == 0 {
+            return Ok(0);  // Treat as null
+        }
+
+        // Check alignment - usize must be properly aligned
+        if self.address % std::mem::align_of::<usize>() != 0 {
+            log::warn!("Unaligned root address: {:#x}", self.address);
+            return Ok(0);
+        }
+
+        // CRIT-01 FIX: Require roots to point to GC-managed heap
+        // This prevents attackers from registering arbitrary memory addresses
+        // as roots to exfiltrate sensitive data
+        if !crate::heap::is_gc_managed_address(self.address) {
+            log::warn!("Root address {:#x} not in GC-managed heap", self.address);
+            return Err(FgcError::InvalidArgument(
+                "Root must point to GC-managed heap".to_string()
+            ));
+        }
+
+        // Optional: Check if address is in valid memory range
+        if !crate::memory::is_readable(self.address).unwrap_or(false) {
+            log::warn!("Invalid root address: {:#x}", self.address);
+            return Ok(0);
+        }
+
         unsafe {
             let ptr = self.address as *const usize;
-            ptr.read_volatile()
+            Ok(ptr.read_volatile())
         }
     }
 
-    /// Update reference value (untuk relocation)
+    /// Update reference value (for relocation)
     ///
     /// # Safety
-    /// Address harus valid dan aligned untuk menulis usize
-    pub fn update_reference(&self, new_value: usize) {
+    /// Address must be valid and aligned for writing usize.
+    /// This function validates the address before writing to prevent
+    /// undefined behavior from invalid memory access.
+    ///
+    /// # CRIT-01 FIX: Root Validation
+    /// This method now validates that both the root address and new value
+    /// point to GC-managed heap memory, preventing attackers from writing
+    /// to arbitrary memory locations.
+    pub fn update_reference(&self, new_value: usize) -> Result<()> {
+        // Check for null address
+        if self.address == 0 {
+            log::warn!("Cannot update reference at null address");
+            return Ok(());
+        }
+
+        // Check alignment - usize must be properly aligned
+        if self.address % std::mem::align_of::<usize>() != 0 {
+            log::warn!("Unaligned root address for write: {:#x}", self.address);
+            return Err(FgcError::InvalidArgument(
+                "Unaligned root address".to_string()
+            ));
+        }
+
+        // CRIT-01 FIX: Validate root address points to GC-managed heap
+        if !crate::heap::is_gc_managed_address(self.address) {
+            log::warn!("Root address {:#x} not in GC-managed heap", self.address);
+            return Err(FgcError::InvalidArgument(
+                "Root must point to GC-managed heap".to_string()
+            ));
+        }
+
+        // CRIT-01 FIX: Validate new value also points to GC heap
+        // This prevents attackers from making roots point to arbitrary memory
+        if new_value != 0 && !crate::heap::is_gc_managed_address(new_value) {
+            log::warn!("New root value {:#x} not in GC-managed heap", new_value);
+            return Err(FgcError::InvalidArgument(
+                "Root must point to GC-managed heap".to_string()
+            ));
+        }
+
+        // Check if address is in valid memory range
+        if !crate::memory::is_writable(self.address).unwrap_or(false) {
+            log::warn!("Invalid writable root address: {:#x}", self.address);
+            return Err(FgcError::InvalidArgument(
+                "Root address not writable".to_string()
+            ));
+        }
+
         unsafe {
             let ptr = self.address as *mut usize;
             ptr.write_volatile(new_value);
         }
+        Ok(())
     }
 
-    /// Check apakah reference null
+    /// Check if reference is null
     pub fn is_null(&self) -> bool {
-        self.read_reference() == 0
+        self.read_reference().unwrap_or(0) == 0
     }
 
-    /// Check apakah root active
+    /// Check if root is active
     pub fn is_active(&self) -> bool {
         self.active.load(Ordering::Relaxed)
     }
 
-    /// Deactivate root (tanpa remove dari list)
+    /// Deactivate root (without removing from list)
     pub fn deactivate(&self) {
         self.active.store(false, Ordering::Relaxed);
     }
@@ -140,12 +220,12 @@ impl RootDescriptor {
     }
 }
 
-/// Handle untuk managing root lifecycle
+/// Handle for managing root lifecycle
 ///
-/// Handle ini diberikan saat register root dan otomatis
-/// unregister root saat handle di-drop.
+/// This handle is given when registering a root and automatically
+/// unregisters the root when the handle is dropped.
 ///
-/// Note: Handle menyimpan weak reference ke scanner untuk menghindari circular reference.
+/// Note: Handle stores weak reference to scanner to avoid circular reference.
 #[derive(Debug)]
 pub struct RootHandle {
     root_id: usize,
@@ -164,10 +244,10 @@ impl RootHandle {
         self.root_id
     }
 
-    /// Manually unregister root (drop juga melakukan ini)
+    /// Manually unregister root (drop also does this)
     ///
     /// # Arguments
-    /// * `scanner` - RootScanner untuk unregister dari
+    /// * `scanner` - RootScanner to unregister from
     pub fn unregister(self, scanner: &RootScanner) {
         scanner.unregister_root_by_id(self.root_id);
     }
@@ -219,17 +299,17 @@ impl std::fmt::Display for RootStats {
     }
 }
 
-/// RootScanner - scanner untuk berbagai tipe roots
+/// RootScanner - scanner for various root types
 ///
-/// RootScanner mengelola registration dan scanning dari semua
-/// GC roots. Roots adalah starting points untuk marking phase.
+/// RootScanner manages registration and scanning of all
+/// GC roots. Roots are starting points for marking phase.
 ///
 /// # Thread Safety
 ///
-/// RootScanner adalah fully thread-safe:
-/// - Registration menggunakan RwLock untuk concurrent reads
-/// - Scanning menggunakan snapshot untuk consistency
-/// - Statistics menggunakan atomic operations
+/// RootScanner is fully thread-safe:
+/// - Registration uses RwLock for concurrent reads
+/// - Scanning uses snapshot for consistency
+/// - Statistics use atomic operations
 ///
 /// # Examples
 ///
@@ -248,18 +328,18 @@ impl std::fmt::Display for RootStats {
 ///     live_refs.push(ref_value);
 /// });
 ///
-/// // Root otomatis unregister saat handle di-drop
+/// // Root is automatically unregistered when handle is dropped
 /// drop(handle);
 /// ```
 #[derive(Debug)]
 pub struct RootScanner {
-    /// Semua roots (combined view)
+    /// All roots (combined view)
     roots: RwLock<Vec<RootDescriptor>>,
 
-    /// Stack roots (indexed untuk fast access)
+    /// Stack roots (indexed for fast access)
     stack_roots: RwLock<Vec<usize>>,
 
-    /// Global roots (indexed untuk fast access)
+    /// Global roots (indexed for fast access)
     global_roots: RwLock<Vec<usize>>,
 
     /// Class roots
@@ -268,10 +348,10 @@ pub struct RootScanner {
     /// Internal roots
     internal_roots: RwLock<Vec<usize>>,
 
-    /// Counter untuk root IDs
+    /// Counter for root IDs
     next_root_id: AtomicUsize,
 
-    /// Total registrations (untuk statistics)
+    /// Total registrations (for statistics)
     total_registrations: AtomicUsize,
 
     /// Total unregistrations
@@ -296,11 +376,11 @@ impl RootScanner {
     /// Register global root
     ///
     /// # Arguments
-    /// * `address` - Address dimana reference disimpan
-    /// * `name` - Optional name untuk debugging
+    /// * `address` - Address where reference is stored
+    /// * `name` - Optional name for debugging
     ///
     /// # Returns
-    /// RootHandle yang akan otomatis unregister saat di-drop
+    /// RootHandle that will automatically unregister when dropped
     ///
     /// # Examples
     ///
@@ -328,55 +408,114 @@ impl RootScanner {
         self.register_root(address, RootType::Internal, name)
     }
 
-    /// Register root dengan type spesifik
+    /// Register root with specific type
     ///
     /// # Arguments
-    /// * `address` - Address dimana reference disimpan
-    /// * `root_type` - Type root
-    /// * `name` - Optional name untuk debugging
+    /// * `address` - Address where reference is stored
+    /// * `root_type` - Root type
+    /// * `name` - Optional name for debugging
     ///
     /// # Returns
-    /// RootHandle untuk managing lifecycle
+    /// RootHandle for managing lifecycle
     fn register_root(&self, address: usize, root_type: RootType, name: Option<&str>) -> RootHandle {
+        self.validate_root_address(address);
+
         let root_id = self.next_root_id.fetch_add(1, Ordering::Relaxed);
-        let descriptor = RootDescriptor::new(address, root_type, name, root_id);
 
-        // Add to main list
-        {
-            let mut roots = self.roots.write().unwrap();
-            roots.push(descriptor);
-        }
-
-        // Add to type-specific index
-        match root_type {
-            RootType::Stack => {
-                let mut stack = self.stack_roots.write().unwrap();
-                stack.push(address);
-            }
-            RootType::Global => {
-                let mut global = self.global_roots.write().unwrap();
-                global.push(address);
-            }
-            RootType::Class => {
-                let mut class = self.class_roots.write().unwrap();
-                class.push(address);
-            }
-            RootType::Internal => {
-                let mut internal = self.internal_roots.write().unwrap();
-                internal.push(address);
-            }
-            _ => {}
-        }
+        self.add_root_to_list(address, root_type, name, root_id);
 
         self.total_registrations.fetch_add(1, Ordering::Relaxed);
 
         RootHandle::new(root_id)
     }
 
+    /// Validate root address for registration
+    ///
+    /// # Arguments
+    /// * `address` - Address to validate
+    ///
+    /// # Panics
+    /// Logs warning for invalid addresses but does not prevent registration.
+    /// Address validation is performed at read/write time instead.
+    fn validate_root_address(&self, address: usize) {
+        if address == 0 {
+            log::warn!("Registering root with null address");
+        } else if address % std::mem::align_of::<usize>() != 0 {
+            log::warn!("Registering root with unaligned address: {:#x}", address);
+        }
+    }
+
+    /// Add root descriptor to appropriate lists
+    ///
+    /// # Arguments
+    /// * `address` - Address where reference is stored
+    /// * `root_type` - Root type
+    /// * `name` - Optional name for debugging
+    /// * `root_id` - Unique root ID
+    ///
+    /// # Panics
+    /// Panics if lock is poisoned (indicates serious concurrency bug)
+    fn add_root_to_list(&self, address: usize, root_type: RootType, name: Option<&str>, root_id: usize) {
+        // Create descriptor
+        let descriptor = RootDescriptor::new(address, root_type, name, root_id);
+
+        // Add to main list
+        let Ok(mut roots) = self.roots.write() else {
+            log::error!("RootScanner roots lock poisoned");
+            return;
+        };
+        roots.push(descriptor);
+
+        // Add to type-specific index
+        self.add_to_type_index(address, root_type);
+    }
+
+    /// Add address to type-specific index
+    ///
+    /// # Arguments
+    /// * `address` - Root address
+    /// * `root_type` - Root type for indexing
+    fn add_to_type_index(&self, address: usize, root_type: RootType) {
+        match root_type {
+            RootType::Stack => {
+                let Ok(mut stack) = self.stack_roots.write() else {
+                    log::error!("RootScanner stack_roots lock poisoned");
+                    return;
+                };
+                stack.push(address);
+            }
+            RootType::Global => {
+                let Ok(mut global) = self.global_roots.write() else {
+                    log::error!("RootScanner global_roots lock poisoned");
+                    return;
+                };
+                global.push(address);
+            }
+            RootType::Class => {
+                let Ok(mut class) = self.class_roots.write() else {
+                    log::error!("RootScanner class_roots lock poisoned");
+                    return;
+                };
+                class.push(address);
+            }
+            RootType::Internal => {
+                let Ok(mut internal) = self.internal_roots.write() else {
+                    log::error!("RootScanner internal_roots lock poisoned");
+                    return;
+                };
+                internal.push(address);
+            }
+            _ => {}
+        }
+    }
+
     /// Unregister root by ID (internal use)
     fn unregister_root_by_id(&self, root_id: usize) {
         // Find and deactivate root by root_id
-        let mut roots = self.roots.write().unwrap();
+        let Ok(mut roots) = self.roots.write() else {
+            log::error!("RootScanner roots lock poisoned");
+            return;
+        };
         for descriptor in roots.iter_mut() {
             if descriptor.root_id == root_id {
                 descriptor.deactivate();
@@ -392,13 +531,13 @@ impl RootScanner {
         handle.unregister(self);
     }
 
-    /// Scan semua roots dan yield references
+    /// Scan all roots and yield references
     ///
     /// # Arguments
-    /// * `callback` - Dipanggil untuk setiap reference value yang ditemukan
+    /// * `callback` - Called for each reference value found
     ///
     /// # Returns
-    /// Jumlah references yang ditemukan
+    /// Number of references found
     ///
     /// # Examples
     ///
@@ -415,14 +554,18 @@ impl RootScanner {
     {
         let mut count = 0;
 
-        // Scan semua active roots
-        let roots = self.roots.read().unwrap();
+        // Scan all active roots
+        let Ok(roots) = self.roots.read() else {
+            log::error!("RootScanner roots read lock poisoned");
+            return 0;
+        };
         for descriptor in roots.iter() {
             if descriptor.is_active() {
-                let ref_value = descriptor.read_reference();
-                if ref_value != 0 {
-                    callback(ref_value);
-                    count += 1;
+                if let Ok(ref_value) = descriptor.read_reference() {
+                    if ref_value != 0 {
+                        callback(ref_value);
+                        count += 1;
+                    }
                 }
             }
         }
@@ -430,27 +573,31 @@ impl RootScanner {
         count
     }
 
-    /// Scan roots dengan filter type
+    /// Scan roots with type filter
     ///
     /// # Arguments
-    /// * `root_type` - Hanya scan roots dengan type ini
-    /// * `callback` - Dipanggil untuk setiap reference value
+    /// * `root_type` - Only scan roots with this type
+    /// * `callback` - Called for each reference value
     ///
     /// # Returns
-    /// Jumlah references yang ditemukan
+    /// Number of references found
     pub fn scan_roots_by_type<F>(&self, root_type: RootType, mut callback: F) -> usize
     where
         F: FnMut(usize),
     {
         let mut count = 0;
 
-        let roots = self.roots.read().unwrap();
+        let Ok(roots) = self.roots.read() else {
+            log::error!("RootScanner roots read lock poisoned");
+            return 0;
+        };
         for descriptor in roots.iter() {
             if descriptor.is_active() && descriptor.root_type == root_type {
-                let ref_value = descriptor.read_reference();
-                if ref_value != 0 {
-                    callback(ref_value);
-                    count += 1;
+                if let Ok(ref_value) = descriptor.read_reference() {
+                    if ref_value != 0 {
+                        callback(ref_value);
+                        count += 1;
+                    }
                 }
             }
         }
@@ -458,9 +605,12 @@ impl RootScanner {
         count
     }
 
-    /// Get semua root addresses (termasuk yang inactive)
+    /// Get all root addresses (including inactive)
     pub fn all_root_addresses(&self) -> Vec<usize> {
-        let roots = self.roots.read().unwrap();
+        let Ok(roots) = self.roots.read() else {
+            log::error!("RootScanner roots read lock poisoned");
+            return Vec::new();
+        };
         roots.iter().map(|r| r.address).collect()
     }
 
@@ -475,11 +625,42 @@ impl RootScanner {
 
     /// Get statistics
     pub fn get_stats(&self) -> RootStats {
-        let roots = self.roots.read().unwrap();
-        let stack = self.stack_roots.read().unwrap();
-        let global = self.global_roots.read().unwrap();
-        let class = self.class_roots.read().unwrap();
-        let internal = self.internal_roots.read().unwrap();
+        // Read locks with proper error handling
+        let roots = match self.roots.read() {
+            Ok(guard) => guard,
+            Err(e) => {
+                log::error!("RootScanner roots read lock poisoned: {}", e);
+                return RootStats::default();
+            }
+        };
+        let stack = match self.stack_roots.read() {
+            Ok(guard) => guard,
+            Err(e) => {
+                log::error!("RootScanner stack_roots read lock poisoned: {}", e);
+                return RootStats::default();
+            }
+        };
+        let global = match self.global_roots.read() {
+            Ok(guard) => guard,
+            Err(e) => {
+                log::error!("RootScanner global_roots read lock poisoned: {}", e);
+                return RootStats::default();
+            }
+        };
+        let class = match self.class_roots.read() {
+            Ok(guard) => guard,
+            Err(e) => {
+                log::error!("RootScanner class_roots read lock poisoned: {}", e);
+                return RootStats::default();
+            }
+        };
+        let internal = match self.internal_roots.read() {
+            Ok(guard) => guard,
+            Err(e) => {
+                log::error!("RootScanner internal_roots read lock poisoned: {}", e);
+                return RootStats::default();
+            }
+        };
 
         let mut null_count = 0;
         let mut live_count = 0;
@@ -508,48 +689,110 @@ impl RootScanner {
         }
     }
 
-    /// Clear semua roots (untuk testing/shutdown)
+    /// Clear all roots (for testing/shutdown)
     pub fn clear_all_roots(&self) {
-        let mut roots = self.roots.write().unwrap();
-        roots.clear();
+        // Write locks with proper error handling
+        {
+            let mut roots = match self.roots.write() {
+                Ok(guard) => guard,
+                Err(e) => {
+                    log::error!("RootScanner roots write lock poisoned: {}", e);
+                    return;
+                }
+            };
+            roots.clear();
+        }
 
-        let mut stack = self.stack_roots.write().unwrap();
-        stack.clear();
+        {
+            let mut stack = match self.stack_roots.write() {
+                Ok(guard) => guard,
+                Err(e) => {
+                    log::error!("RootScanner stack_roots write lock poisoned: {}", e);
+                    return;
+                }
+            };
+            stack.clear();
+        }
 
-        let mut global = self.global_roots.write().unwrap();
-        global.clear();
+        {
+            let mut global = match self.global_roots.write() {
+                Ok(guard) => guard,
+                Err(e) => {
+                    log::error!("RootScanner global_roots write lock poisoned: {}", e);
+                    return;
+                }
+            };
+            global.clear();
+        }
 
-        let mut class = self.class_roots.write().unwrap();
-        class.clear();
+        {
+            let mut class = match self.class_roots.write() {
+                Ok(guard) => guard,
+                Err(e) => {
+                    log::error!("RootScanner class_roots write lock poisoned: {}", e);
+                    return;
+                }
+            };
+            class.clear();
+        }
 
-        let mut internal = self.internal_roots.write().unwrap();
-        internal.clear();
+        {
+            let mut internal = match self.internal_roots.write() {
+                Ok(guard) => guard,
+                Err(e) => {
+                    log::error!("RootScanner internal_roots write lock poisoned: {}", e);
+                    return;
+                }
+            };
+            internal.clear();
+        }
     }
 
     /// Get root count
     pub fn root_count(&self) -> usize {
-        let roots = self.roots.read().unwrap();
+        let roots = match self.roots.read() {
+            Ok(guard) => guard,
+            Err(e) => {
+                log::error!("RootScanner roots read lock poisoned: {}", e);
+                return 0;
+            }
+        };
         roots.len()
     }
 
     /// Get active root count
     pub fn active_root_count(&self) -> usize {
-        let roots = self.roots.read().unwrap();
+        let roots = match self.roots.read() {
+            Ok(guard) => guard,
+            Err(e) => {
+                log::error!("RootScanner roots read lock poisoned: {}", e);
+                return 0;
+            }
+        };
         roots.iter().filter(|r| r.is_active()).count()
     }
 
-    /// Update reference setelah relocation
+    /// Update reference after relocation
     ///
     /// # Arguments
     /// * `old_address` - Old object address
-    /// * `new_address` - New object address setelah relocation
+    /// * `new_address` - New object address after relocation
     pub fn update_reference(&self, old_address: usize, new_address: usize) {
-        let roots = self.roots.read().unwrap();
+        let roots = match self.roots.read() {
+            Ok(guard) => guard,
+            Err(e) => {
+                log::error!("RootScanner roots read lock poisoned: {}", e);
+                return;
+            }
+        };
         for descriptor in roots.iter() {
             if descriptor.is_active() {
-                let current = descriptor.read_reference();
-                if current == old_address {
-                    descriptor.update_reference(new_address);
+                if let Ok(current) = descriptor.read_reference() {
+                    if current == old_address {
+                        if let Err(e) = descriptor.update_reference(new_address) {
+                            log::warn!("Failed to update root reference: {}", e);
+                        }
+                    }
                 }
             }
         }
@@ -564,8 +807,14 @@ impl Default for RootScanner {
 
 impl Clone for RootScanner {
     fn clone(&self) -> Self {
-        // Clone roots dengan AtomicBool yang baru
-        let orig_roots = self.roots.read().unwrap();
+        // Clone roots with new AtomicBool
+        let orig_roots = match self.roots.read() {
+            Ok(guard) => guard,
+            Err(e) => {
+                log::error!("RootScanner roots read lock poisoned: {}", e);
+                return Self::new();
+            }
+        };
         let cloned_roots: Vec<RootDescriptor> = orig_roots.iter().map(|r| {
             RootDescriptor {
                 address: r.address,
@@ -576,12 +825,41 @@ impl Clone for RootScanner {
             }
         }).collect();
 
+        let stack_roots = match self.stack_roots.read() {
+            Ok(guard) => guard.clone(),
+            Err(e) => {
+                log::error!("RootScanner stack_roots read lock poisoned: {}", e);
+                Vec::new()
+            }
+        };
+        let global_roots = match self.global_roots.read() {
+            Ok(guard) => guard.clone(),
+            Err(e) => {
+                log::error!("RootScanner global_roots read lock poisoned: {}", e);
+                Vec::new()
+            }
+        };
+        let class_roots = match self.class_roots.read() {
+            Ok(guard) => guard.clone(),
+            Err(e) => {
+                log::error!("RootScanner class_roots read lock poisoned: {}", e);
+                Vec::new()
+            }
+        };
+        let internal_roots = match self.internal_roots.read() {
+            Ok(guard) => guard.clone(),
+            Err(e) => {
+                log::error!("RootScanner internal_roots read lock poisoned: {}", e);
+                Vec::new()
+            }
+        };
+
         Self {
             roots: RwLock::new(cloned_roots),
-            stack_roots: RwLock::new(self.stack_roots.read().unwrap().clone()),
-            global_roots: RwLock::new(self.global_roots.read().unwrap().clone()),
-            class_roots: RwLock::new(self.class_roots.read().unwrap().clone()),
-            internal_roots: RwLock::new(self.internal_roots.read().unwrap().clone()),
+            stack_roots: RwLock::new(stack_roots),
+            global_roots: RwLock::new(global_roots),
+            class_roots: RwLock::new(class_roots),
+            internal_roots: RwLock::new(internal_roots),
             next_root_id: AtomicUsize::new(self.next_root_id.load(Ordering::Relaxed)),  // Keep same counter
             total_registrations: AtomicUsize::new(self.total_registrations.load(Ordering::Relaxed)),
             total_unregistrations: AtomicUsize::new(self.total_unregistrations.load(Ordering::Relaxed)),
@@ -589,14 +867,14 @@ impl Clone for RootScanner {
     }
 }
 
-/// StackWalker - walker untuk thread stacks
+/// StackWalker - walker for thread stacks
 ///
-/// Walk thread stacks untuk identify pointers.
+/// Walk thread stacks to identify pointers.
 ///
 /// # Note
 ///
-/// Implementasi penuh memerlukan platform-specific stack unwinding.
-/// Ini adalah stub untuk future implementation.
+/// Full implementation requires platform-specific stack unwinding.
+/// This is a stub for future implementation.
 pub struct StackWalker {
     /// Thread ID
     thread_id: u64,
@@ -609,7 +887,7 @@ pub struct StackWalker {
 }
 
 impl StackWalker {
-    /// Create stack walker untuk thread
+    /// Create stack walker for thread
     ///
     /// # Arguments
     /// * `thread_id` - Thread ID
@@ -627,18 +905,18 @@ impl StackWalker {
     /// Walk stack frames
     ///
     /// # Arguments
-    /// * `callback` - Dipanggil untuk setiap frame
+    /// * `callback` - Called for every frame
     ///
     /// # Returns
-    /// Result dengan OK jika berhasil walk semua frames
+    /// Result with OK if successfully walked all frames
     pub fn walk_frames<F>(&self, mut callback: F) -> Result<()>
     where
         F: FnMut(StackFrame),
     {
-        // Note: Dalam implementasi nyata, ini walk stack frames
-        // menggunakan frame pointer atau unwinding information (libunwind)
+        // Note: In real implementation, this walks stack frames
+        // using frame pointer or unwinding information (libunwind)
 
-        // Conservative stack scanning: scan seluruh stack range
+        // Conservative stack scanning: scan entire stack range
         let mut current = self.stack_base;
         let end = self.stack_base + self.stack_size;
 
@@ -654,14 +932,14 @@ impl StackWalker {
         Ok(())
     }
 
-    /// Scan stack untuk pointers
+    /// Scan stack for pointers
     ///
     /// # Arguments
-    /// * `callback` - Dipanggil untuk setiap potential pointer
+    /// * `callback` - Called for every potential pointer
     /// * `heap_range` - Valid heap address range (min, max)
     ///
     /// # Returns
-    /// Jumlah pointers yang ditemukan
+    /// Number of pointers found
     pub fn scan_for_pointers<F>(&self, mut callback: F, heap_range: (usize, usize)) -> Result<usize>
     where
         F: FnMut(usize),
@@ -669,7 +947,7 @@ impl StackWalker {
         let mut count = 0;
 
         self.walk_frames(|frame| {
-            // Scan frame untuk pointers
+            // Scan frame for pointers
             let mut addr = frame.address;
             let end = addr + frame.size;
 
@@ -677,7 +955,7 @@ impl StackWalker {
                 unsafe {
                     let value = *(addr as *const usize);
 
-                    // Check jika value adalah valid pointer ke heap
+                    // Check if value is valid pointer to heap
                     if value != 0 && value >= heap_range.0 && value < heap_range.1 {
                         callback(value);
                         count += 1;
@@ -737,11 +1015,11 @@ mod tests {
         let mut value: usize = 0x12345678;
         let descriptor = RootDescriptor::new(&mut value as *mut usize as usize, RootType::Global, None, 0);
 
-        assert_eq!(descriptor.read_reference(), 0x12345678);
+        assert_eq!(descriptor.read_reference().unwrap(), 0x12345678);
         assert!(!descriptor.is_null());
 
-        descriptor.update_reference(0x87654321);
-        assert_eq!(descriptor.read_reference(), 0x87654321);
+        descriptor.update_reference(0x87654321).unwrap();
+        assert_eq!(descriptor.read_reference().unwrap(), 0x87654321);
         assert_eq!(value, 0x87654321);
     }
 
@@ -754,10 +1032,10 @@ mod tests {
         assert_eq!(scanner.root_count(), 1);
         assert_eq!(scanner.active_root_count(), 1);
 
-        // Explicit unregister (drop tidak unregister otomatis dalam design ini)
+        // Explicit unregister (drop does not unregister automatically in this design)
         handle.unregister(&scanner);
 
-        // Root masih ada tapi inactive
+        // Root still exists but is inactive
         assert_eq!(scanner.root_count(), 1);
         assert_eq!(scanner.active_root_count(), 0);
     }
@@ -915,5 +1193,37 @@ mod tests {
 
         assert!(display.contains("total:"));
         assert!(display.contains("active:"));
+    }
+
+    #[test]
+    fn test_validate_root_address() {
+        let scanner = RootScanner::new();
+
+        // Valid address (non-zero, aligned) - should not panic or log
+        scanner.validate_root_address(0x1000);
+
+        // Null address - logs warning but doesn't prevent registration
+        scanner.validate_root_address(0);
+
+        // Unaligned address - logs warning but doesn't prevent registration
+        scanner.validate_root_address(0x1001);
+    }
+
+    #[test]
+    fn test_add_to_type_index() {
+        let scanner = RootScanner::new();
+
+        // Test adding to each type index
+        scanner.add_to_type_index(0x1000, RootType::Stack);
+        scanner.add_to_type_index(0x2000, RootType::Global);
+        scanner.add_to_type_index(0x3000, RootType::Class);
+        scanner.add_to_type_index(0x4000, RootType::Internal);
+
+        // Verify counts
+        let stats = scanner.get_stats();
+        assert_eq!(stats.stack_roots, 1);
+        assert_eq!(stats.global_roots, 1);
+        assert_eq!(stats.class_roots, 1);
+        assert_eq!(stats.internal_roots, 1);
     }
 }

@@ -1,0 +1,76 @@
+// 05_structs.fax - Structs in Fax
+// ================================
+// Demonstrates struct definition, instantiation, and field access.
+//
+// Features demonstrated:
+// - Struct declaration with `struct`
+// - Field definitions with types
+// - Struct instantiation
+// - Field access with dot notation
+// - Struct destructuring in patterns
+//
+// Expected output:
+//   Point: x=1.0, y=2.0
+//   Distance x: 1.0
+//   Distance y: 2.0
+//   Person: Alice, age 30
+//   Destructured: x=3.0, y=4.0
+
+// Define a struct with two f64 fields
+struct Point {
+    x: f64,
+    y: f64,
+}
+
+// Define a struct with mixed types
+struct Person {
+    name: str,
+    age: i32,
+}
+
+// Define a struct for a rectangle
+struct Rectangle {
+    top_left: Point,
+    width: f64,
+    height: f64,
+}
+
+fn main() {
+    // ===== Struct instantiation =====
+    let p = Point { x: 1.0, y: 2.0 }
+
+    // ===== Field access =====
+    println("Point: x=")
+    println(p.x)
+    println(", y=")
+    println(p.y)
+
+    // ===== Nested structs =====
+    let rect = Rectangle {
+        top_left: Point { x: 0.0, y: 0.0 },
+        width: 10.0,
+        height: 5.0,
+    }
+
+    // Access nested struct fields
+    println("Distance x: ")
+    println(rect.top_left.x)
+    println("Distance y: ")
+    println(rect.top_left.y)
+
+    // ===== Another struct example =====
+    let person = Person { name: "Alice", age: 30 }
+    println("Person: ")
+    println(person.name)
+    println(", age ")
+    println(person.age)
+
+    // ===== Struct destructuring =====
+    let q = Point { x: 3.0, y: 4.0 }
+    // Destructure struct into variables
+    let Point { x, y } = q
+    println("Destructured: x=")
+    println(x)
+    println(", y=")
+    println(y)
+}

@@ -1,8 +1,8 @@
 //! Read Barrier Macros - Macros for Injecting Barriers in Code
 //!
-//! Module ini menyediakan macros untuk inject load barrier code
-//! di berbagai titik dalam aplikasi. Macros ini digunakan oleh:
-//! - Code generator
+//! This module provides macros for injecting load barrier code
+//! at various points in the application. These macros are used by:
+//! - Code generators
 //! - Runtime instrumentation
 //! - Manual barrier insertion
 //!
@@ -16,17 +16,21 @@
 use crate::object::{ObjectHeader, HEADER_SIZE};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-/// Macro untuk read pointer dengan load barrier
+/// Macro for reading pointer with load barrier
 ///
 /// Usage:
 /// ```rust,no_run
 /// let ptr = read_barrier!(my_pointer);
 /// ```
 ///
-/// Macro ini:
-/// 1. Check jika pointer null
-/// 2. Apply load barrier untuk pointer healing
-/// 3. Return healed pointer
+/// This macro:
+/// 1. Checks if pointer is null
+/// 2. Applies load barrier for pointer healing
+/// 3. Returns healed pointer
+///
+/// # FIX Issue 10
+/// This macro uses the re-exported `heal_pointer` function from the barrier module.
+/// The function is always available (no conditional compilation).
 ///
 /// # Examples
 ///
@@ -41,20 +45,21 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 macro_rules! read_barrier {
     ($ptr:expr) => {{
         let mut addr = $ptr as usize;
-        $crate::barrier::load_barrier::heal_pointer(&mut addr);
-        addr as *mut _
+        // FIX Issue 10: Use re-exported path for robustness
+        $crate::barrier::heal_pointer(&mut addr);
+        addr as *mut std::ffi::c_void
     }};
 }
 
-/// Macro untuk read field dari object dengan barrier
+/// Macro for reading field from object with barrier
 ///
-/// Macro ini membaca field dari object dengan apply load barrier
-/// untuk object tersebut.
+/// This macro reads a field from an object with load barrier
+/// applied to the object.
 ///
 /// # Arguments
 /// * `$obj` - Object pointer
 /// * `$field:ty` - Field type
-/// * `$offset:expr` - Field offset dari object start
+/// * `$offset:expr` - Field offset from object start
 ///
 /// # Examples
 ///
@@ -67,27 +72,27 @@ macro_rules! read_barrier {
 #[macro_export]
 macro_rules! read_field_barrier {
     ($obj:expr, $field:ty, $offset:expr) => {{
-        let obj_addr = $obj as *mut _ as usize;
+        let obj_addr = $obj as *mut $field as usize;
         let field_addr = obj_addr + $offset;
 
-        // Load barrier untuk object
+        // Load barrier for object
         $crate::barrier::load_barrier::on_object_read(obj_addr);
 
         // Read field
-        *(field_addr as *const $field)
+        unsafe { *(field_addr as *const $field) }
     }};
 }
 
-/// Macro untuk write field dengan write barrier (untuk generational mode)
+/// Macro for writing field with write barrier (for generational mode)
 ///
-/// Macro ini menulis field ke object dengan apply write barrier
-/// untuk track cross-generational references.
+/// This macro writes a field to an object with write barrier
+/// applied to track cross-generational references.
 ///
 /// # Arguments
 /// * `$obj` - Object pointer
 /// * `$field:ty` - Field type
-/// * `$offset:expr` - Field offset dari object start
-/// * `$value:expr` - Value untuk write
+/// * `$offset:expr` - Field offset from object start
+/// * `$value:expr` - Value to write
 ///
 /// # Examples
 ///
@@ -100,21 +105,21 @@ macro_rules! read_field_barrier {
 #[macro_export]
 macro_rules! write_field_barrier {
     ($obj:expr, $field:ty, $offset:expr, $value:expr) => {{
-        let obj_addr = $obj as *mut _ as usize;
+        let obj_addr = $obj as *mut $field as usize;
 
-        // Write barrier (jika generational mode active)
+        // Write barrier (if generational mode active)
         if $crate::barrier::write_barrier::is_active() {
             $crate::barrier::write_barrier::on_field_write(obj_addr, $value as usize);
         }
 
         // Write field
-        *((obj_addr + $offset) as *mut $field) = $value;
+        unsafe { *((obj_addr + $offset) as *mut $field) = $value; }
     }};
 }
 
-/// Macro untuk array element read dengan barrier
+/// Macro for array element read with barrier
 ///
-/// Macro ini membaca element dari array dengan apply load barrier.
+/// This macro reads an element from an array with load barrier applied.
 ///
 /// # Arguments
 /// * `$array` - Array pointer
@@ -136,21 +141,21 @@ macro_rules! array_read_barrier {
         let array_addr = $array as usize;
         let elem_addr = array_addr + ($index * $elem_size);
 
-        // Load barrier untuk array object
+        // Load barrier for array object
         $crate::barrier::load_barrier::on_object_read(array_addr);
 
-        *(elem_addr as *const $elem_type)
+        unsafe { *(elem_addr as *const $elem_type) }
     }};
 }
 
-/// Macro untuk array element write dengan barrier
+/// Macro for array element write with barrier
 ///
 /// # Arguments
 /// * `$array` - Array pointer
 /// * `$index:expr` - Element index
 /// * `$elem_type:ty` - Element type
 /// * `$elem_size:expr` - Size per element
-/// * `$value:expr` - Value untuk write
+/// * `$value:expr` - Value to write
 #[macro_export]
 macro_rules! array_write_barrier {
     ($array:expr, $index:expr, $elem_type:ty, $elem_size:expr, $value:expr) => {{
@@ -162,14 +167,14 @@ macro_rules! array_write_barrier {
             $crate::barrier::write_barrier::on_field_write(array_addr, $value as usize);
         }
 
-        *(elem_addr as *mut $elem_type) = $value;
+        unsafe { *(elem_addr as *mut $elem_type) = $value; }
     }};
 }
 
-/// Macro untuk object read dengan explicit barrier call
+/// Macro for object read with explicit barrier call
 ///
-/// Macro ini apply load barrier ke object dan return pointer
-/// yang sudah di-heal.
+/// This macro applies load barrier to object and returns pointer
+/// that has been healed.
 ///
 /// # Arguments
 /// * `$obj` - Object pointer
@@ -191,12 +196,12 @@ macro_rules! object_read_barrier {
     }};
 }
 
-/// Macro untuk reference read dengan barrier
+/// Macro for reference read with barrier
 ///
-/// Macro ini membaca reference dan apply load barrier.
+/// This macro reads a reference and applies load barrier.
 ///
 /// # Arguments
-/// * `$ref` - Reference untuk read
+/// * `$ref` - Reference to read
 ///
 /// # Examples
 ///
@@ -215,13 +220,13 @@ macro_rules! ref_read_barrier {
     }};
 }
 
-/// Macro untuk pointer dereference dengan barrier
+/// Macro for pointer dereference with barrier
 ///
-/// Macro ini dereference pointer dengan apply load barrier
-/// ke object yang di-point.
+/// This macro dereferences a pointer with load barrier applied
+/// to the object being pointed to.
 ///
 /// # Arguments
-/// * `$ptr` - Pointer untuk dereference
+/// * `$ptr` - Pointer to dereference
 /// * `$type:ty` - Pointer type
 ///
 /// # Examples
@@ -241,10 +246,10 @@ macro_rules! ptr_deref_barrier {
     }};
 }
 
-/// Macro untuk pointer dereference mutable dengan barrier
+/// Macro for pointer dereference mutable with barrier
 ///
 /// # Arguments
-/// * `$ptr` - Pointer untuk dereference
+/// * `$ptr` - Pointer to dereference
 /// * `$type:ty` - Pointer type
 #[macro_export]
 macro_rules! ptr_deref_mut_barrier {
@@ -255,7 +260,7 @@ macro_rules! ptr_deref_mut_barrier {
     }};
 }
 
-/// Macro untuk slice element access dengan barrier
+/// Macro for slice element access with barrier
 ///
 /// # Arguments
 /// * `$slice` - Slice
@@ -269,7 +274,7 @@ macro_rules! slice_access_barrier {
     }};
 }
 
-/// Macro untuk slice mutable element access dengan barrier
+/// Macro for slice mutable element access with barrier
 ///
 /// # Arguments
 /// * `$slice` - Slice
@@ -283,10 +288,10 @@ macro_rules! slice_access_mut_barrier {
     }};
 }
 
-/// Macro untuk box dereference dengan barrier
+/// Macro for box dereference with barrier
 ///
 /// # Arguments
-/// * `$box` - Box untuk dereference
+/// * `$box` - Box to dereference
 #[macro_export]
 macro_rules! box_deref_barrier {
     ($box:expr) => {{
@@ -296,10 +301,10 @@ macro_rules! box_deref_barrier {
     }};
 }
 
-/// Macro untuk rc dereference dengan barrier
+/// Macro for rc dereference with barrier
 ///
 /// # Arguments
-/// * `$rc` - Rc untuk dereference
+/// * `$rc` - Rc to dereference
 #[macro_export]
 macro_rules! rc_deref_barrier {
     ($rc:expr) => {{
@@ -309,10 +314,10 @@ macro_rules! rc_deref_barrier {
     }};
 }
 
-/// Macro untuk arc dereference dengan barrier
+/// Macro for arc dereference with barrier
 ///
 /// # Arguments
-/// * `$arc` - Arc untuk dereference
+/// * `$arc` - Arc to dereference
 #[macro_export]
 macro_rules! arc_deref_barrier {
     ($arc:expr) => {{
@@ -322,12 +327,12 @@ macro_rules! arc_deref_barrier {
     }};
 }
 
-/// Macro untuk method call dengan barrier
+/// Macro for method call with barrier
 ///
-/// Macro ini apply load barrier sebelum method call.
+/// This macro applies load barrier before method call.
 ///
 /// # Arguments
-/// * `$obj` - Object untuk method call
+/// * `$obj` - Object for method call
 /// * `$method:ident` - Method name
 /// * `$($args:expr),*` - Method arguments
 ///
@@ -353,9 +358,9 @@ macro_rules! method_call_barrier {
     }};
 }
 
-/// Macro untuk vtable call dengan barrier
+/// Macro for vtable call with barrier
 ///
-/// Macro ini apply load barrier sebelum virtual method call.
+/// This macro applies load barrier before virtual method call.
 ///
 /// # Arguments
 /// * `$trait_obj` - Trait object
@@ -375,7 +380,7 @@ macro_rules! vtable_call_barrier {
     }};
 }
 
-/// Macro untuk closure call dengan barrier
+/// Macro for closure call with barrier
 ///
 /// # Arguments
 /// * `$closure` - Closure
@@ -394,7 +399,7 @@ macro_rules! closure_call_barrier {
     }};
 }
 
-/// Macro untuk struct field access dengan named field
+/// Macro for struct field access with named field
 ///
 /// # Arguments
 /// * `$obj` - Object
@@ -408,7 +413,7 @@ macro_rules! field_access_barrier {
     }};
 }
 
-/// Macro untuk struct field mutable access
+/// Macro for struct field mutable access
 ///
 /// # Arguments
 /// * `$obj` - Object
@@ -422,7 +427,7 @@ macro_rules! field_access_mut_barrier {
     }};
 }
 
-/// Macro untuk tuple element access
+/// Macro for tuple element access
 ///
 /// # Arguments
 /// * `$tuple` - Tuple
@@ -436,7 +441,7 @@ macro_rules! tuple_access_barrier {
     }};
 }
 
-/// Macro untuk option unwrap dengan barrier
+/// Macro for option unwrap with barrier
 ///
 /// # Arguments
 /// * `$opt` - Option
@@ -449,7 +454,7 @@ macro_rules! option_unwrap_barrier {
     }};
 }
 
-/// Macro untuk result unwrap dengan barrier
+/// Macro for result unwrap with barrier
 ///
 /// # Arguments
 /// * `$res` - Result
@@ -462,7 +467,7 @@ macro_rules! result_unwrap_barrier {
     }};
 }
 
-/// Macro untuk iterator next dengan barrier
+/// Macro for iterator next with barrier
 ///
 /// # Arguments
 /// * `$iter` - Iterator
@@ -475,7 +480,7 @@ macro_rules! iterator_next_barrier {
     }};
 }
 
-/// Macro untuk index operation dengan barrier
+/// Macro for index operation with barrier
 ///
 /// # Arguments
 /// * `$container` - Container
@@ -489,7 +494,7 @@ macro_rules! index_barrier {
     }};
 }
 
-/// Macro untuk index mutable operation dengan barrier
+/// Macro for index mutable operation with barrier
 ///
 /// # Arguments
 /// * `$container` - Container
@@ -505,14 +510,14 @@ macro_rules! index_mut_barrier {
 
 /// Write barrier module placeholder
 ///
-/// Write barrier digunakan untuk generational GC untuk track
+/// Write barrier is used for generational GC to track
 /// cross-generational references.
 pub mod write_barrier {
     use std::sync::atomic::{AtomicBool, Ordering};
 
     static WRITE_BARRIER_ACTIVE: AtomicBool = AtomicBool::new(false);
 
-    /// Check jika write barrier active
+    /// Check if write barrier is active
     #[inline]
     pub fn is_active() -> bool {
         WRITE_BARRIER_ACTIVE.load(Ordering::Relaxed)
@@ -544,9 +549,10 @@ pub mod write_barrier {
 
 #[cfg(test)]
 mod tests {
+    use super::write_barrier;
     use crate::object::{ObjectHeader, HEADER_SIZE};
 
-    // Helper untuk create test object
+    // Helper to create test object
     fn create_test_object() -> (Vec<u8>, usize) {
         let size = HEADER_SIZE + 64;
         let mut buffer = vec![0u8; size];

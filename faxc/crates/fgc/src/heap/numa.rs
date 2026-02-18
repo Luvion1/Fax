@@ -1,7 +1,7 @@
 //! NUMA (Non-Uniform Memory Access) Management
 //!
-//! Module ini mengelola NUMA-aware allocation untuk sistem multi-socket.
-//! Pada sistem NUMA, memory access ke local node lebih cepat dari remote node.
+//! This module manages NUMA-aware allocation for multi-socket systems.
+//! On NUMA systems, memory access to local node is faster than remote node.
 //!
 //! NUMA Architecture:
 //! ```
@@ -24,23 +24,23 @@
 //! ```
 //!
 //! FGC NUMA Strategy:
-//! 1. Thread mengalokasi memory di NUMA node tempat thread berjalan
-//! 2. GC threads NUMA-aware saat collection
-//! 3. Region di-allocate dari node-local free list
-//! 4. Object migration jika thread pindah node
+//! 1. Thread allocates memory on the NUMA node where the thread runs
+//! 2. GC threads are NUMA-aware during collection
+//! 3. Regions are allocated from node-local free list
+//! 4. Object migration if thread moves to different node
 
 use crate::error::Result;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-/// NumaManager - mengelola NUMA-aware allocation
+/// NumaManager - manages NUMA-aware allocation
 ///
-/// Mengelola binding thread dan memory ke NUMA nodes.
+/// Manages thread and memory binding to NUMA nodes.
 pub struct NumaManager {
-    /// Jumlah NUMA nodes di sistem
+    /// Number of NUMA nodes in system
     node_count: usize,
 
-    /// Current node untuk thread ini
+    /// Current node for this thread
     current_node: AtomicUsize,
 
     /// Region pools per NUMA node
@@ -50,10 +50,10 @@ pub struct NumaManager {
 impl NumaManager {
     /// Create new NUMA manager
     ///
-    /// Detect NUMA topology dan initialize pools.
+    /// Detect NUMA topology and initialize pools.
     pub fn new() -> Self {
         // Detect NUMA nodes
-        // Note: Dalam implementasi nyata, ini baca dari /sys/devices/system/node/
+        // Note: In real implementation, this would read from /sys/devices/system/node/
         let node_count = detect_numa_nodes();
 
         let mut node_pools = HashMap::new();
@@ -68,7 +68,7 @@ impl NumaManager {
         }
     }
 
-    /// Get current NUMA node untuk thread
+    /// Get current NUMA node for thread
     pub fn current_node(&self) -> usize {
         self.current_node.load(Ordering::Relaxed)
     }
@@ -80,18 +80,18 @@ impl NumaManager {
         }
     }
 
-    /// Allocate dari NUMA node lokal
+    /// Allocate from NUMA node local
     pub fn allocate_local(&self, size: usize) -> Option<usize> {
         let node = self.current_node.load(Ordering::Relaxed);
         self.node_pools.get(&node)?.allocate(size)
     }
 
-    /// Allocate dari NUMA node spesifik
+    /// Allocate from specific NUMA node
     pub fn allocate_on_node(&self, node: usize, size: usize) -> Option<usize> {
         self.node_pools.get(&node)?.allocate(size)
     }
 
-    /// Return memory ke NUMA node pool
+    /// Return memory to NUMA node pool
     pub fn free_to_node(&self, node: usize, address: usize, size: usize) {
         if let Some(pool) = self.node_pools.get(&node) {
             pool.free(address, size);
@@ -103,29 +103,29 @@ impl NumaManager {
         self.node_count
     }
 
-    /// Get statistics untuk node
+    /// Get statistics for node
     pub fn node_stats(&self, node: usize) -> Option<NumaNodeStats> {
         self.node_pools.get(&node).map(|p| p.stats())
     }
 
-    /// Bind thread ke NUMA node
+    /// Bind thread to NUMA node
     pub fn bind_thread_to_node(&self, node: usize) -> Result<()> {
-        // Note: Dalam implementasi nyata:
+        // Note: In real implementation:
         // Linux: numa_run_on_node(node)
         // Windows: SetThreadGroupAffinity
         self.set_current_node(node);
         Ok(())
     }
 
-    /// Bind memory ke NUMA node
+    /// Bind memory to NUMA node
     pub fn bind_memory_to_node(&self, address: usize, size: usize, node: usize) -> Result<()> {
-        // Note: Dalam implementasi nyata:
+        // Note: In real implementation:
         // Linux: mbind(address, size, ...)
         // Windows: VirtualAllocNuma
         Ok(())
     }
 
-    /// Migrate memory antar nodes
+    /// Migrate memory between nodes
     pub fn migrate_memory(
         &self,
         from_node: usize,
@@ -133,7 +133,7 @@ impl NumaManager {
         address: usize,
         size: usize,
     ) -> Result<()> {
-        // Note: Dalam implementasi nyata:
+        // Note: In real implementation:
         // Linux: move_pages()
         Ok(())
     }
@@ -147,7 +147,7 @@ impl Default for NumaManager {
 
 /// NumaNodePool - free list per NUMA node
 ///
-/// Mengelola free regions untuk node tertentu.
+/// Manages free regions for a specific node.
 struct NumaNodePool {
     /// Node ID
     node_id: usize,
@@ -172,11 +172,11 @@ impl NumaNodePool {
         }
     }
 
-    /// Allocate dari pool
+    /// Allocate from pool
     fn allocate(&self, size: usize) -> Option<usize> {
         let mut free_regions = self.free_regions.lock().unwrap();
 
-        // Cari free region yang cukup besar
+        // Find free region that is large enough
         for (&region_size, addresses) in free_regions.iter_mut() {
             if region_size >= size && !addresses.is_empty() {
                 let address = addresses.pop().unwrap();
@@ -195,7 +195,7 @@ impl NumaNodePool {
         None
     }
 
-    /// Free ke pool
+    /// Free to pool
     fn free(&self, address: usize, size: usize) {
         let mut free_regions = self.free_regions.lock().unwrap();
 
@@ -218,7 +218,7 @@ impl NumaNodePool {
     }
 }
 
-/// Statistics untuk NUMA node
+/// Statistics for NUMA node
 #[derive(Debug, Default)]
 pub struct NumaNodeStats {
     /// Node ID
@@ -229,9 +229,9 @@ pub struct NumaNodeStats {
     pub allocation_count: usize,
 }
 
-/// Detect jumlah NUMA nodes di sistem
+/// Detect number of NUMA nodes in system
 fn detect_numa_nodes() -> usize {
-    // Note: Dalam implementasi nyata, detect dari:
+    // Note: In real implementation, detect from:
     // Linux: /sys/devices/system/node/online
     // Windows: GetNumaNodeProcessorMask
 
@@ -241,7 +241,7 @@ fn detect_numa_nodes() -> usize {
 
 /// Get current thread's NUMA node
 pub fn get_current_numa_node() -> usize {
-    // Note: Dalam implementasi nyata:
+    // Note: In real implementation:
     // Linux: numa_node_of_cpu(sched_getcpu())
     // Windows: GetCurrentProcessorNumberEx + GetNumaProcessorNode
 

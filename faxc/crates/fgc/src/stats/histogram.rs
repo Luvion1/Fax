@@ -1,14 +1,14 @@
 //! Histogram - Pause Time Histogram
 //!
-//! Histogram untuk tracking pause time distribution.
-//! Berguna untuk menghitung percentiles (P50, P95, P99, P999).
+//! Histogram for tracking pause time distribution.
+//! Useful for calculating percentiles (P50, P95, P99, P999).
 
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Histogram - pause time histogram
 ///
-/// Track distribution of pause times untuk statistical analysis.
+/// Track distribution of pause times for statistical analysis.
 pub struct Histogram {
     /// Bucket counts (logarithmic buckets)
     buckets: std::sync::Mutex<BTreeMap<u64, u64>>,
@@ -74,7 +74,7 @@ impl Histogram {
         }
     }
 
-    /// Get bucket untuk value (logarithmic)
+    /// Get bucket for value (logarithmic)
     fn get_bucket(&self, value: u64) -> u64 {
         if value == 0 {
             0

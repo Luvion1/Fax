@@ -14,6 +14,40 @@
 //! ├─────────────────────────────────────────┤
 //! │         Size (8 bytes)                  │  <- Object size incl. header
 //! └─────────────────────────────────────────┘
+//!
+//! # Memory Ordering Model
+//!
+//! This module uses the following atomic ordering strategy:
+//!
+//! ## Mark Word Operations
+//! - **Load:** `Ordering::Acquire` - Must see prior writes to object state
+//! - **Store:** `Ordering::Release` - Must be visible to other threads
+//! - **CAS:** `Ordering::AcqRel` - Read-modify-write operation
+//!
+//! ## Reference Count / Age
+//! - **Load:** `Ordering::Relaxed` - Only need eventual consistency
+//! - **Store:** `Ordering::Relaxed` - No ordering required
+//! - **CAS:** `Ordering::AcqRel` - Must be atomic
+//!
+//! ## State Flags
+//! - **Load:** `Ordering::Acquire` - Must see consistent state
+//! - **Store:** `Ordering::Release` - State change must be visible
+//!
+//! ## Rationale
+//!
+//! The mark word is part of the GC safepoint protocol and requires
+//! stronger ordering to ensure:
+//! 1. Mark state is visible to all GC threads
+//! 2. Object modifications happen-before mark check
+//! 3. No lost updates during concurrent marking
+//!
+//! Age operations use `Relaxed` ordering since they are statistics
+//! and only need eventual consistency for correctness.
+//!
+//! ## Thread Safety
+//!
+//! All mark bit operations are atomic and thread-safe. Multiple threads can
+//! concurrently mark objects without race conditions.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -74,41 +108,59 @@ impl ObjectHeader {
     // === Mark Bit Operations ===
 
     /// Check if object is marked with Marked0
+    ///
+    /// Uses Acquire ordering to ensure we see prior writes from other threads.
     #[inline]
     pub fn is_marked0(&self) -> bool {
+        // Acquire: must see prior writes to mark word from other threads
         self.mark_word.load(Ordering::Acquire) & MARKED0_MASK != 0
     }
 
     /// Check if object is marked with Marked1
+    ///
+    /// Uses Acquire ordering to ensure we see prior writes from other threads.
     #[inline]
     pub fn is_marked1(&self) -> bool {
+        // Acquire: must see prior writes to mark word from other threads
         self.mark_word.load(Ordering::Acquire) & MARKED1_MASK != 0
     }
 
     /// Set Marked0 bit atomically
     /// Returns true if bit was already set
+    ///
+    /// Uses AcqRel ordering for read-modify-write operation.
     #[inline]
     pub fn set_marked0(&self) -> bool {
+        // AcqRel: combines Acquire (see prior writes) + Release (make our write visible)
         self.mark_word.fetch_or(MARKED0_MASK, Ordering::AcqRel) & MARKED0_MASK != 0
     }
 
     /// Set Marked1 bit atomically
     /// Returns true if bit was already set
+    ///
+    /// Uses AcqRel ordering for read-modify-write operation.
     #[inline]
     pub fn set_marked1(&self) -> bool {
+        // AcqRel: combines Acquire (see prior writes) + Release (make our write visible)
         self.mark_word.fetch_or(MARKED1_MASK, Ordering::AcqRel) & MARKED1_MASK != 0
     }
 
     /// Clear both mark bits atomically
+    ///
+    /// Uses AcqRel ordering for read-modify-write operation.
     #[inline]
     pub fn clear_mark_bits(&self) {
+        // AcqRel: atomic read-modify-write for clearing bits
         self.mark_word.fetch_and(!(MARKED0_MASK | MARKED1_MASK), Ordering::AcqRel);
     }
 
     /// Flip mark bits (swap Marked0 <-> Marked1)
     /// Used when starting new GC cycle
+    ///
+    /// Uses Acquire for initial read and AcqRel for CAS operations.
     #[inline]
     pub fn flip_mark_bits(&self) {
+        // Acquire: must see all prior writes to mark word
         let mut current = self.mark_word.load(Ordering::Acquire);
         loop {
             let marked0 = current & MARKED0_MASK;
@@ -125,6 +177,7 @@ impl ObjectHeader {
                 new |= MARKED0_MASK;
             }
 
+            // AcqRel for success (atomic update), Acquire for failure (retry with actual value)
             match self.mark_word.compare_exchange_weak(
                 current,
                 new,
@@ -138,8 +191,11 @@ impl ObjectHeader {
     }
 
     /// Check if object is marked (either Marked0 or Marked1)
+    ///
+    /// Uses Acquire ordering to ensure we see prior writes.
     #[inline]
     pub fn is_marked(&self) -> bool {
+        // Acquire: must see all prior writes to mark word
         let mark = self.mark_word.load(Ordering::Acquire);
         (mark & (MARKED0_MASK | MARKED1_MASK)) != 0
     }
@@ -147,27 +203,39 @@ impl ObjectHeader {
     // === Forwarding Pointer Operations ===
 
     /// Check if object is forwarded (relocated)
+    ///
+    /// Uses Acquire ordering to ensure we see prior writes.
     #[inline]
     pub fn is_forwarded(&self) -> bool {
+        // Acquire: must see prior writes to forwarded flag
         self.mark_word.load(Ordering::Acquire) & FORWARDED_MASK != 0
     }
 
     /// Set forwarded flag
+    ///
+    /// Uses Release ordering to ensure our write is visible to other threads.
     #[inline]
     pub fn set_forwarded(&self) {
+        // Release: ensure our write is visible before we continue
         self.mark_word.fetch_or(FORWARDED_MASK, Ordering::Release);
     }
 
     /// Get forwarding pointer
+    ///
+    /// Uses Acquire ordering to ensure we see prior writes.
     #[inline]
     pub fn get_forwarding_ptr(&self) -> usize {
+        // Acquire: must see prior writes to forwarding pointer
         self.mark_word.load(Ordering::Acquire) & HASH_MASK
     }
 
     /// Set forwarding pointer atomically
     /// Returns true if successfully set (was not already forwarded)
+    ///
+    /// Uses Acquire for initial read and AcqRel for CAS operations.
     #[inline]
     pub fn try_set_forwarding_ptr(&self, new_addr: usize) -> bool {
+        // Acquire: must see prior writes to check if already forwarded
         let mut current = self.mark_word.load(Ordering::Acquire);
         loop {
             if current & FORWARDED_MASK != 0 {
@@ -176,6 +244,7 @@ impl ObjectHeader {
 
             let new_mark = (current & !HASH_MASK) | (new_addr & HASH_MASK);
 
+            // AcqRel for success (atomic update), Acquire for failure (retry with actual value)
             match self.mark_word.compare_exchange_weak(
                 current,
                 new_mark,
@@ -194,15 +263,21 @@ impl ObjectHeader {
     // === Age Operations (for generational GC) ===
 
     /// Get object age (0-15)
+    ///
+    /// Uses Relaxed ordering since exact age value is not critical for correctness.
     #[inline]
     pub fn get_age(&self) -> u8 {
+        // Relaxed: age is statistics, eventual consistency is acceptable
         ((self.mark_word.load(Ordering::Relaxed) & AGE_MASK) >> AGE_SHIFT) as u8
     }
 
     /// Increment object age
     /// Returns new age
+    ///
+    /// Uses Relaxed ordering since exact age value is not critical for correctness.
     #[inline]
     pub fn increment_age(&self) -> u8 {
+        // Relaxed: age is statistics, eventual consistency is acceptable
         let mut current = self.mark_word.load(Ordering::Relaxed);
         loop {
             let age = ((current & AGE_MASK) >> AGE_SHIFT) as u8;
@@ -212,6 +287,7 @@ impl ObjectHeader {
 
             let new = (current & !AGE_MASK) | (((age + 1) as usize) << AGE_SHIFT);
 
+            // Relaxed for both success and failure: age is statistics
             match self.mark_word.compare_exchange_weak(
                 current,
                 new,
@@ -227,21 +303,30 @@ impl ObjectHeader {
     // === RemSet Operations ===
 
     /// Check if object is in remembered set
+    ///
+    /// Uses Acquire ordering to ensure we see prior writes.
     #[inline]
     pub fn in_remset(&self) -> bool {
+        // Acquire: must see prior writes to remset flag
         self.mark_word.load(Ordering::Acquire) & REMSET_MASK != 0
     }
 
     /// Set remembered set flag
     /// Returns true if bit was already set
+    ///
+    /// Uses AcqRel ordering for read-modify-write operation.
     #[inline]
     pub fn set_remset(&self) -> bool {
+        // AcqRel: atomic read-modify-write for remset flag
         self.mark_word.fetch_or(REMSET_MASK, Ordering::AcqRel) & REMSET_MASK != 0
     }
 
     /// Clear remembered set flag
+    ///
+    /// Uses AcqRel ordering for read-modify-write operation.
     #[inline]
     pub fn clear_remset(&self) {
+        // AcqRel: atomic read-modify-write for clearing remset flag
         self.mark_word.fetch_and(!REMSET_MASK, Ordering::AcqRel);
     }
 
@@ -254,9 +339,11 @@ impl ObjectHeader {
     }
 
     /// Get object data size (excluding header)
+    /// 
+    /// Returns 0 if object size is less than header size (invalid object).
     #[inline]
     pub fn get_data_size(&self) -> usize {
-        self.size - HEADER_SIZE
+        self.size.saturating_sub(HEADER_SIZE)
     }
 
     // === Class Operations ===
@@ -271,7 +358,30 @@ impl ObjectHeader {
 /// Get pointer to ObjectHeader from object address
 ///
 /// # Safety
-/// `obj_addr` must point to a valid GC-managed object with an ObjectHeader at the start.
+///
+/// This function is safe to call if and only if:
+/// 1. `obj_addr` points to a valid GC-managed object
+/// 2. The object has an ObjectHeader at the start (offset 0)
+/// 3. The object memory will remain valid for the duration of any subsequent operations
+/// 4. No other thread is concurrently relocating or freeing this object
+///
+/// # Panics
+/// This function will not panic, but dereferencing the returned pointer
+/// when the safety conditions are violated will cause undefined behavior.
+///
+/// # Examples
+///
+/// ```rust
+/// use fgc::object::header::{ObjectHeader, get_header, HEADER_SIZE};
+///
+/// let header = ObjectHeader::new(0x1000, 64);
+/// let addr = &header as *const ObjectHeader as usize;
+///
+/// unsafe {
+///     let header_ptr = get_header(addr);
+///     // Can now access header through the pointer
+/// }
+/// ```
 #[inline]
 pub unsafe fn get_header(obj_addr: usize) -> *mut ObjectHeader {
     obj_addr as *mut ObjectHeader
@@ -279,8 +389,34 @@ pub unsafe fn get_header(obj_addr: usize) -> *mut ObjectHeader {
 
 /// Get object data start (after header)
 ///
+/// Returns the address immediately after the object header, where the
+/// object's actual data begins.
+///
 /// # Safety
-/// `obj_addr` must point to a valid GC-managed object with an ObjectHeader at the start.
+///
+/// This function is safe to call if and only if:
+/// 1. `obj_addr` points to a valid GC-managed object
+/// 2. The object has an ObjectHeader at the start (offset 0)
+/// 3. The object size is at least HEADER_SIZE bytes
+/// 4. The object memory will remain valid for the duration of any subsequent operations
+///
+/// # Panics
+/// This function will not panic, but accessing memory at the returned address
+/// when the safety conditions are violated will cause undefined behavior.
+///
+/// # Examples
+///
+/// ```rust
+/// use fgc::object::header::{ObjectHeader, get_data_start, HEADER_SIZE};
+///
+/// let header = ObjectHeader::new(0x1000, 64);
+/// let addr = &header as *const ObjectHeader as usize;
+///
+/// unsafe {
+///     let data_start = get_data_start(addr);
+///     assert_eq!(data_start, addr + HEADER_SIZE);
+/// }
+/// ```
 #[inline]
 pub unsafe fn get_data_start(obj_addr: usize) -> usize {
     obj_addr + HEADER_SIZE
@@ -288,8 +424,32 @@ pub unsafe fn get_data_start(obj_addr: usize) -> usize {
 
 /// Get object address from header pointer
 ///
+/// Returns the base address of an object given a pointer to its header.
+///
 /// # Safety
-/// `header` must be a valid pointer to ObjectHeader.
+///
+/// This function is safe to call if and only if:
+/// 1. `header` is a valid pointer to an ObjectHeader
+/// 2. The ObjectHeader is at the start of a GC-managed object
+/// 3. The object memory will remain valid for the duration of any subsequent operations
+///
+/// # Panics
+/// This function will not panic. The returned address is simply the
+/// numeric value of the pointer.
+///
+/// # Examples
+///
+/// ```rust
+/// use fgc::object::header::{ObjectHeader, get_object_addr};
+///
+/// let header = ObjectHeader::new(0x1000, 64);
+/// let addr = &header as *const ObjectHeader as usize;
+///
+/// unsafe {
+///     let recovered_addr = get_object_addr(&header);
+///     assert_eq!(recovered_addr, addr);
+/// }
+/// ```
 #[inline]
 pub unsafe fn get_object_addr(header: *const ObjectHeader) -> usize {
     header as usize
@@ -649,5 +809,21 @@ mod tests {
         // Age should be incremented (exact value depends on race conditions)
         assert!(header.get_age() > 0);
         assert!(header.get_age() <= 15);
+    }
+
+    #[test]
+    fn test_object_header_atomic_ordering() {
+        let header = ObjectHeader::new(0x1000, 1024);
+
+        // Test mark operations are idempotent
+        // set_marked0 returns true if bit was ALREADY set, false if we just set it
+        assert!(!header.set_marked0()); // First mark: was not set, returns false
+        assert!(header.set_marked0());  // Second mark: was already set, returns true
+        assert!(header.is_marked0());   // Check sees the mark
+
+        // Test Marked1 operations
+        assert!(!header.set_marked1()); // First mark: was not set
+        assert!(header.set_marked1());  // Second mark: was already set
+        assert!(header.is_marked1());   // Check sees the mark
     }
 }

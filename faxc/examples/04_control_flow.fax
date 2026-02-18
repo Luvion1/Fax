@@ -1,0 +1,91 @@
+// 04_control_flow.fax - Control Flow in Fax
+// ==========================================
+// Demonstrates if/else, match, while, and loop statements.
+//
+// Features demonstrated:
+// - if/else expressions (return values)
+// - if/else chains
+// - match expressions (pattern matching)
+// - while loops
+// - infinite loops with break
+// - continue statement
+//
+// Expected output:
+//   5 is positive
+//   max = 10
+//   Counting: 0
+//   Counting: 1
+//   Counting: 2
+//   Counting: 3
+//   Counting: 4
+//   Match: two
+//   Loop value: 0
+//   Loop value: 1
+//   Loop value: 2
+//   Sum of odds: 9
+
+fn main() {
+    // ===== if/else expressions =====
+    let x = 5
+
+    // if/else as expression (returns a value)
+    if x > 0 {
+        println(x)
+        println(" is positive")
+    } else if x < 0 {
+        println(x)
+        println(" is negative")
+    } else {
+        println("zero")
+    }
+
+    // if/else returns value
+    let a = 5
+    let b = 10
+    let max = if a > b { a } else { b }
+    println("max = ")
+    println(max)
+
+    // ===== while loop =====
+    let mut i = 0
+    while i < 5 {
+        println("Counting: ")
+        println(i)
+        i = i + 1
+    }
+
+    // ===== match expression =====
+    let value = 2
+    match value {
+        0 => println("Match: zero"),
+        1 => println("Match: one"),
+        2 => println("Match: two"),
+        _ => println("Match: other"),
+    }
+
+    // ===== infinite loop with break =====
+    let mut counter = 0
+    loop {
+        if counter >= 3 {
+            break
+        }
+        println("Loop value: ")
+        println(counter)
+        counter = counter + 1
+    }
+
+    // ===== continue statement =====
+    // Sum odd numbers from 1 to 5
+    let mut sum = 0
+    let mut n = 0
+    while n < 5 {
+        n = n + 1
+        // Skip even numbers
+        if n % 2 == 0 {
+            continue
+        }
+        sum = sum + n
+    }
+    println("Sum of odds: ")
+    println(sum)
+}

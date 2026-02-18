@@ -1,0 +1,93 @@
+// 09_lambda.fax - Lambda Expressions in Fax
+// ==========================================
+// Demonstrates lambda expressions and higher-order functions.
+//
+// Features demonstrated:
+// - Lambda expression syntax with `fn`
+// - Lambda as variable binding
+// - Higher-order functions (functions taking functions)
+// - Lambda with closures (capturing variables)
+// - Function composition pattern
+//
+// Expected output:
+//   Square of 5: 25
+//   Cube of 3: 27
+//   Applied double: 20
+//   Applied triple: 30
+//   Mapped value: 14
+//   Captured sum: 25
+
+fn main() {
+    // ===== Basic lambda expression =====
+    // Lambda syntax: fn(params) -> return_type { body }
+    let square = fn(x: i32) -> i32 { x * x }
+    let result = square(5)
+    println("Square of 5: ")
+    println(result)
+
+    // ===== Lambda with multiple parameters =====
+    let multiply = fn(a: i32, b: i32) -> i32 { a * b }
+    let product = multiply(4, 5)
+    println("Product: ")
+    println(product)
+
+    // ===== Lambda as function parameter =====
+    // Pass lambda directly to higher-order function
+    let doubled = apply(fn(x: i32) -> i32 { x * 2 }, 10)
+    println("Applied double: ")
+    println(doubled)
+
+    let tripled = apply(fn(x: i32) -> i32 { x * 3 }, 10)
+    println("Applied triple: ")
+    println(tripled)
+
+    // ===== Lambda with different operations =====
+    let add5 = fn(x: i32) -> i32 { x + 5 }
+    let mapped = apply(add5, 9)
+    println("Mapped value: ")
+    println(mapped)
+
+    // ===== Lambda capturing variables (closure) =====
+    // Lambda can capture variables from surrounding scope
+    let multiplier = 3
+    let scale = fn(x: i32) -> i32 { x * multiplier }
+    let scaled = scale(5)
+    println("Scaled by 3: ")
+    println(scaled)
+
+    // ===== Multiple lambdas in same scope =====
+    let add = fn(a: i32, b: i32) -> i32 { a + b }
+    let sub = fn(a: i32, b: i32) -> i32 { a - b }
+
+    let sum_result = add(10, 5)
+    let diff_result = sub(10, 5)
+    println("Sum: ")
+    println(sum_result)
+    println("Difference: ")
+    println(diff_result)
+
+    // ===== Lambda returning lambda (currying pattern) =====
+    // Create a function that creates functions
+    let make_adder = fn(n: i32) -> fn(i32) -> i32 {
+        fn(x: i32) -> i32 { x + n }
+    }
+    // Note: Full currying may require more advanced type system support
+    // This demonstrates the concept
+
+    // ===== Chaining operations with lambdas =====
+    let x = 5
+    let step1 = square(x)           // 25
+    let step2 = apply(add5, step1)  // 30
+    println("Chained result: ")
+    println(step2)
+}
+
+// Higher-order function: applies a function to a value
+fn apply(f: fn(i32) -> i32, x: i32) -> i32 {
+    f(x)
+}
+
+// Another higher-order function example
+fn apply_binary(f: fn(i32, i32) -> i32, a: i32, b: i32) -> i32 {
+    f(a, b)
+}

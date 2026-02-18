@@ -1,12 +1,12 @@
 //! Fast Path - Inline Load Barrier for Performance
 //!
-//! Fast path adalah inline barrier yang di-embed langsung di code generation.
-//! Slow path (function call) hanya dipanggil jika fast path fail.
+//! Fast path is an inline barrier embedded directly in code generation.
+//! Slow path (function call) is only invoked if fast path fails.
 //!
 //! Performance Considerations:
-//! - Function di-mark `#[inline(always)]` untuk memastikan inlining
-//! - Minimal branches di fast path
-//! - Atomic operations dengan relaxed ordering untuk performance
+//! - Function marked `#[inline(always)]` to ensure inlining
+//! - Minimal branches in fast path
+//! - Atomic operations with relaxed ordering for performance
 //! - Branch prediction friendly code layout
 //!
 //! Fast Path Logic:
@@ -17,39 +17,50 @@
 //! ```
 //!
 //! Slow Path:
-//! - Function call ke load_barrier_slow_path
-//! - Enqueue object ke mark queue
-//! - Handle pointer healing jika needed
+//! - Function call to load_barrier_slow_path
+//! - Enqueue object to mark queue
+//! - Handle pointer healing if needed
 
 use crate::object::{ObjectHeader, HEADER_SIZE};
 use crate::barrier::colored_ptr::{ColoredPointer, GcPhase};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-/// Mark bit masks untuk fast path check
+/// Mark bit masks for fast path check
 ///
-/// Menggunakan constant untuk compile-time optimization.
+/// Uses constants for compile-time optimization.
 pub const MARKED0_MASK: usize = 1 << 44;
 pub const MARKED1_MASK: usize = 1 << 45;
 pub const MARK_MASK: usize = MARKED0_MASK | MARKED1_MASK;
 
 /// Fast path load barrier - inline version
 ///
-/// Ini adalah hot path yang harus se-efisien mungkin.
-/// Compiler harus bisa inline function ini.
+/// This is the hot path that should be as efficient as possible.
+/// Compiler should be able to inline this function.
 ///
 /// # Arguments
-/// * `obj_addr_ptr` - Pointer ke pointer yang akan dibaca (double indirection)
+/// * `obj_addr_ptr` - Pointer to pointer being read (double indirection)
 ///
 /// # Returns
-/// * `true` - Read dapat proceed (object sudah marked atau null)
-/// * `false` - Perlu call slow path (object belum marked)
+/// * `true` - Read can proceed (object already marked or null)
+/// * `false` - Need to call slow path (object not yet marked)
 ///
 /// # Safety
-/// `obj_addr_ptr` harus valid dan point ke memory yang berisi pointer address.
+///
+/// This function is safe to call if and only if:
+/// 1. `obj_addr_ptr` is a valid, aligned pointer to a `usize`
+/// 2. The memory at `obj_addr_ptr` contains a valid object address or null
+/// 3. If the object address is non-null, it points to a valid GC-managed object
+///    with an ObjectHeader at the start
+/// 4. No other thread is concurrently modifying the pointer at `obj_addr_ptr`
+///    without proper synchronization
+///
+/// # Panics
+/// This function will not panic, but may cause undefined behavior if
+/// the safety conditions are violated.
 ///
 /// # Examples
 ///
-/// ```rust,no_run
+/// ```rust
 /// use fgc::barrier::fast_path::load_barrier_fast_path;
 ///
 /// let mut ptr: usize = 0x1000;
@@ -70,15 +81,21 @@ pub unsafe fn load_barrier_fast_path(obj_addr_ptr: *mut usize) -> bool {
         return true;
     }
 
-    // Read mark word langsung dari header
-    // ObjectHeader ada di awal object (offset 0)
+    // Quick validity check - skip if address looks invalid
+    // This is a minimal check to avoid crashing on obviously bad pointers
+    if !crate::memory::is_readable(obj_addr).unwrap_or(false) {
+        return false;  // Force slow path for invalid addresses
+    }
+
+    // Read mark word directly from header
+    // ObjectHeader is at the start of object (offset 0)
     let header = obj_addr as *const ObjectHeader;
 
-    // Load mark word dengan acquire ordering untuk visibility
+    // Load mark word with acquire ordering for visibility
     let mark_word = (*header).mark_word.load(Ordering::Acquire);
 
-    // Check mark bits (MARKED0 atau MARKED1)
-    // Jika salah satu set, object sudah marked
+    // Check mark bits (MARKED0 or MARKED1)
+    // If either is set, object is already marked
     if mark_word & MARK_MASK != 0 {
         return true; // Already marked, fast path success
     }
@@ -86,16 +103,16 @@ pub unsafe fn load_barrier_fast_path(obj_addr_ptr: *mut usize) -> bool {
     false // Need slow path
 }
 
-/// Fast path dengan colored pointer
+/// Fast path with colored pointer
 ///
-/// Variant yang bekerja dengan colored pointer (bits 44-47).
+/// Variant that works with colored pointer (bits 44-47).
 ///
 /// # Arguments
 /// * `colored_ptr` - Colored pointer value
 ///
 /// # Returns
-/// * `true` - Pointer tidak perlu processing
-/// * `false` - Perlu slow path
+/// * `true` - Pointer does not need processing
+/// * `false` - Need slow path
 #[inline(always)]
 pub fn colored_fast_path(colored_ptr: usize) -> bool {
     // Null check
@@ -105,21 +122,44 @@ pub fn colored_fast_path(colored_ptr: usize) -> bool {
 
     let ptr = ColoredPointer::from_raw(colored_ptr);
 
-    // Check jika sudah marked
+    // Check if already marked
     ptr.is_marked()
 }
 
-/// Fast path dengan explicit phase check
+/// Fast path with explicit phase check
 ///
-/// Version yang check GC phase untuk menentukan behavior.
+/// Version that checks GC phase to determine behavior.
 ///
 /// # Arguments
-/// * `obj_addr_ptr` - Pointer ke pointer yang akan dibaca
+/// * `obj_addr_ptr` - Pointer to pointer being read
 /// * `phase` - Current GC phase
 ///
 /// # Returns
-/// * `true` - Read dapat proceed
-/// * `false` - Perlu slow path
+/// * `true` - Read can proceed
+/// * `false` - Need slow path
+///
+/// # Safety
+///
+/// This function is safe to call if and only if:
+/// 1. `obj_addr_ptr` is a valid, aligned pointer to a `usize`
+/// 2. The memory at `obj_addr_ptr` contains a valid object address or null
+/// 3. If the object address is non-null, it points to a valid GC-managed object
+///    with an ObjectHeader at the start
+/// 4. No other thread is concurrently modifying the pointer without synchronization
+///
+/// # Examples
+///
+/// ```rust
+/// use fgc::barrier::fast_path::load_barrier_fast_path_with_phase;
+/// use fgc::barrier::colored_ptr::GcPhase;
+///
+/// let mut ptr: usize = 0x1000;
+/// unsafe {
+///     if load_barrier_fast_path_with_phase(&mut ptr, GcPhase::Marking) {
+///         // Fast path succeeded
+///     }
+/// }
+/// ```
 #[inline(always)]
 pub unsafe fn load_barrier_fast_path_with_phase(
     obj_addr_ptr: *mut usize,
@@ -129,6 +169,11 @@ pub unsafe fn load_barrier_fast_path_with_phase(
 
     if obj_addr == 0 {
         return true;
+    }
+
+    // Quick validity check - skip if address looks invalid
+    if !crate::memory::is_readable(obj_addr).unwrap_or(false) {
+        return false;  // Force slow path for invalid addresses
     }
 
     match phase {
@@ -152,18 +197,36 @@ pub unsafe fn load_barrier_fast_path_with_phase(
     }
 }
 
-/// Slow path - dipanggil jika fast path fail
+/// Slow path - called when fast path fails
 ///
-/// Function ini menangani object yang belum marked:
-/// 1. Enqueue object ke mark queue
+/// This function handles objects that are not yet marked:
+/// 1. Enqueue object to mark queue
 /// 2. Set mark bit atomically
-/// 3. Handle pointer healing jika needed
+/// 3. Handle pointer healing if needed
 ///
 /// # Arguments
-/// * `obj_addr` - Object address yang perlu di-mark
+/// * `obj_addr` - Object address that needs marking
 ///
 /// # Safety
-/// `obj_addr` harus point ke valid GC-managed object.
+///
+/// This function is safe to call if and only if:
+/// 1. `obj_addr` is null OR points to a valid GC-managed object
+/// 2. The object at `obj_addr` has an ObjectHeader at the start
+/// 3. The object memory will remain valid for the duration of this call
+/// 4. No other thread is concurrently relocating this object
+///
+/// # Panics
+/// This function will not panic, but may cause undefined behavior if
+/// `obj_addr` is non-null and points to invalid memory.
+///
+/// # Examples
+///
+/// ```rust
+/// use fgc::barrier::fast_path::load_barrier_slow_path;
+///
+/// // Only call with valid GC-managed object addresses
+/// load_barrier_slow_path(0x1000);
+/// ```
 pub fn load_barrier_slow_path(obj_addr: usize) {
     if obj_addr == 0 {
         return;
@@ -191,10 +254,10 @@ pub fn load_barrier_slow_path(obj_addr: usize) {
     }
 }
 
-/// Slow path dengan colored pointer
+/// Slow path with colored pointer
 ///
 /// # Arguments
-/// * `colored_ptr` - Colored pointer yang perlu processing
+/// * `colored_ptr` - Colored pointer that needs processing
 /// * `phase` - Current GC phase
 ///
 /// # Returns
@@ -228,14 +291,32 @@ pub fn colored_slow_path(colored_ptr: usize, phase: GcPhase) -> ColoredPointer {
 
 /// Atomic fast path check
 ///
-/// Version yang menggunakan atomic operations untuk thread safety.
+/// Version that uses atomic operations for thread safety.
 ///
 /// # Arguments
 /// * `ptr_location` - Atomic pointer location
 ///
 /// # Returns
-/// * `true` - Fast path success
-/// * `false` - Need slow path
+/// * `true` - Fast path success (object already marked or null)
+/// * `false` - Need slow path (object not marked)
+///
+/// # Safety
+///
+/// This function is safe to call if and only if:
+/// 1. `ptr_location` points to valid memory containing an object address
+/// 2. If the address is non-null, it points to a valid GC-managed object
+///    with an ObjectHeader at the start
+/// 3. The object memory will remain valid for the duration of this call
+///
+/// # Examples
+///
+/// ```rust
+/// use fgc::barrier::fast_path::atomic_fast_path;
+/// use std::sync::atomic::AtomicUsize;
+///
+/// let atomic_ptr = AtomicUsize::new(0x1000);
+/// let needs_slow_path = !atomic_fast_path(&atomic_ptr);
+/// ```
 #[inline(always)]
 pub fn atomic_fast_path(ptr_location: &AtomicUsize) -> bool {
     let obj_addr = ptr_location.load(Ordering::Acquire);
@@ -263,6 +344,23 @@ pub fn atomic_fast_path(ptr_location: &AtomicUsize) -> bool {
 /// # Returns
 /// * `true` - Already marked
 /// * `false` - We marked it
+///
+/// # Safety
+///
+/// This function is safe to call if and only if:
+/// 1. `obj_addr` is null OR points to a valid GC-managed object
+/// 2. The object at `obj_addr` has an ObjectHeader at the start
+/// 3. The object memory will remain valid for the duration of this call
+/// 4. No other thread is concurrently relocating this object
+///
+/// # Examples
+///
+/// ```rust
+/// use fgc::barrier::fast_path::atomic_test_and_set_mark;
+///
+/// // Returns false if we set the mark, true if already marked
+/// let was_already_marked = atomic_test_and_set_mark(0x1000);
+/// ```
 #[inline]
 pub fn atomic_test_and_set_mark(obj_addr: usize) -> bool {
     if obj_addr == 0 {
@@ -277,17 +375,32 @@ pub fn atomic_test_and_set_mark(obj_addr: usize) -> bool {
     }
 }
 
-/// Inline barrier untuk code generation
+/// Inline barrier for code generation
 ///
-/// Function ini designed untuk di-inline oleh code generator.
+/// This function is designed to be inlined by code generator.
 /// Returns processed pointer value.
 ///
 /// # Arguments
 /// * `ptr` - Raw pointer value
-/// * `mark_queue_ptr` - Pointer ke mark queue (untuk slow path)
 ///
 /// # Returns
 /// Processed pointer value
+///
+/// # Safety
+///
+/// This function is safe to call if and only if:
+/// 1. `ptr` is null OR points to a valid GC-managed object
+/// 2. The object at `ptr` has an ObjectHeader at the start
+/// 3. The object memory will remain valid for the duration of this call
+/// 4. No other thread is concurrently relocating this object
+///
+/// # Examples
+///
+/// ```rust
+/// use fgc::barrier::fast_path::inline_barrier;
+///
+/// let processed = inline_barrier(0x1000);
+/// ```
 #[inline(always)]
 pub fn inline_barrier(ptr: usize) -> usize {
     if ptr == 0 {
@@ -307,28 +420,49 @@ pub fn inline_barrier(ptr: usize) -> usize {
     ptr
 }
 
-/// Branch prediction hint untuk fast path
+/// Branch prediction hint for fast path
 ///
-/// Menggunakan compiler hints untuk optimize branch prediction.
+/// Uses compiler hints to optimize branch prediction.
 #[inline(always)]
 pub fn likely(b: bool) -> bool {
     b
 }
 
-/// Branch prediction hint untuk slow path
+/// Branch prediction hint for slow path
 #[inline(always)]
 pub fn unlikely(b: bool) -> bool {
     b
 }
 
-/// Optimized fast path dengan branch prediction hints
+/// Optimized fast path with branch prediction hints
 ///
 /// # Arguments
-/// * `obj_addr_ptr` - Pointer ke pointer yang akan dibaca
+/// * `obj_addr_ptr` - Pointer to pointer being read
 ///
 /// # Returns
 /// * `true` - Fast path success
 /// * `false` - Need slow path
+///
+/// # Safety
+///
+/// This function is safe to call if and only if:
+/// 1. `obj_addr_ptr` is a valid, aligned pointer to a `usize`
+/// 2. The memory at `obj_addr_ptr` contains a valid object address or null
+/// 3. If the object address is non-null, it points to a valid GC-managed object
+///    with an ObjectHeader at the start
+///
+/// # Examples
+///
+/// ```rust
+/// use fgc::barrier::fast_path::optimized_fast_path;
+///
+/// let mut ptr: usize = 0x1000;
+/// unsafe {
+///     if optimized_fast_path(&mut ptr) {
+///         // Fast path succeeded
+///     }
+/// }
+/// ```
 #[inline(always)]
 pub unsafe fn optimized_fast_path(obj_addr_ptr: *mut usize) -> bool {
     let obj_addr = obj_addr_ptr.read_volatile();
@@ -336,6 +470,11 @@ pub unsafe fn optimized_fast_path(obj_addr_ptr: *mut usize) -> bool {
     // Null check - very likely
     if unlikely(obj_addr == 0) {
         return true;
+    }
+
+    // Quick validity check - skip if address looks invalid
+    if !crate::memory::is_readable(obj_addr).unwrap_or(false) {
+        return false;  // Force slow path for invalid addresses
     }
 
     let header = obj_addr as *const ObjectHeader;
@@ -349,15 +488,32 @@ pub unsafe fn optimized_fast_path(obj_addr_ptr: *mut usize) -> bool {
     false // Unlikely, need slow path
 }
 
-/// Batch fast path check untuk multiple pointers
+/// Batch fast path check for multiple pointers
 ///
-/// Check multiple pointers dan return bitmap of which need slow path.
+/// Check multiple pointers and return bitmap of which need slow path.
 ///
 /// # Arguments
 /// * `ptrs` - Slice of pointer addresses
 ///
 /// # Returns
 /// Bitmap where bit i = 1 means ptrs[i] needs slow path
+///
+/// # Safety
+///
+/// This function is safe to call if and only if:
+/// 1. All non-null pointers in `ptrs` point to valid GC-managed objects
+/// 2. Each object has an ObjectHeader at the start
+/// 3. All object memory will remain valid for the duration of this call
+/// 4. No other thread is concurrently relocating these objects
+///
+/// # Examples
+///
+/// ```rust
+/// use fgc::barrier::fast_path::batch_fast_path;
+///
+/// let ptrs = [0x1000, 0x2000, 0x3000];
+/// let needs_slow_path = batch_fast_path(&ptrs);
+/// ```
 pub fn batch_fast_path(ptrs: &[usize]) -> u64 {
     let mut needs_slow_path: u64 = 0;
 
@@ -386,7 +542,7 @@ mod tests {
     use std::sync::Arc;
     use std::thread;
 
-    // Helper function untuk create test object
+    // Helper function to create test object
     fn create_test_object() -> (Vec<u8>, usize) {
         let size = HEADER_SIZE + 64; // Header + data
         let mut buffer = vec![0u8; size];

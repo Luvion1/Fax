@@ -1,0 +1,137 @@
+// 10_generics.fax - Generics in Fax
+// ==================================
+// Demonstrates generic functions and types.
+//
+// Features demonstrated:
+// - Generic function syntax with <T>
+// - Multiple type parameters <T, U>
+// - Generic struct types
+// - Generic enum types
+// - Type inference with generics
+//
+// Note: Full generic support may be limited in current implementation.
+// This demonstrates the intended syntax per the Fax specification.
+//
+// Expected output:
+//   Identity int: 42
+//   Identity str: Hello
+//   Pair: (42, Hello)
+//   Box contains: 100
+//   Option Some: 999
+
+// ===== Generic Functions =====
+
+// Identity function: returns value of any type T
+fn identity<T>(x: T) -> T {
+    x
+}
+
+// Function with two type parameters
+fn make_pair<T, U>(a: T, b: U) -> (T, U) {
+    (a, b)
+}
+
+// Swap function using generics
+fn swap<T>(a: T, b: T) -> (T, T) {
+    (b, a)
+}
+
+// ===== Generic Structs =====
+
+// Generic container struct
+struct Box<T> {
+    value: T,
+}
+
+// Generic pair struct
+struct Pair<T, U> {
+    first: T,
+    second: U,
+}
+
+// ===== Generic Enums =====
+
+// Option-like generic enum
+enum Option<T> {
+    Some(T),
+    None,
+}
+
+// Result-like generic enum
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+
+fn main() {
+    // ===== Generic function with i32 =====
+    let int_val = identity<i32>(42)
+    println("Identity int: ")
+    println(int_val)
+
+    // ===== Generic function with str =====
+    let str_val = identity<str>("Hello")
+    println("Identity str: ")
+    println(str_val)
+
+    // ===== Function with two type parameters =====
+    let pair = make_pair<i32, str>(42, "Hello")
+    println("Pair: (")
+    println(pair.0)
+    println(", ")
+    println(pair.1)
+    println(")")
+
+    // ===== Generic struct instantiation =====
+    let boxed = Box<i32> { value: 100 }
+    println("Box contains: ")
+    println(boxed.value)
+
+    // ===== Generic struct with multiple type params =====
+    let name_pair = Pair<i32, str> { first: 1, second: "One" }
+    println("NamePair: ")
+    println(name_pair.first)
+    println(", ")
+    println(name_pair.second)
+
+    // ===== Generic enum with Some =====
+    let some_val = Option<i32>::Some(999)
+    match some_val {
+        Option::Some(v) => {
+            println("Option Some: ")
+            println(v)
+        },
+        Option::None => println("Option None"),
+    }
+
+    // ===== Generic enum with None =====
+    let none_val: Option<i32> = Option::None
+    match none_val {
+        Option::Some(v) => {
+            println("Got value: ")
+            println(v)
+        },
+        Option::None => println("Option None matched"),
+    }
+
+    // ===== Generic Result enum =====
+    let ok_result = Result<i32, str>::Ok(42)
+    match ok_result {
+        Result::Ok(v) => {
+            println("Result Ok: ")
+            println(v)
+        },
+        Result::Err(e) => {
+            println("Result Err: ")
+            println(e)
+        },
+    }
+
+    // ===== Swap with generics =====
+    let swapped = swap<i32>(10, 20)
+    println("Swapped: (")
+    println(swapped.0)
+    println(", ")
+    println(swapped.1)
+    println(")")
+}
