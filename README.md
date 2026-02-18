@@ -3,9 +3,9 @@
 [![Version](https://img.shields.io/badge/version-0.0.1--pre--alpha-orange.svg)](https://github.com/Luvion1/Fax/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.75+-blue.svg)](https://www.rust-lang.org)
-[![CI](https://img.shields.io/github/actions/workflow/status/username/faxc/ci.yml?branch=main)](https://github.com/Luvion1/Fax/actions)
-[![Coverage](https://img.shields.io/github/actions/workflow/status/username/faxc/coverage.yml?branch=main&label=coverage)](https://github.com/Luvion1/Fax/actions)
-[![Security](https://img.shields.io/github/actions/workflow/status/username/faxc/security-scan.yml?branch=main&label=security)](https://github.com/Luvion1/Fax/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/Luvion1/Fax/ci.yml?branch=main)](https://github.com/Luvion1/Fax/actions)
+[![Coverage](https://img.shields.io/github/actions/workflow/status/Luvion1/Fax/coverage.yml?branch=main&label=coverage)](https://github.com/Luvion1/Fax/actions)
+[![Security](https://img.shields.io/github/actions/workflow/status/Luvion1/Fax/security-scan.yml?branch=main&label=security)](https://github.com/Luvion1/Fax/actions)
 
 **A modern, functional-first programming language that compiles to LLVM IR.**
 
