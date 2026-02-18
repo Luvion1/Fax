@@ -342,7 +342,7 @@ jobs:
       # Store HTML report and raw data for download
       # -----------------------------------------------------------------------
       - name: Upload coverage artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: coverage-report-${{ github.run_id }}
