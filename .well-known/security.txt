@@ -1,0 +1,7 @@
+Contact: mailto:security@fax-lang.dev
+Contact: https://github.com/Luvion1/Fax/security/advisories/new
+Expires: 2027-12-31T23:59:59.000Z
+Preferred-Languages: en
+Canonical: https://github.com/Luvion1/Fax/blob/main/.well-known/security.txt
+Policy: https://github.com/Luvion1/Fax/blob/main/SECURITY.md
+Acknowledgments: https://github.com/Luvion1/Fax/blob/main/SECURITY.md#acknowledgments

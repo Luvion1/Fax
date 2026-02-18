@@ -1,0 +1,139 @@
+# =============================================================================
+# Fax Compiler - Auto-Label Configuration
+# =============================================================================
+# This file configures the GitHub Labeler action to automatically
+# apply labels to pull requests based on file paths.
+# Documentation: https://github.com/actions/labeler
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Compiler Components
+# -----------------------------------------------------------------------------
+
+"component: lexer":
+  - changed-files:
+      - any-glob-to-any-file: faxc/crates/faxc-lex/**/*
+
+"component: parser":
+  - changed-files:
+      - any-glob-to-any-file: faxc/crates/faxc-par/**/*
+
+"component: semantics":
+  - changed-files:
+      - any-glob-to-any-file: faxc/crates/faxc-sem/**/*
+
+"component: garbage-collector":
+  - changed-files:
+      - any-glob-to-any-file: faxc/crates/fgc/**/*
+
+"component: mir":
+  - changed-files:
+      - any-glob-to-any-file: faxc/crates/faxc-mir/**/*
+
+"component: lir":
+  - changed-files:
+      - any-glob-to-any-file: faxc/crates/faxc-lir/**/*
+
+"component: codegen":
+  - changed-files:
+      - any-glob-to-any-file: faxc/crates/faxc-gen/**/*
+
+"component: driver":
+  - changed-files:
+      - any-glob-to-any-file: faxc/crates/faxc-drv/**/*
+
+"component: utilities":
+  - changed-files:
+      - any-glob-to-any-file: faxc/crates/faxc-util/**/*
+
+# -----------------------------------------------------------------------------
+# Testing
+# -----------------------------------------------------------------------------
+
+"component: tests":
+  - changed-files:
+      - any-glob-to-any-file:
+          - faxc/tests/**/*
+          - faxt/**/*
+          - "**/*_test.rs"
+          - "**/tests/**/*"
+
+# -----------------------------------------------------------------------------
+# Documentation
+# -----------------------------------------------------------------------------
+
+"documentation":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "*.md"
+          - docs/**/*
+          - faxc/docs/**/*
+          - faxc/examples/**/*
+
+# -----------------------------------------------------------------------------
+# CI/CD and Infrastructure
+# -----------------------------------------------------------------------------
+
+"ci/cd":
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/workflows/**/*
+          - .github/dependabot.yml
+          - release-plz.toml
+
+"docker":
+  - changed-files:
+      - any-glob-to-any-file:
+          - Dockerfile
+          - .dockerignore
+
+# -----------------------------------------------------------------------------
+# Configuration
+# -----------------------------------------------------------------------------
+
+"configuration":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "*.toml"
+          - "*.yaml"
+          - "*.yml"
+          - .editorconfig
+          - .gitignore
+          - .gitattributes
+
+# -----------------------------------------------------------------------------
+# Scripts
+# -----------------------------------------------------------------------------
+
+"scripts":
+  - changed-files:
+      - any-glob-to-any-file:
+          - faxc/scripts/**/*
+          - "*.sh"
+          - "*.bash"
+
+# -----------------------------------------------------------------------------
+# Security
+# -----------------------------------------------------------------------------
+
+"security":
+  - changed-files:
+      - any-glob-to-any-file:
+          - SECURITY.md
+          - .well-known/**/*
+          - "**/deny.toml"
+
+# -----------------------------------------------------------------------------
+# Release
+# -----------------------------------------------------------------------------
+
+"release":
+  - changed-files:
+      - any-glob-to-any-file:
+          - CHANGELOG.md
+          - RELEASE*.md
+          - "**/Cargo.toml"
+
+# =============================================================================
+# End of Configuration
+# =============================================================================

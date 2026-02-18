@@ -1,0 +1,144 @@
+# =============================================================================
+# Fax Compiler - Cargo Deny Configuration
+# =============================================================================
+# This file configures cargo-deny for dependency security and license compliance.
+# Documentation: https://embarkstudios.github.io/cargo-deny/
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# General Configuration
+# -----------------------------------------------------------------------------
+
+[graph]
+# The target to check dependencies for
+targets = [
+    { triple = "x86_64-unknown-linux-gnu" },
+    { triple = "x86_64-apple-darwin" },
+    { triple = "x86_64-pc-windows-msvc" },
+    { triple = "aarch64-unknown-linux-gnu" },
+    { triple = "aarch64-apple-darwin" },
+]
+# Features to enable for dependency resolution
+features = []
+# Whether to use all features
+all-features = false
+# Whether to use no features
+no-default-features = false
+
+# -----------------------------------------------------------------------------
+# Advisory Database Configuration
+# -----------------------------------------------------------------------------
+
+[advisories]
+# The path to the advisory database
+db-path = "~/.cargo/advisory-db"
+# The URL of the advisory database
+db-urls = ["https://github.com/rustsec/advisory-db"]
+# The vulnerability ID to ignore
+ignore = [
+    # Example: "RUSTSEC-2021-0001" # Description of why this is ignored
+]
+# The severity threshold for advisories
+severity-threshold = "medium"
+
+# -----------------------------------------------------------------------------
+# License Configuration
+# -----------------------------------------------------------------------------
+
+[licenses]
+# Whether to allow licenses not explicitly listed
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-DFS-2016",
+    "MPL-2.0",
+    "CC0-1.0",
+    "0BSD",
+    "Zlib",
+    "Unlicense",
+]
+# Licenses that are explicitly denied
+deny = [
+    # "GPL-3.0", # Uncomment to deny GPL-3.0
+    # "AGPL-3.0", # Uncomment to deny AGPL-3.0
+]
+# Licenses that require explicit review
+exception = [
+    # Example: { name = "unicode-ident", allow = ["MIT", "Apache-2.0", "Unicode-DFS-2016"] }
+]
+# The default confidence threshold for license detection
+confidence-threshold = 0.8
+# Whether to copy license texts to the output directory
+copy-text = true
+# The path to copy license texts to
+output-file = "third-party-licenses.txt"
+
+# -----------------------------------------------------------------------------
+# Banned Crates Configuration
+# -----------------------------------------------------------------------------
+
+[bans]
+# Whether to deny multiple versions of the same crate
+multiple-versions = "warn"
+# Whether to deny wildcards in dependency versions
+wildcards = "deny"
+# Whether to allow specific crates
+allow = [
+    # Example: { name = "crate-name", version = "1.0.0" }
+]
+# Crates that are explicitly denied
+deny = [
+    # Security-risk crates
+    # { name = "insecure-crate", version = "*" },
+]
+# Crates that are allowed but will trigger a warning
+warn = [
+    # Example: { name = "deprecated-crate", version = "*" }
+]
+# How to handle duplicate crates
+duplicate = "deny"
+# Crates that are allowed to have duplicates
+allow-duplicates = [
+    # Example: { name = "common-duplicate", version = "*" }
+]
+# Highlight crates with multiple versions
+highlight = "all"
+
+# -----------------------------------------------------------------------------
+# Sources Configuration
+# -----------------------------------------------------------------------------
+
+[sources]
+# Whether to allow unknown sources
+unknown-registry = "deny"
+# Whether to allow unknown git sources
+unknown-git = "deny"
+# Allowed registry URLs
+allow-registry = [
+    "https://github.com/rust-lang/crates.io-index",
+]
+# Allowed git repositories
+allow-git = [
+    # Example: "https://github.com/rust-lang/crates.io-index"
+]
+
+# -----------------------------------------------------------------------------
+# Specific Crate Overrides
+# -----------------------------------------------------------------------------
+
+# Override license for crates with incorrect metadata
+[[licenses.clarify]]
+name = "ring"
+version = "*"
+expression = "MIT AND ISC AND OpenSSL"
+license-files = [
+    { path = "LICENSE", hash = 0xbd0eed23 }
+]
+
+# =============================================================================
+# End of Configuration
+# =============================================================================

@@ -1,0 +1,77 @@
+# =============================================================================
+# Fax Compiler - Welcome Bot Configuration
+# =============================================================================
+# This file configures the GitHub Welcome bot to automatically
+# greet first-time contributors.
+# Documentation: https://github.com/actions/first-interaction
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# First Issue Configuration
+# -----------------------------------------------------------------------------
+
+# Comment to post when a first-time contributor opens an issue
+firstIssueComment: >
+  👋 Welcome to the Fax Compiler project! Thank you for opening your first issue.
+  
+  We appreciate your contribution and will review it as soon as possible.
+  
+  In the meantime, please make sure to:
+  - Check if your issue follows our [issue template](https://github.com/Luvion1/Fax/blob/main/.github/ISSUE_TEMPLATE/)
+  - Search for similar issues that might already exist
+  - Provide as much detail as possible to help us understand the problem
+  
+  If you have any questions, feel free to ask in our [Discussions](https://github.com/Luvion1/Fax/discussions).
+  
+  Happy coding! 🚀
+
+# -----------------------------------------------------------------------------
+# First Pull Request Configuration
+# -----------------------------------------------------------------------------
+
+# Comment to post when a first-time contributor opens a pull request
+firstPRComment: >
+  🎉 Welcome to the Fax Compiler project! Thank you for your first pull request!
+  
+  We're excited to have you contribute. Here's what happens next:
+  
+  1. **Automated Checks**: Our CI/CD pipeline will run tests and checks on your PR
+  2. **Code Review**: A maintainer will review your changes and provide feedback
+  3. **Merge**: Once approved, your PR will be merged into the main branch
+  
+  **Quick Checklist:**
+  - [ ] Your code follows our [style guidelines](https://github.com/Luvion1/Fax/blob/main/CONTRIBUTING.md#coding-standards)
+  - [ ] You've added tests for new functionality
+  - [ ] You've updated documentation if needed
+  - [ ] Your commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
+  
+  **Need Help?**
+  - Check our [Contributing Guide](https://github.com/Luvion1/Fax/blob/main/CONTRIBUTING.md)
+  - Join our [Discussions](https://github.com/Luvion1/Fax/discussions)
+  - Tag a maintainer if you have questions
+  
+  Thanks again for contributing! 🙌
+
+# -----------------------------------------------------------------------------
+# Labels for First-Time Contributors
+# -----------------------------------------------------------------------------
+
+# Labels to add to first-time contributors' issues/PRs
+labels:
+  - first contribution
+  - welcome
+
+# -----------------------------------------------------------------------------
+# Additional Settings
+# -----------------------------------------------------------------------------
+
+# Whether to assign the PR to the author
+assignPRToAuthor: false
+
+# Whether to request review from maintainers for first-time contributors
+requestReview:
+  - Luvion1
+
+# =============================================================================
+# End of Configuration
+# =============================================================================

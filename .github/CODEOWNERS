@@ -1,0 +1,21 @@
+# Code Owners for Fax Compiler
+# https://help.github.com/articles/about-codeowners/
+
+# Default owners for the entire repository
+* @Luvion1
+
+# Compiler core
+/faxc/crates/ @Luvion1
+
+# Garbage collector
+/faxc/crates/fgc/ @Luvion1
+
+# Documentation
+/docs/ @Luvion1
+*.md @Luvion1
+
+# CI/CD workflows
+.github/workflows/ @Luvion1
+
+# Examples
+/faxc/examples/ @Luvion1

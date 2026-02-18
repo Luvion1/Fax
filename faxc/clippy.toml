@@ -1,0 +1,43 @@
+# Clippy configuration for Fax Compiler
+# https://rust-lang.github.io/rustcfguide/clippy/configuration.html
+
+# Disallowed macros
+disallowed-macros = [
+    "panic",
+    "print",
+    "println",
+]
+
+# Disallowed methods
+disallowed-methods = [
+    { path = "std::process::exit", reason = "Use proper error handling instead" },
+    { path = "std::unimplemented", reason = "Use todo! instead" },
+]
+
+# Disallowed types
+disallowed-types = [
+    { path = "std::collections::HashMap", reason = "Use indexmap::IndexMap for deterministic iteration" },
+]
+
+# Lint levels
+# Warn on these
+warn-on-macro-unimplemented = true
+
+# Allow these (too strict)
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+
+# Cognitive complexity limit
+cognitive-complexity-threshold = 25
+
+# Too many arguments limit
+too-many-arguments-threshold = 7
+
+# Type complexity limit
+type-complexity-threshold = 250
+
+# Large enum variant size
+enum-variant-size-threshold = 200
+
+# Too long functions
+too-many-lines-threshold = 100
