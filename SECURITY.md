@@ -19,7 +19,7 @@ We take the security of the Fax compiler seriously. If you believe you have foun
 Instead, please report them via one of the following methods:
 
 1. **GitHub Security Advisories** (Preferred)
-   - Go to the [Security tab](https://github.com/username/faxc/security)
+   - Go to the [Security tab](https://github.com/Luvion1/Fax/security)
    - Click "Report a vulnerability"
    - Provide detailed information about the vulnerability
 

@@ -1,11 +1,11 @@
 # Fax Compiler
 
-[![Version](https://img.shields.io/badge/version-0.0.1--pre--alpha-orange.svg)](https://github.com/username/faxc/releases)
+[![Version](https://img.shields.io/badge/version-0.0.1--pre--alpha-orange.svg)](https://github.com/Luvion1/Fax/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.75+-blue.svg)](https://www.rust-lang.org)
-[![CI](https://img.shields.io/github/actions/workflow/status/username/faxc/ci.yml?branch=main)](https://github.com/username/faxc/actions)
-[![Coverage](https://img.shields.io/github/actions/workflow/status/username/faxc/coverage.yml?branch=main&label=coverage)](https://github.com/username/faxc/actions)
-[![Security](https://img.shields.io/github/actions/workflow/status/username/faxc/security-scan.yml?branch=main&label=security)](https://github.com/username/faxc/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/username/faxc/ci.yml?branch=main)](https://github.com/Luvion1/Fax/actions)
+[![Coverage](https://img.shields.io/github/actions/workflow/status/username/faxc/coverage.yml?branch=main&label=coverage)](https://github.com/Luvion1/Fax/actions)
+[![Security](https://img.shields.io/github/actions/workflow/status/username/faxc/security-scan.yml?branch=main&label=security)](https://github.com/Luvion1/Fax/actions)
 
 **A modern, functional-first programming language that compiles to LLVM IR.**
 
@@ -58,7 +58,7 @@ Fax combines the simplicity of imperative languages with the expressiveness of f
 
 ```bash
 # Clone the repository
-git clone https://github.com/username/faxc.git
+git clone https://github.com/Luvion1/Fax.git
 cd faxc
 
 # Build the compiler (debug mode)
@@ -98,7 +98,7 @@ docker run --rm -v $(pwd):/workspace faxc faxc /workspace/examples/01_hello.fax
 
 ```bash
 # Clone the repository
-git clone https://github.com/username/faxc.git
+git clone https://github.com/Luvion1/Fax.git
 cd faxc
 
 # Build in release mode
@@ -235,7 +235,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ```bash
 # Fork and clone
-git clone https://github.com/your-username/faxc.git
+git clone https://github.com/Luvion1/Fax.git
 cd faxc
 
 # Create a branch
@@ -253,8 +253,8 @@ git push origin feature/my-feature
 
 ## Community
 
-- **Issues**: [GitHub Issues](https://github.com/username/faxc/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/username/faxc/discussions)
+- **Issues**: [GitHub Issues](https://github.com/Luvion1/Fax/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/Luvion1/Fax/discussions)
 - **Security**: [Security Policy](SECURITY.md)
 
 ---

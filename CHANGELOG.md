@@ -232,5 +232,5 @@ at your option.
 - **Fixed**: Bug fixes
 - **Security**: Security improvements and fixes
 
-[Unreleased]: https://github.com/username/faxc/compare/v0.0.1-pre-alpha...HEAD
-[0.0.1-pre-alpha]: https://github.com/username/faxc/releases/tag/v0.0.1-pre-alpha
+[Unreleased]: https://github.com/Luvion1/Fax/compare/v0.0.1-pre-alpha...HEAD
+[0.0.1-pre-alpha]: https://github.com/Luvion1/Fax/releases/tag/v0.0.1-pre-alpha

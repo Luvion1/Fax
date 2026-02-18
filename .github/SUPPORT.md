@@ -43,7 +43,7 @@ For general questions and discussions:
 
 Report security issues privately:
 - **GitHub Security Advisories**: https://github.com/Luvion1/Fax/security/advisories/new
-- **Email**: security@fax-lang.example.com (if configured)
+- **Email**: security@github.com/Luvion1 (if configured)
 
 See [SECURITY.md](SECURITY.md) for details.
 
@@ -51,7 +51,7 @@ See [SECURITY.md](SECURITY.md) for details.
 
 For commercial support, licensing, or consulting:
 
-- **Email**: contact@fax-lang.example.com (if configured)
+- **Email**: contact@github.com/Luvion1 (if configured)
 - **Sponsorship**: https://github.com/sponsors/Luvion1 (if configured)
 
 ## 📖 Additional Resources
@@ -66,8 +66,8 @@ For commercial support, licensing, or consulting:
 Join our community:
 
 - **Discord**: [Invite link] (if configured)
-- **Twitter**: [@FaxLang] (if configured)
-- **Reddit**: [r/FaxLang] (if configured)
+- **Twitter**: [@Luvion1] (if configured)
+- **Reddit**: [r/rust] (if configured)
 
 ## 📋 Issue Labels
 

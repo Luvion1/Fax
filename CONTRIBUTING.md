@@ -28,12 +28,12 @@ This project adheres to the [Code of Conduct](CODE_OF_CONDUCT.md). By participat
 1. **Fork the repository** on GitHub
 2. **Clone your fork** locally:
    ```bash
-   git clone https://github.com/your-username/faxc.git
+   git clone https://github.com/Luvion1/Fax.git
    cd faxc
    ```
 3. **Add the upstream remote**:
    ```bash
-   git remote add upstream https://github.com/username/faxc.git
+   git remote add upstream https://github.com/Luvion1/Fax.git
    ```
 4. **Create a branch** for your work:
    ```bash
@@ -94,7 +94,7 @@ We welcome various types of contributions:
 
 ### Finding Issues
 
-- Check [open issues](https://github.com/username/faxc/issues) for bugs and feature requests
+- Check [open issues](https://github.com/Luvion1/Fax/issues) for bugs and feature requests
 - Look for issues labeled `good first issue` for beginner-friendly tasks
 - Look for issues labeled `help wanted` for tasks needing assistance
 
@@ -296,8 +296,8 @@ Clarified function type grammar in section 5.2.5.
 
 ## Questions?
 
-- **General questions**: Open a [Discussion](https://github.com/username/faxc/discussions)
-- **Bug reports**: Open an [Issue](https://github.com/username/faxc/issues)
+- **General questions**: Open a [Discussion](https://github.com/Luvion1/Fax/discussions)
+- **Bug reports**: Open an [Issue](https://github.com/Luvion1/Fax/issues)
 - **Code review**: Tag relevant maintainers in your PR
 
 ---
