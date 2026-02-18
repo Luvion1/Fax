@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------
 # Uses Rust 1.75 (MSRV - Minimum Supported Rust Version) as specified in Cargo.toml
 # QC-010 FIX: Updated from rust:1.75-slim to rust:1.75-bookworm for security updates
-FROM rust:1.75-bookworm AS builder
+FROM rust:1.93-bookworm AS builder
 
 # Labels for builder stage
 LABEL stage="builder" \
