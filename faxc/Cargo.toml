@@ -29,7 +29,7 @@ faxc-drv = { path = "crates/faxc-drv" }
 
 # External dependencies
 inkwell = { version = "0.8.0", features = ["llvm20-1", "target-all"] }
-thiserror = "1.0"
+thiserror = "2.0"
 anyhow = "1.0"
 indexmap = "2.1"
 rustc-hash = "1.1"
