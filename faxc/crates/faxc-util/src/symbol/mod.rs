@@ -651,25 +651,6 @@ impl Symbol {
         STRING_TABLE.get(*self).unwrap_or("")
     }
 
-    /// Convert the symbol to an owned `String`
-    ///
-    /// This allocates a new `String` on the heap. Use [`Symbol::as_str()`]
-    /// when a borrowed reference is sufficient.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use faxc_util::symbol::Symbol;
-    ///
-    /// let sym = Symbol::intern("hello");
-    /// let string: String = sym.to_string();
-    /// assert_eq!(string, "hello");
-    /// ```
-    #[inline]
-    pub fn to_string(&self) -> String {
-        self.as_str().to_string()
-    }
-
     /// Check if the symbol's string is empty
     ///
     /// # Performance

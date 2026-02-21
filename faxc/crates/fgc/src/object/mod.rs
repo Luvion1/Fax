@@ -4,8 +4,10 @@
 
 pub mod header;
 pub mod refmap;
+pub mod weak;
 
+pub use header::{get_data_start, get_header, get_object_addr};
 pub use header::{ObjectHeader, HEADER_SIZE, OBJECT_ALIGNMENT};
-pub use header::{get_header, get_data_start, get_object_addr};
 
 pub use refmap::ReferenceMap;
+pub use weak::{ReferenceQueue, WeakReference};

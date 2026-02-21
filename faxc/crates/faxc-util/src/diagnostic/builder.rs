@@ -449,7 +449,7 @@ mod tests {
 
     #[test]
     fn test_source_snippet_with_label() {
-        let snippet = SourceSnippet::new("let x = 42;", 1, 5, 6, None).with_label("test");
+        let snippet = SourceSnippet::new("let x = 42;", 1, 5, 6, None::<String>).with_label("test");
         assert_eq!(snippet.label, Some("test".to_string()));
     }
 
@@ -483,7 +483,7 @@ mod tests {
 
     #[test]
     fn test_builder_code() {
-        let code = DiagnosticCode::new(1001, "test");
+        let code = DiagnosticCode::new("test", 1001);
         let diag = DiagnosticBuilder::error("test")
             .code(code)
             .span(Span::DUMMY)
@@ -520,7 +520,7 @@ mod tests {
 
     #[test]
     fn test_builder_fluent() {
-        let code = DiagnosticCode::new(2001, "unexpected_token");
+        let code = DiagnosticCode::new("unexpected_token", 2001);
         let snippet = SourceSnippet::new("fn main() {", 1, 1, 3, Some("here"));
 
         let diag = DiagnosticBuilder::error("unexpected token")

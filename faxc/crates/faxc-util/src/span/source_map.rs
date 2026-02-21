@@ -212,7 +212,7 @@ impl SourceFile {
 
         // Trim the newline character(s)
         let line_content = &self.content[start..end];
-        Some(line_content.trim_end_matches(|c| c == '\n' || c == '\r'))
+        Some(line_content.trim_end_matches(['\n', '\r']))
     }
 
     /// Extract a substring from the file content

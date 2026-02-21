@@ -56,6 +56,9 @@ pub struct LoadBarrier {
     /// Determines barrier behavior (marking, relocating, idle)
     phase: std::sync::Mutex<GcPhase>,
 
+    /// Good Color Mask - Pointers matching this are safe (fast path)
+    good_color_mask: AtomicUsize,
+
     /// Reference to mark queue for enqueueing objects that need to be marked
     mark_queue: std::sync::Arc<crate::marker::MarkQueue>,
 
@@ -82,6 +85,7 @@ impl LoadBarrier {
     ) -> Self {
         Self {
             phase: std::sync::Mutex::new(GcPhase::Idle),
+            good_color_mask: AtomicUsize::new(0),
             mark_queue,
             forwarding_table,
             current_mark_bit: AtomicBool::new(false), // false = Marked0, true = Marked1
@@ -103,8 +107,8 @@ impl LoadBarrier {
     /// # Note
     /// Returns the original pointer if the lock is poisoned.
     pub fn on_pointer_load(&self, pointer: ColoredPointer) -> ColoredPointer {
-        // Fast path check - if barrier disabled or no processing needed
-        if !self.enabled.load(Ordering::Relaxed) {
+        // Fast path check - if barrier disabled or no processing needed (Good Color)
+        if !self.enabled.load(Ordering::Relaxed) || self.is_good_color(pointer.raw()) {
             return pointer;
         }
 
@@ -115,11 +119,6 @@ impl LoadBarrier {
                 return pointer;
             }
         };
-
-        // Fast path: check if pointer needs processing
-        if !pointer.needs_processing(phase) {
-            return pointer;
-        }
 
         // Slow path: process based on phase
         match phase {
@@ -162,29 +161,23 @@ impl LoadBarrier {
     /// // ptr_location is now updated atomically if pointer was healed
     /// ```
     pub fn on_pointer_load_atomic(&self, ptr_location: &AtomicUsize) -> ColoredPointer {
-        // Fast path check - if barrier disabled, just load and return
-        if !self.enabled.load(Ordering::Relaxed) {
-            let raw = ptr_location.load(Ordering::Acquire);
-            return ColoredPointer::from_raw(raw);
+        // Fast path check - load current raw value
+        let current_raw = ptr_location.load(Ordering::Acquire);
+        
+        // If barrier disabled or color is good, just return
+        if !self.enabled.load(Ordering::Relaxed) || self.is_good_color(current_raw) {
+            return ColoredPointer::from_raw(current_raw);
         }
 
         let phase = match self.phase.lock() {
             Ok(guard) => *guard,
             Err(e) => {
                 log::error!("LoadBarrier phase lock poisoned: {}", e);
-                let raw = ptr_location.load(Ordering::Acquire);
-                return ColoredPointer::from_raw(raw);
+                return ColoredPointer::from_raw(current_raw);
             }
         };
 
-        // Load current pointer value atomically
-        let current_raw = ptr_location.load(Ordering::Acquire);
         let pointer = ColoredPointer::from_raw(current_raw);
-
-        // Fast path: check if pointer needs processing
-        if !pointer.needs_processing(phase) {
-            return pointer;
-        }
 
         // Slow path: process based on phase
         let result = match phase {
@@ -286,7 +279,7 @@ impl LoadBarrier {
             // Object has been relocated, create healed pointer
             let mut healed = ColoredPointer::new(new_address);
             healed.set_remapped();
-            let healed_raw = healed.raw();
+            let _healed_raw = healed.raw();
 
             // Atomic update with CAS loop
             // This ensures pointer healing happens exactly once even with
@@ -374,6 +367,13 @@ impl LoadBarrier {
         pointer
     }
 
+    /// Optimized fast path check
+    #[inline]
+    pub fn is_good_color(&self, pointer_raw: usize) -> bool {
+        let mask = self.good_color_mask.load(Ordering::Relaxed);
+        (pointer_raw & mask) != 0 || pointer_raw == 0
+    }
+
     /// Set current GC phase
     ///
     /// Called by GC coordinator during phase transitions.
@@ -382,9 +382,27 @@ impl LoadBarrier {
     /// * `Ok(())` - Phase successfully set
     /// * `Err(FgcError::LockPoisoned)` - If mutex is poisoned
     pub fn set_phase(&self, phase: GcPhase) -> crate::error::Result<()> {
-        *self.phase.lock().map_err(|e| {
+        let mut guard = self.phase.lock().map_err(|e| {
             crate::error::FgcError::LockPoisoned(format!("LoadBarrier phase lock poisoned: {}", e))
-        })? = phase;
+        })?;
+        
+        *guard = phase;
+        
+        // Update Good Color Mask based on phase
+        let new_mask = match phase {
+            GcPhase::Marking => {
+                if self.current_mark_bit.load(Ordering::Relaxed) {
+                    ColoredPointer::MARKED1_MASK
+                } else {
+                    ColoredPointer::MARKED0_MASK
+                }
+            }
+            GcPhase::Relocating => ColoredPointer::REMAPPED_MASK,
+            GcPhase::Idle => 0,
+            _ => 0,
+        };
+        
+        self.good_color_mask.store(new_mask, Ordering::Release);
         Ok(())
     }
 

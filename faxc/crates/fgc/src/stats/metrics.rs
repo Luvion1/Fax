@@ -3,20 +3,20 @@
 //! Module for exporting metrics to monitoring systems
 //! (Prometheus, Grafana, etc.)
 
-use std::collections::HashMap;
+use indexmap::IndexMap;
 
 /// GcMetrics - metrics exporter
 ///
 /// Export GC metrics in various formats.
 pub struct GcMetrics {
     /// Metrics data
-    metrics: std::sync::Mutex<HashMap<String, MetricValue>>,
+    metrics: std::sync::Mutex<IndexMap<String, MetricValue>>,
 }
 
 impl GcMetrics {
     pub fn new() -> Self {
         Self {
-            metrics: std::sync::Mutex::new(HashMap::new()),
+            metrics: std::sync::Mutex::new(IndexMap::new()),
         }
     }
 

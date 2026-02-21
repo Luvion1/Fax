@@ -2,6 +2,8 @@
 
 Instructions for building the Fax compiler from source.
 
+<!-- Source: faxc/Cargo.toml, README.md -->
+
 ## Table of Contents
 
 1. [Prerequisites](#prerequisites)
@@ -20,12 +22,12 @@ Instructions for building the Fax compiler from source.
 |------|---------|---------|
 | Rust | 1.75+ | Compiler toolchain |
 | Git | Latest | Version control |
+| LLVM | 20.x | Code generation backend |
 
 ### Optional
 
 | Tool | Version | Purpose |
 |------|---------|---------|
-| LLVM | 14+ | Code generation backend |
 | CMake | 3.10+ | Building LLVM (if needed) |
 | Ninja | Latest | Fast builds |
 
@@ -38,17 +40,23 @@ Instructions for building the Fax compiler from source.
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source $HOME/.cargo/env
 
-# Install system dependencies
+# Install LLVM 20 and system dependencies
 sudo apt-get update
 sudo apt-get install -y \
     git \
     cmake \
     ninja-build \
     clang \
-    llvm \
+    llvm-20 \
+    llvm-20-dev \
+    libpolly-20-dev \
+    libzstd-dev \
     lld \
     libssl-dev \
     pkg-config
+
+# Set LLVM path
+export LLVM_SYS_200_PREFIX=/usr/lib/llvm-20
 ```
 
 #### macOS
@@ -58,14 +66,17 @@ sudo apt-get install -y \
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source $HOME/.cargo/env
 
-# Install system dependencies
+# Install LLVM 20 and system dependencies
 brew install \
     git \
     cmake \
     ninja \
-    llvm \
+    llvm@20 \
     openssl \
     pkg-config
+
+# Set LLVM path
+export LLVM_SYS_200_PREFIX=$(brew --prefix llvm@20)
 ```
 
 #### Windows
@@ -74,11 +85,14 @@ brew install \
 # Install Rust (using winget)
 winget install Rustlang.Rustup
 
-# Install LLVM
-winget install LLVM.LLVM
+# Install LLVM 20
+# Download from https://github.com/llvm/llvm-project/releases/tag/llvmorg-20.0.0
 
 # Install Git
 winget install Git.Git
+
+# Set LLVM path (adjust based on installation location)
+set LLVM_SYS_200_PREFIX=C:\Program Files\LLVM
 ```
 
 ---
@@ -89,6 +103,9 @@ winget install Git.Git
 # Clone the repository
 git clone https://github.com/Luvion1/Fax.git
 cd Fax
+
+# Set LLVM 20 path
+export LLVM_SYS_200_PREFIX=/usr/lib/llvm-20
 
 # Build in debug mode
 cd faxc
@@ -115,17 +132,33 @@ git clone https://github.com/Luvion1/Fax.git
 cd Fax
 ```
 
-### Step 2: Verify Rust Version
+### Step 2: Verify Prerequisites
 
 ```bash
 # Check Rust version (must be >= 1.75.0)
 rustc --version
 
+# Check LLVM version (must be 20.x)
+llvm-config-20 --version
+
 # If needed, update Rust
 rustup update
 ```
 
-### Step 3: Build the Compiler
+### Step 3: Set LLVM 20 Path
+
+```bash
+# Ubuntu/Debian
+export LLVM_SYS_200_PREFIX=/usr/lib/llvm-20
+
+# macOS
+export LLVM_SYS_200_PREFIX=$(brew --prefix llvm@20)
+
+# Windows
+set LLVM_SYS_200_PREFIX=C:\Program Files\LLVM
+```
+
+### Step 4: Build the Compiler
 
 #### Debug Build (for development)
 
@@ -145,7 +178,7 @@ cargo build --release
 
 This creates the binary at `target/release/faxc`.
 
-### Step 4: Run Tests
+### Step 5: Run Tests
 
 ```bash
 # Run all tests
@@ -158,7 +191,7 @@ cargo test -p faxc-lex
 cargo test -- --nocapture
 ```
 
-### Step 5: Verify the Build
+### Step 6: Verify the Build
 
 ```bash
 # Check compiler version
@@ -239,7 +272,7 @@ The project includes helper scripts:
 |----------|-------------|---------|
 | `RUSTFLAGS` | Additional flags for rustc | - |
 | `CARGO_INCREMENTAL` | Enable incremental compilation | 1 |
-| `LLVM_CONFIG_PATH` | Path to llvm-config | Auto-detect |
+| `LLVM_SYS_200_PREFIX` | Path to LLVM 20 installation | Auto-detect |
 
 ### Example Configuration
 
@@ -250,8 +283,8 @@ export RUSTFLAGS="-v"
 # Disable incremental compilation
 export CARGO_INCREMENTAL=0
 
-# Specify LLVM path
-export LLVM_CONFIG_PATH=/usr/bin/llvm-config-14
+# Specify LLVM 20 path
+export LLVM_SYS_200_PREFIX=/usr/lib/llvm-20
 ```
 
 ---
@@ -270,18 +303,20 @@ rustup update
 rustc --version  # Must be >= 1.75.0
 ```
 
-#### "LLVM not found"
+#### "LLVM 20 not found" or "LLVM_SYS_200_PREFIX not set"
 
 ```bash
 # Ubuntu/Debian
-sudo apt-get install llvm-dev
+sudo apt-get install llvm-20-dev libpolly-20-dev
+export LLVM_SYS_200_PREFIX=/usr/lib/llvm-20
 
 # macOS
-brew install llvm
-export PATH="$(brew --prefix llvm)/bin:$PATH"
+brew install llvm@20
+export LLVM_SYS_200_PREFIX=$(brew --prefix llvm@20)
 
 # Windows
-# Ensure LLVM is in PATH
+# Download LLVM 20 from https://github.com/llvm/llvm-project/releases/tag/llvmorg-20.0.0
+set LLVM_SYS_200_PREFIX=C:\Program Files\LLVM
 ```
 
 #### "Build fails with linker errors"
@@ -303,6 +338,17 @@ cargo build
 
 # Run tests again
 cargo test
+```
+
+#### "Inkwell LLVM version mismatch"
+
+The Fax compiler uses `inkwell` with the `llvm20-1` feature. Ensure your LLVM installation matches:
+
+```bash
+# Verify LLVM version
+llvm-config-20 --version
+
+# Should output: 20.x.x
 ```
 
 ### Getting Help

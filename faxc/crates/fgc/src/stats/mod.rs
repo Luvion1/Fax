@@ -70,7 +70,7 @@ impl GcStats {
     /// Record GC collection
     pub fn record_collection(
         &self,
-        cycle: u64,
+        _cycle: u64,
         generation: crate::gc::GcGeneration,
         duration: std::time::Duration,
     ) {

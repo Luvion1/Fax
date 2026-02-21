@@ -25,7 +25,7 @@
 
 use crate::error::{FgcError, Result};
 use memmap2::{MmapMut, MmapOptions};
-use std::io::{Read, Write};
+use std::io::Write;
 use std::sync::Arc;
 
 /// MemoryMapping - wrapper for memory mapped region
@@ -101,7 +101,7 @@ impl MemoryMapping {
         let mut opts = MmapOptions::new();
         opts.len(aligned_size);
 
-        if let Some(addr) = hint {
+        if let Some(_addr) = hint {
             // Note: memmap2 does not directly support hint address
             // We can try with stack allocation pattern
             opts.stack();

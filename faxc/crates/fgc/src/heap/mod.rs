@@ -251,7 +251,7 @@ impl Heap {
 
         let start_address = self.base_address.saturating_add(region_offset);
 
-        if let Ok(mut vm) = self.virtual_memory.lock() {
+        if let Ok(vm) = self.virtual_memory.lock() {
             let _ = vm.commit(region_offset, size);
         }
 
@@ -523,7 +523,7 @@ impl Heap {
             // Check for Out Of Memory before attempting allocation
             // Use checked comparison to avoid overflow issues
             if next > limit {
-                let available = limit.checked_sub(current).unwrap_or(0);
+                let available = limit.saturating_sub(current);
                 return Err(FgcError::OutOfMemory {
                     requested: size,
                     available,

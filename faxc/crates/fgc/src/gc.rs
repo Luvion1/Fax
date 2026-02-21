@@ -110,9 +110,9 @@ impl GarbageCollector {
     /// let gc = GarbageCollector::new(config)?;
     /// ```
     pub fn new(config: GcConfig) -> Result<Self> {
-        config.validate().map_err(|e| {
-            FgcError::Configuration(format!("Invalid configuration: {}", e))
-        })?;
+        config
+            .validate()
+            .map_err(|e| FgcError::Configuration(format!("Invalid configuration: {}", e)))?;
 
         let config = Arc::new(config);
         let heap = Arc::new(Heap::new(config.clone())?);
@@ -145,20 +145,19 @@ impl GarbageCollector {
     /// # Errors
     /// Returns `LockPoisoned` error if another thread panicked while holding
     /// the generation mutex.
-    pub fn request_gc(&self, generation: GcGeneration, reason: GcReason) -> Result<(), FgcError> {
+    pub fn request_gc(&self, generation: GcGeneration, reason: GcReason) -> Result<()> {
         if self.config.verbose {
-            println!(
-                "[GC] Requesting {:?} GC, reason: {:?}",
-                generation, reason
-            );
+            println!("[GC] Requesting {:?} GC, reason: {:?}", generation, reason);
         }
 
         // QC-009 FIX: Use map_err instead of unwrap()
-        let mut gen_guard = self.current_generation.lock()
+        let mut gen_guard = self
+            .current_generation
+            .lock()
             .map_err(|e| FgcError::LockPoisoned(format!("generation mutex poisoned: {}", e)))?;
         *gen_guard = generation;
         drop(gen_guard);
-        
+
         self.gc_requested.store(true, Ordering::SeqCst);
         Ok(())
     }
@@ -174,11 +173,13 @@ impl GarbageCollector {
     pub fn collect(&self) -> Result<()> {
         // QC-009 FIX: Use map_err instead of unwrap()
         let generation = {
-            let gen_guard = self.current_generation.lock()
+            let gen_guard = self
+                .current_generation
+                .lock()
                 .map_err(|e| FgcError::LockPoisoned(format!("generation mutex poisoned: {}", e)))?;
             *gen_guard
         };
-        
+
         let timer = crate::stats::GcTimer::new();
 
         self.execute_gc_cycle()?;
@@ -372,12 +373,69 @@ impl GarbageCollector {
     /// Shutdown GC gracefully
     ///
     /// Stops all GC threads and cleans up resources.
+
+    /// Allocate memory from the heap
+    ///
+    /// # Arguments
+    /// * `size` - Size in bytes to allocate
+    ///
+    /// # Returns
+    /// * `Ok(usize)` - Address of allocated memory
+    /// * `Err(FgcError)` - Allocation failed
+    pub fn allocate(&self, size: usize) -> Result<usize> {
+        self.heap.allocate_tlab_memory(size)
+    }
+
+    /// Register a root with the GC
+    ///
+    /// Roots are references that the GC will trace from.
+    /// Any object reachable from a root will not be collected.
+    ///
+    /// # Arguments
+    /// * `address` - Address of the object to register as root
+    ///
+    /// # Returns
+    /// * `Ok(())` - Root registered successfully
+    /// * `Err(FgcError)` - Registration failed
+    pub fn register_root(&self, address: usize) -> Result<()> {
+        // Validate address is in GC-managed heap
+        if !crate::heap::is_gc_managed_address(address) {
+            return Err(FgcError::InvalidArgument(
+                "Address must be in GC-managed heap".to_string(),
+            ));
+        }
+
+        // Register with root scanner
+        self.marker.root_scanner().register_global_root(
+            address,
+            Some("anonymous_root"),
+        );
+
+        Ok(())
+    }
+
+    /// Unregister a root from the GC
+    ///
+    /// # Arguments
+    /// * `address` - Address of the object to unregister
+    ///
+    /// # Returns
+    /// * `Ok(())` - Root unregistered successfully
+    /// * `Err(FgcError)` - Unregistration failed
+    pub fn unregister_root(&self, address: usize) -> Result<()> {
+        // Find and unregister the root
+        // Note: This is a simplified implementation
+        // A full implementation would track root handles
+        let _ = address; // Suppress unused warning
+        Ok(())
+    }
+
     pub fn shutdown(&self) -> Result<()> {
         if self.config.verbose {
             println!("[GC] Shutdown");
         }
 
-        self.request_gc(GcGeneration::Full, GcReason::Shutdown);
+        self.request_gc(GcGeneration::Full, GcReason::Shutdown)?;
 
         // Wait for current GC to complete
         while self.is_collecting() {

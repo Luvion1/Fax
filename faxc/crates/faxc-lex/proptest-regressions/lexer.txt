@@ -5,3 +5,4 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc 3ef7fd05c2ad5300be40bad79ca60f52d1b9a80eb7ed3670ccab1d415d70c86a # shrinks to input = "_"
+cc 299ac39ec7f899d24968b843027a35db31af62ee6a662881b4bd12651cde3101 # shrinks to input = "r"

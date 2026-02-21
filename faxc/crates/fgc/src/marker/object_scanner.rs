@@ -257,7 +257,7 @@ where
 ///
 /// # Returns
 /// Number of references found
-pub fn scan_object_hybrid<F>(obj_addr: usize, ref_map: Option<&ReferenceMap>, mut callback: F) -> usize
+pub fn scan_object_hybrid<F>(obj_addr: usize, ref_map: Option<&ReferenceMap>, callback: F) -> usize
 where
     F: FnMut(usize),
 {

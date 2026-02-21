@@ -1,8 +1,6 @@
-use faxc_drv::{main, Config, Session};
-
 fn main() {
-    if let Err(e) = main() {
-        eprintln!("error: {}", e);
+    if let Err(e) = faxc_drv::main() {
+        eprintln!("Error: {}", e);
         std::process::exit(1);
     }
 }

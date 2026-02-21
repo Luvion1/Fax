@@ -2,6 +2,8 @@
 
 Welcome to the Fax programming language! This guide will help you get up and running quickly.
 
+<!-- Source: faxc/Cargo.toml, README.md -->
+
 ## Table of Contents
 
 1. [Prerequisites](#prerequisites)
@@ -17,18 +19,30 @@ Welcome to the Fax programming language! This guide will help you get up and run
 Before installing Fax, ensure you have the following:
 
 ### Required
-- **Rust 1.75 or later** ([install via rustup](https://rustup.rs))
-- **Git** for cloning the repository
 
-### Optional (for development)
-- **LLVM 14+** (for code generation)
-- **A text editor or IDE** (VS Code, RustRover, etc.)
+| Requirement | Version | Purpose |
+|-------------|---------|---------|
+| **Rust** | 1.75+ | Compiler toolchain |
+| **Git** | Latest | Version control |
+
+### LLVM 20 Requirement
+
+Fax requires **LLVM 20.x** for code generation. Install the appropriate package for your platform:
+
+| Platform | Package |
+|----------|---------|
+| Ubuntu/Debian | `llvm-20-dev`, `libpolly-20-dev` |
+| macOS | `llvm@20` (Homebrew) |
+| Windows | LLVM 20 installer |
 
 ### Verify Prerequisites
 
 ```bash
 # Check Rust version (must be >= 1.75.0)
 rustc --version
+
+# Check LLVM version
+llvm-config-20 --version  # Should output 20.x.x
 
 # Check Git
 git --version
@@ -44,6 +58,9 @@ git --version
 # Clone the repository
 git clone https://github.com/Luvion1/Fax.git
 cd Fax
+
+# Set LLVM 20 path (adjust based on your installation)
+export LLVM_SYS_200_PREFIX=/usr/lib/llvm-20
 
 # Build the compiler (debug mode)
 cd faxc
@@ -88,7 +105,7 @@ Fax is a modern, functional-first programming language that compiles to LLVM IR.
 - **Static Typing with Inference** - Strong types without verbose annotations
 - **Algebraic Data Types** - Expressive data modeling with enums and structs
 - **Pattern Matching** - Powerful `match` expressions
-- **Native Performance** - Compiles to optimized machine code via LLVM
+- **Native Performance** - Compiles to optimized machine code via LLVM 20
 
 ### Language Comparison
 
@@ -187,19 +204,39 @@ Update Rust to the latest version:
 rustup update
 ```
 
-#### "LLVM not found"
+#### "LLVM 20 not found"
 
-Install LLVM for your platform:
+Install LLVM 20 for your platform:
 
 ```bash
 # Ubuntu/Debian
-sudo apt-get install llvm
+sudo apt-get install llvm-20-dev libpolly-20-dev
 
 # macOS
-brew install llvm
+brew install llvm@20
 
 # Windows
-# Download from https://llvm.org/releases/
+# Download from https://github.com/llvm/llvm-project/releases/tag/llvmorg-20.0.0
+```
+
+Then set the environment variable:
+
+```bash
+# Ubuntu/Debian
+export LLVM_SYS_200_PREFIX=/usr/lib/llvm-20
+
+# macOS
+export LLVM_SYS_200_PREFIX=$(brew --prefix llvm@20)
+```
+
+#### Build fails with "LLVM_SYS_200_PREFIX not set"
+
+```bash
+# Set the LLVM 20 path
+export LLVM_SYS_200_PREFIX=/usr/lib/llvm-20
+
+# Rebuild
+cargo build
 ```
 
 ---

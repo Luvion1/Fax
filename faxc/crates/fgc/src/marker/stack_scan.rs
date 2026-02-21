@@ -60,6 +60,7 @@
 
 use crate::error::{FgcError, Result};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use indexmap::IndexMap;
 
 /// StackScanner - scanner for concurrent thread stack scanning
 ///
@@ -88,7 +89,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 /// ```
 pub struct StackScanner {
     /// Watermark for each thread (protected by mutex)
-    watermarks: std::sync::Mutex<std::collections::HashMap<u64, StackWatermark>>,
+    watermarks: std::sync::Mutex<IndexMap<u64, StackWatermark>>,
 
     /// Scanned frames (protected by mutex)
     scanned_frames: std::sync::Mutex<Vec<usize>>,
@@ -115,7 +116,7 @@ impl StackScanner {
     /// ```
     pub fn new() -> Self {
         Self {
-            watermarks: std::sync::Mutex::new(std::collections::HashMap::new()),
+            watermarks: std::sync::Mutex::new(IndexMap::new()),
             scanned_frames: std::sync::Mutex::new(Vec::new()),
             conservative_fallback: AtomicBool::new(true),
             frames_scanned: AtomicUsize::new(0),
@@ -129,7 +130,7 @@ impl StackScanner {
     /// May miss some roots if frame pointer walking fails.
     pub fn new_precise() -> Self {
         Self {
-            watermarks: std::sync::Mutex::new(std::collections::HashMap::new()),
+            watermarks: std::sync::Mutex::new(IndexMap::new()),
             scanned_frames: std::sync::Mutex::new(Vec::new()),
             conservative_fallback: AtomicBool::new(false),
             frames_scanned: AtomicUsize::new(0),

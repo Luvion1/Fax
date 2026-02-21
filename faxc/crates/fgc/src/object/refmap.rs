@@ -680,12 +680,12 @@ mod tests {
 
         let map = ReferenceMap::new(&[0, 16, 40]);
 
-        assert!(map.is_reference(0));   // class pointer
-        assert!(!map.is_reference(8));  // i64
-        assert!(map.is_reference(16));  // object ref
+        assert!(map.is_reference(0)); // class pointer
+        assert!(!map.is_reference(8)); // i64
+        assert!(map.is_reference(16)); // object ref
         assert!(!map.is_reference(24)); // i32
         assert!(!map.is_reference(32)); // padding
-        assert!(map.is_reference(40));  // object ref
+        assert!(map.is_reference(40)); // object ref
 
         assert_eq!(map.count(), 3);
     }
@@ -707,9 +707,9 @@ mod tests {
     fn test_mixed_primitives_and_references() {
         // Object with mixed fields
         let map = ReferenceMap::new(&[
-            0,   // ptr
-            24,  // ptr
-            56,  // ptr
+            0,  // ptr
+            24, // ptr
+            56, // ptr
         ]);
 
         assert_eq!(map.count(), 3);

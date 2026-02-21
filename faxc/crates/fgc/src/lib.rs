@@ -270,6 +270,9 @@ pub mod util;
 
 // Re-export main types for convenience
 pub use config::GcConfig;
+
+/// Type alias for backward compatibility
+pub type FgcConfig = GcConfig;
 pub use error::{FgcError, Result};
 pub use gc::{GarbageCollector, GcGeneration, GcReason, GcState};
 pub use runtime::Runtime;

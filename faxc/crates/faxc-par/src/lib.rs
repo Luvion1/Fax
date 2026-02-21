@@ -52,6 +52,9 @@
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
 
+#[cfg(test)]
+mod edge_cases;
+
 use faxc_lex::Token;
 use faxc_util::{Handler, Span, Symbol};
 

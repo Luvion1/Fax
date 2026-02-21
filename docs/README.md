@@ -2,6 +2,8 @@
 
 Welcome to the official documentation for the Fax programming language and compiler.
 
+<!-- Source: faxc/Cargo.toml, README.md -->
+
 ## 📚 Documentation Overview
 
 | Section | Description |
@@ -16,13 +18,14 @@ Welcome to the official documentation for the Fax programming language and compi
 ## 🚀 Quick Links
 
 ### For New Users
-- [Installation Guide](docs/getting-started/installation.md) - Get Fax up and running
+- [Installation Guide](docs/getting-started/installation.md) - Get Fax up and running (includes LLVM 20 setup)
 - [Quick Tour](docs/getting-started/quick-tour.md) - Learn the basics in 10 minutes
 - [Hello World](docs/getting-started/hello-world.md) - Your first Fax program
 
 ### For Developers
 - [Language Specification](../../SPEC.md) - Complete grammar and semantics
 - [Architecture Overview](docs/compiler/architecture.md) - How the compiler works
+- [Building Guide](docs/compiler/building.md) - Build from source with LLVM 20
 - [Contributing Guide](../../CONTRIBUTING.md) - How to contribute to Fax
 
 ### For Contributors
@@ -38,7 +41,7 @@ Welcome to the official documentation for the Fax programming language and compi
 
 ```
 docs/getting-started/
-├── installation.md      # Installing the Fax compiler
+├── installation.md      # Installing Fax and LLVM 20
 ├── quick-tour.md        # Language overview and features
 └── hello-world.md       # Your first Fax program
 ```
@@ -62,7 +65,7 @@ docs/language-guide/
 ```
 docs/compiler/
 ├── architecture.md      # Compiler pipeline overview
-├── building.md          # Building from source
+├── building.md          # Building from source (LLVM 20)
 ├── contributing.md      # Contributing to the compiler
 ├── testing.md           # Testing infrastructure
 └── debugging.md         # Debugging tips and tools
@@ -83,7 +86,7 @@ docs/rfcs/
 
 ### External Documentation
 - [Rust Programming Language](https://doc.rust-lang.org/book/) - For compiler contributors
-- [LLVM Documentation](https://llvm.org/docs/) - For code generation
+- [LLVM 20 Documentation](https://llvm.org/docs/) - For code generation
 - [Cargo Book](https://doc.rust-lang.org/cargo/) - For Rust package management
 
 ### Community
@@ -111,6 +114,7 @@ We welcome documentation contributions! See our [Contributing Guide](../../CONTR
 - Keep examples up to date with the latest version
 - Use proper Markdown formatting
 - Add internal links where relevant
+- Keep LLVM version references consistent (LLVM 20)
 
 ---
 

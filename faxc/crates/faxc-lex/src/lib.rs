@@ -274,6 +274,21 @@ mod tests {
     }
 
     #[test]
+    fn test_raw_string_literal() {
+        let source = r###"r#"hello "world" and \n"#"###;
+        let tokens = lex_all(source);
+
+        assert_eq!(tokens.len(), 1);
+        if let Token::RawString(s) = &tokens[0] {
+            let content = s.as_str();
+            assert!(content.contains("hello"));
+            assert!(content.contains("\\n"));  // literal backslash-n, not newline
+        } else {
+            panic!("Expected RawString token");
+        }
+    }
+
+    #[test]
     fn test_line_column_tracking() {
         let source = "let\nx\n=\n42";
         let mut handler = Handler::new();

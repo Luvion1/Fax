@@ -152,7 +152,7 @@ pub unsafe fn zero_memory(addr: usize, size: usize) {
 #[inline]
 pub unsafe fn read_pointer(addr: usize) -> usize {
     // CRIT-04 FIX: Validate address before dereference
-    if addr == 0 || addr % std::mem::align_of::<usize>() != 0 {
+    if addr == 0 || !addr.is_multiple_of(std::mem::align_of::<usize>()) {
         return 0;  // Treat as null
     }
 
@@ -186,7 +186,7 @@ pub unsafe fn read_pointer(addr: usize) -> usize {
 #[inline]
 pub unsafe fn write_pointer(addr: usize, value: usize) {
     // CRIT-04 FIX: Validate address before dereference
-    if addr == 0 || addr % std::mem::align_of::<usize>() != 0 {
+    if addr == 0 || !addr.is_multiple_of(std::mem::align_of::<usize>()) {
         return;  // Cannot write to null or unaligned address
     }
 
@@ -229,7 +229,7 @@ pub unsafe fn write_pointer(addr: usize, value: usize) {
 #[inline]
 pub unsafe fn read_value<T: Copy>(addr: usize) -> T {
     // CRIT-04 FIX: Validate address before dereference
-    if addr == 0 || addr % std::mem::align_of::<T>() != 0 {
+    if addr == 0 || !addr.is_multiple_of(std::mem::align_of::<T>()) {
         // Return zero-initialized value for invalid addresses
         // This is safe because T: Copy
         return std::mem::zeroed();
@@ -270,7 +270,7 @@ pub unsafe fn read_value<T: Copy>(addr: usize) -> T {
 #[inline]
 pub unsafe fn write_value<T>(addr: usize, value: T) {
     // CRIT-04 FIX: Validate address before dereference
-    if addr == 0 || addr % std::mem::align_of::<T>() != 0 {
+    if addr == 0 || !addr.is_multiple_of(std::mem::align_of::<T>()) {
         return;  // Cannot write to null or unaligned address
     }
 
@@ -308,7 +308,7 @@ pub unsafe fn write_value<T>(addr: usize, value: T) {
 #[inline]
 pub unsafe fn peek_value<T: Copy>(addr: usize) -> T {
     // CRIT-04 FIX: Validate address before dereference
-    if addr == 0 || addr % std::mem::align_of::<T>() != 0 {
+    if addr == 0 || !addr.is_multiple_of(std::mem::align_of::<T>()) {
         // Return zero-initialized value for invalid addresses
         // This is safe because T: Copy
         return std::mem::zeroed();
@@ -358,7 +358,7 @@ pub unsafe fn swap_values<T>(addr1: usize, addr2: usize) {
 
     // Check alignment
     let align = std::mem::align_of::<T>();
-    if addr1 % align != 0 || addr2 % align != 0 {
+    if !addr1.is_multiple_of(align) || !addr2.is_multiple_of(align) {
         return;
     }
 
@@ -448,7 +448,7 @@ pub fn is_readable(addr: usize) -> Result<bool, FgcError> {
     
     // Check alignment - misaligned addresses may cause issues
     // This is a heuristic, not a guarantee
-    if addr % std::mem::align_of::<u8>() != 0 {
+    if !addr.is_multiple_of(std::mem::align_of::<u8>()) {
         return Ok(false);
     }
 
@@ -598,7 +598,7 @@ pub fn is_writable(addr: usize) -> Result<bool, FgcError> {
     }
     
     // Check alignment
-    if addr % std::mem::align_of::<u8>() != 0 {
+    if !addr.is_multiple_of(std::mem::align_of::<u8>()) {
         return Ok(false);
     }
 
@@ -685,7 +685,7 @@ pub fn validate_pointer(addr: usize, operation: &str) -> Result<(), FgcError> {
         return Err(FgcError::InvalidPointer { address: 0 });
     }
 
-    if addr % std::mem::align_of::<usize>() != 0 {
+    if !addr.is_multiple_of(std::mem::align_of::<usize>()) {
         return Err(FgcError::InvalidArgument(
             format!("Unaligned address for {}: {:#x}", operation, addr)
         ));

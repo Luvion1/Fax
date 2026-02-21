@@ -21,7 +21,7 @@ disallowed-types = [
 
 # Lint levels
 # Warn on these
-warn-on-macro-unimplemented = true
+# warn-on-macro-unimplemented = true
 
 # Allow these (too strict)
 allow-unwrap-in-tests = true

@@ -79,11 +79,11 @@ impl Runtime {
     }
 
     /// Request GC
-    pub fn request_gc(&self, generation: crate::gc::GcGeneration) {
+    pub fn request_gc(&self, generation: crate::gc::GcGeneration) -> crate::error::Result<()> {
         self.gc.request_gc(
             generation,
             crate::gc::GcReason::Explicit,
-        );
+        )
     }
 
     /// Allocate object

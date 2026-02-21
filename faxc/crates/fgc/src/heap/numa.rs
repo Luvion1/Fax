@@ -30,8 +30,8 @@
 //! 4. Object migration if thread moves to different node
 
 use crate::error::Result;
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use indexmap::IndexMap;
 
 /// NumaManager - manages NUMA-aware allocation
 ///
@@ -44,7 +44,7 @@ pub struct NumaManager {
     current_node: AtomicUsize,
 
     /// Region pools per NUMA node
-    node_pools: HashMap<usize, NumaNodePool>,
+    node_pools: IndexMap<usize, NumaNodePool>,
 }
 
 impl NumaManager {
@@ -56,7 +56,7 @@ impl NumaManager {
         // Note: In real implementation, this would read from /sys/devices/system/node/
         let node_count = detect_numa_nodes();
 
-        let mut node_pools = HashMap::new();
+        let mut node_pools = IndexMap::new();
         for node_id in 0..node_count {
             node_pools.insert(node_id, NumaNodePool::new(node_id));
         }
@@ -118,7 +118,7 @@ impl NumaManager {
     }
 
     /// Bind memory to NUMA node
-    pub fn bind_memory_to_node(&self, address: usize, size: usize, node: usize) -> Result<()> {
+    pub fn bind_memory_to_node(&self, _address: usize, _size: usize, _node: usize) -> Result<()> {
         // Note: In real implementation:
         // Linux: mbind(address, size, ...)
         // Windows: VirtualAllocNuma
@@ -128,10 +128,10 @@ impl NumaManager {
     /// Migrate memory between nodes
     pub fn migrate_memory(
         &self,
-        from_node: usize,
-        to_node: usize,
-        address: usize,
-        size: usize,
+        _from_node: usize,
+        _to_node: usize,
+        _address: usize,
+        _size: usize,
     ) -> Result<()> {
         // Note: In real implementation:
         // Linux: move_pages()
@@ -153,7 +153,7 @@ struct NumaNodePool {
     node_id: usize,
 
     /// Free regions: size -> list of addresses
-    free_regions: std::sync::Mutex<HashMap<usize, Vec<usize>>>,
+    free_regions: std::sync::Mutex<IndexMap<usize, Vec<usize>>>,
 
     /// Total allocated bytes
     allocated_bytes: AtomicUsize,
@@ -166,7 +166,7 @@ impl NumaNodePool {
     fn new(node_id: usize) -> Self {
         Self {
             node_id,
-            free_regions: std::sync::Mutex::new(HashMap::new()),
+            free_regions: std::sync::Mutex::new(IndexMap::new()),
             allocated_bytes: AtomicUsize::new(0),
             allocation_count: AtomicUsize::new(0),
         }
@@ -182,7 +182,7 @@ impl NumaNodePool {
                 let address = addresses.pop().unwrap();
 
                 if addresses.is_empty() {
-                    free_regions.remove(&region_size);
+                    free_regions.swap_remove(&region_size);
                 }
 
                 self.allocated_bytes.fetch_add(size, Ordering::Relaxed);

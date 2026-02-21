@@ -54,7 +54,7 @@ pub struct ScopedTimer<'a> {
 
 impl<'a> ScopedTimer<'a> {
     /// Create scoped timer
-    pub fn new<F>(name: &'a str, mut callback: F) -> Self
+    pub fn new<F>(name: &'a str, callback: F) -> Self
     where
         F: FnMut(Duration) + 'a,
     {

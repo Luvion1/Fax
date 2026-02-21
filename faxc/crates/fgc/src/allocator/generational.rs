@@ -11,6 +11,7 @@ use crate::error::Result;
 use crate::heap::Heap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use indexmap::IndexMap;
 
 /// GenerationalAllocator - allocator with young/old separation
 ///
@@ -255,14 +256,14 @@ pub struct GenerationalStats {
 ///
 /// Tracks how many times an object survives minor GC.
 pub struct AgeTracker {
-    ages: std::sync::Mutex<std::collections::HashMap<usize, u8>>,
+    ages: std::sync::Mutex<IndexMap<usize, u8>>,
 }
 
 impl AgeTracker {
     /// Create new age tracker
     pub fn new() -> Self {
         Self {
-            ages: std::sync::Mutex::new(std::collections::HashMap::new()),
+            ages: std::sync::Mutex::new(IndexMap::new()),
         }
     }
 
@@ -283,7 +284,7 @@ impl AgeTracker {
     /// Remove object from tracker
     pub fn remove(&self, address: usize) {
         let mut ages = self.ages.lock().unwrap();
-        ages.remove(&address);
+        ages.swap_remove(&address);
     }
 
     /// Clear all ages (after major GC)

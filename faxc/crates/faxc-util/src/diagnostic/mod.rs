@@ -498,7 +498,7 @@ mod tests {
 
     #[test]
     fn test_diagnostic_with_code() {
-        let code = DiagnosticCode::new(1001, "test");
+        let code = DiagnosticCode::new("test", 1001);
         let diag = Diagnostic::error("test", Span::DUMMY).with_code(code);
         assert_eq!(diag.code, Some(code));
     }
@@ -575,9 +575,9 @@ mod tests {
     #[test]
     fn test_handler_panicking() {
         let handler = Handler::new_panicking();
-        let result = std::panic::catch_unwind(|| {
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             handler.emit_diagnostic(Diagnostic::error("test", Span::DUMMY));
-        });
+        }));
         assert!(result.is_err());
     }
 

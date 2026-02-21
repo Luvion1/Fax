@@ -21,6 +21,7 @@ use crate::error::{FgcError, Result};
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use indexmap::IndexMap;
 
 /// Thread ID type
 pub type ThreadId = u64;
@@ -184,7 +185,7 @@ pub struct TlabManager {
     max_tlabs: usize,
 
     /// Active TLABs (mapped by thread ID)
-    tlabs: std::sync::Mutex<std::collections::HashMap<ThreadId, Arc<Tlab>>>,
+    tlabs: std::sync::Mutex<IndexMap<ThreadId, Arc<Tlab>>>,
 
     /// TLAB refill counter
     refill_count: AtomicUsize,
@@ -215,7 +216,7 @@ impl TlabManager {
             max_size,
             alignment,
             max_tlabs,
-            tlabs: std::sync::Mutex::new(std::collections::HashMap::new()),
+            tlabs: std::sync::Mutex::new(IndexMap::new()),
             refill_count: AtomicUsize::new(0),
             create_count: AtomicUsize::new(0),
         }
@@ -242,7 +243,7 @@ impl TlabManager {
     ///
     /// # Returns
     /// MutexGuard for TLABs map, or LockPoisoned error
-    fn acquire_tlabs_lock(&self) -> Result<std::sync::MutexGuard<std::collections::HashMap<ThreadId, Arc<Tlab>>>> {
+    fn acquire_tlabs_lock(&self) -> Result<std::sync::MutexGuard<'_, IndexMap<ThreadId, Arc<Tlab>>>> {
         self.tlabs.lock().map_err(|e| {
             FgcError::LockPoisoned(format!("TlabManager tlabs lock poisoned: {}", e))
         })
@@ -256,7 +257,7 @@ impl TlabManager {
     ///
     /// # Returns
     /// Some(Arc<Tlab>) if found and active, None otherwise
-    fn get_existing_tlab(&self, tlabs: &std::collections::HashMap<ThreadId, Arc<Tlab>>, thread_id: ThreadId) -> Option<Arc<Tlab>> {
+    fn get_existing_tlab(&self, tlabs: &IndexMap<ThreadId, Arc<Tlab>>, thread_id: ThreadId) -> Option<Arc<Tlab>> {
         tlabs.get(&thread_id).filter(|tlab| !tlab.is_retired()).cloned()
     }
 
@@ -277,7 +278,7 @@ impl TlabManager {
     /// - Tlab::new validation fails
     fn create_new_tlab(
         &self,
-        tlabs: &mut std::collections::HashMap<ThreadId, Arc<Tlab>>,
+        tlabs: &mut IndexMap<ThreadId, Arc<Tlab>>,
         thread_id: ThreadId,
         heap: &crate::heap::Heap,
     ) -> Result<Arc<Tlab>> {
@@ -331,7 +332,7 @@ impl TlabManager {
         if let Some(tlab) = tlabs.get(&thread_id) {
             tlab.retire();
         }
-        tlabs.remove(&thread_id);
+        tlabs.swap_remove(&thread_id);
 
         // Check TLAB limit before creating new one
         if tlabs.len() >= self.max_tlabs {
@@ -375,7 +376,7 @@ impl TlabManager {
         if let Some(tlab) = tlabs.get(&thread_id) {
             tlab.retire();
         }
-        tlabs.remove(&thread_id);
+        tlabs.swap_remove(&thread_id);
     }
 
     /// Get active TLAB count
@@ -433,7 +434,7 @@ mod tests {
     #[test]
     fn test_get_existing_tlab() {
         let manager = TlabManager::new(1024, 256, 4096, 8, 10);
-        let tlabs = std::collections::HashMap::new();
+        let tlabs = IndexMap::new();
 
         // Empty map returns None
         assert!(manager.get_existing_tlab(&tlabs, 1).is_none());
@@ -444,7 +445,7 @@ mod tests {
         let manager = TlabManager::new(1024, 256, 4096, 8, 10);
 
         // Create a retired TLAB
-        let tlabs = std::collections::HashMap::new();
+        let tlabs = IndexMap::new();
         // Can't easily test retired TLAB without heap, so we test the logic
         // by verifying the filter works correctly
         assert!(manager.get_existing_tlab(&tlabs, 1).is_none());

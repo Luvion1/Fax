@@ -151,7 +151,8 @@ impl ObjectHeader {
     #[inline]
     pub fn clear_mark_bits(&self) {
         // AcqRel: atomic read-modify-write for clearing bits
-        self.mark_word.fetch_and(!(MARKED0_MASK | MARKED1_MASK), Ordering::AcqRel);
+        self.mark_word
+            .fetch_and(!(MARKED0_MASK | MARKED1_MASK), Ordering::AcqRel);
     }
 
     /// Flip mark bits (swap Marked0 <-> Marked1)
@@ -254,7 +255,7 @@ impl ObjectHeader {
                 Ok(_) => {
                     self.set_forwarded();
                     return true;
-                }
+                },
                 Err(val) => current = val,
             }
         }
@@ -339,7 +340,7 @@ impl ObjectHeader {
     }
 
     /// Get object data size (excluding header)
-    /// 
+    ///
     /// Returns 0 if object size is less than header size (invalid object).
     #[inline]
     pub fn get_data_size(&self) -> usize {
@@ -818,12 +819,12 @@ mod tests {
         // Test mark operations are idempotent
         // set_marked0 returns true if bit was ALREADY set, false if we just set it
         assert!(!header.set_marked0()); // First mark: was not set, returns false
-        assert!(header.set_marked0());  // Second mark: was already set, returns true
-        assert!(header.is_marked0());   // Check sees the mark
+        assert!(header.set_marked0()); // Second mark: was already set, returns true
+        assert!(header.is_marked0()); // Check sees the mark
 
         // Test Marked1 operations
         assert!(!header.set_marked1()); // First mark: was not set
-        assert!(header.set_marked1());  // Second mark: was already set
-        assert!(header.is_marked1());   // Check sees the mark
+        assert!(header.set_marked1()); // Second mark: was already set
+        assert!(header.is_marked1()); // Check sees the mark
     }
 }

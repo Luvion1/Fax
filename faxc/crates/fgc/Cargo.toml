@@ -17,6 +17,18 @@ anyhow.workspace = true
 # Concurrency
 parking_lot.workspace = true
 crossbeam.workspace = true
+crossbeam-deque = "0.8"
+indexmap = "2.1"
+
+# Lazy static initialization
+lazy_static = "1.4"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Date/time for logging
+chrono = "0.4"
 
 # NUMA support (optional)
 num_cpus = "1.16"

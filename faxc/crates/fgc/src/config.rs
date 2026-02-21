@@ -154,6 +154,19 @@ pub struct GcConfig {
     /// Default: true
     pub tlab_resize: bool,
 
+    /// Enable adaptive GC tuning
+    ///
+    /// FGC automatically adjusts parameters based on runtime behavior.
+    /// Adjusts: young_ratio, gc_threads, tlab_size
+    /// Default: true
+    pub adaptive_tuning: bool,
+
+    /// Adaptive tuning interval (milliseconds)
+    ///
+    /// How often to adjust parameters (0 = disabled).
+    /// Default: 5000 (5 seconds)
+    pub tuning_interval_ms: u64,
+
     /// Enable NUMA-aware allocation
     ///
     /// On multi-socket systems, allocates memory on the local NUMA node.
@@ -219,7 +232,7 @@ impl Default for GcConfig {
             target_pause_time_ms: 10,
 
             // Threading
-            gc_threads: Some((num_cpus / 2).max(1).min(4)),
+            gc_threads: Some((num_cpus / 2).clamp(1, 4)),
 
             // Generational
             generational: true,
@@ -250,6 +263,10 @@ impl Default for GcConfig {
             verbose: false,
             stats_enabled: true,
             gc_interval_ms: 0,
+
+            // Adaptive tuning
+            adaptive_tuning: true,
+            tuning_interval_ms: 5000,
         }
     }
 }

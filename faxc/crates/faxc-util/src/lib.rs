@@ -47,10 +47,12 @@ pub mod symbol;
 pub mod index_vec;
 pub mod diagnostic;
 pub mod span;
+pub mod def_id;
 
 // Re-export commonly used types at crate root for convenience
 pub use symbol::{Symbol, InternerStats, KW_FN, KW_LET, KW_CONST, KW_MUT, KW_IF, KW_ELSE, KW_WHILE, KW_FOR, KW_LOOP, KW_RETURN, KW_BREAK, KW_CONTINUE, KW_STRUCT, KW_ENUM, KW_IMPL, KW_TRAIT, KW_TYPE, KW_MOD, KW_USE, KW_PUB, KW_TRUE, KW_FALSE, KW_SELF, KW_SELF_UPPER, KW_AS, KW_MATCH, KW_UNSAFE, KW_EXTERN, KW_CRATE, KW_SUPER};
 pub use index_vec::{Idx, IndexVec};
+pub use def_id::{DefId, DefIdGenerator};
 pub use diagnostic::{
     Handler, Diagnostic, Level, DiagnosticCode, DiagnosticBuilder, SourceSnippet,
     // Predefined diagnostic codes

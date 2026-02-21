@@ -17,6 +17,7 @@ Fax combines the simplicity of imperative languages with the expressiveness of f
 
 - [Features](#features)
 - [Quick Start](#quick-start)
+- [System Requirements](#system-requirements)
 - [Installation](#installation)
 - [Usage Examples](#usage-examples)
 - [Documentation](#documentation)
@@ -40,7 +41,7 @@ Fax combines the simplicity of imperative languages with the expressiveness of f
 
 ### Compiler Features
 
-- **LLVM IR Code Generation** - Direct compilation to optimized LLVM IR
+- **LLVM 20 IR Code Generation** - Direct compilation to optimized LLVM IR
 - **Cross-Platform Support** - Linux, macOS, and Windows
 - **Fast Compilation** - Optimized compiler pipeline
 - **Comprehensive Error Messages** - Clear, actionable diagnostics
@@ -59,7 +60,7 @@ Fax combines the simplicity of imperative languages with the expressiveness of f
 ```bash
 # Clone the repository
 git clone https://github.com/Luvion1/Fax.git
-cd faxc
+cd Fax
 
 # Build the compiler (debug mode)
 ./scripts/build.sh
@@ -86,12 +87,47 @@ docker run --rm -v $(pwd):/workspace faxc faxc /workspace/examples/01_hello.fax
 
 ---
 
+## System Requirements
+
+| Requirement | Version | Purpose |
+|-------------|---------|---------|
+| **Rust** | 1.75+ | Compiler toolchain |
+| **LLVM** | 20.x | Code generation backend |
+| **Git** | Latest | Version control |
+
+### Dependencies
+
+| Package | Purpose |
+|---------|---------|
+| `llvm-20-dev` | LLVM 20 development files |
+| `libpolly-20-dev` | LLVM Polly optimizer |
+| `libzstd-dev` | Zstandard compression |
+
+### Installation (Ubuntu/Debian)
+
+```bash
+sudo apt-get update
+sudo apt-get install -y llvm-20-dev libpolly-20-dev libzstd-dev
+```
+
+### Installation (macOS)
+
+```bash
+brew install llvm@20
+```
+
+### Installation (Windows)
+
+Download LLVM 20 from the [official releases](https://github.com/llvm/llvm-project/releases/tag/llvmorg-20.0.0).
+
+---
+
 ## Installation
 
 ### Prerequisites
 
 - **Rust 1.75 or later** ([install via rustup](https://rustup.rs))
-- **LLVM 14+** (for code generation)
+- **LLVM 20.x** (for code generation)
 - **Git**
 
 ### Build from Source
@@ -99,7 +135,10 @@ docker run --rm -v $(pwd):/workspace faxc faxc /workspace/examples/01_hello.fax
 ```bash
 # Clone the repository
 git clone https://github.com/Luvion1/Fax.git
-cd faxc
+cd Fax
+
+# Set LLVM 20 path (adjust based on your installation)
+export LLVM_SYS_200_PREFIX=/usr/lib/llvm-20
 
 # Build in release mode
 cd faxc
@@ -142,7 +181,7 @@ fn main() {
     let x = 42              // immutable
     let mut y = 10          // mutable
     y = 20
-    
+
     let result = add(x, y)
     println(result)         // prints 62
 }
@@ -158,7 +197,7 @@ enum Result {
 
 fn main() {
     let value = Result::Ok(42)
-    
+
     match value {
         Result::Ok(n) => println("Success: " + n),
         Result::Err(e) => println("Error: " + e),
@@ -236,7 +275,10 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 ```bash
 # Fork and clone
 git clone https://github.com/Luvion1/Fax.git
-cd faxc
+cd Fax
+
+# Set LLVM 20 path
+export LLVM_SYS_200_PREFIX=/usr/lib/llvm-20
 
 # Create a branch
 git checkout -b feature/my-feature

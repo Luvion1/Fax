@@ -13,9 +13,6 @@
 //! - `array_read_barrier!` - Array element read barrier
 //! - `object_read_barrier!` - Object read barrier
 
-use crate::object::{ObjectHeader, HEADER_SIZE};
-use std::sync::atomic::{AtomicUsize, Ordering};
-
 /// Macro for reading pointer with load barrier
 ///
 /// Usage:
@@ -113,7 +110,9 @@ macro_rules! write_field_barrier {
         }
 
         // Write field
-        unsafe { *((obj_addr + $offset) as *mut $field) = $value; }
+        unsafe {
+            *((obj_addr + $offset) as *mut $field) = $value;
+        }
     }};
 }
 
@@ -167,7 +166,9 @@ macro_rules! array_write_barrier {
             $crate::barrier::write_barrier::on_field_write(array_addr, $value as usize);
         }
 
-        unsafe { *(elem_addr as *mut $elem_type) = $value; }
+        unsafe {
+            *(elem_addr as *mut $elem_type) = $value;
+        }
     }};
 }
 
@@ -347,12 +348,12 @@ macro_rules! arc_deref_barrier {
 #[macro_export]
 macro_rules! method_call_barrier {
     ($obj:expr, $method:ident) => {{
-        let addr = $obj as *const _ as usize;
+        let addr = std::ptr::addr_of!($obj) as usize;
         $crate::barrier::load_barrier::on_object_read(addr);
         $obj.$method()
     }};
     ($obj:expr, $method:ident, $($args:expr),*) => {{
-        let addr = $obj as *const _ as usize;
+        let addr = std::ptr::addr_of!($obj) as usize;
         $crate::barrier::load_barrier::on_object_read(addr);
         $obj.$method($($args),*)
     }};
@@ -369,12 +370,12 @@ macro_rules! method_call_barrier {
 #[macro_export]
 macro_rules! vtable_call_barrier {
     ($trait_obj:expr, $method:ident) => {{
-        let addr = $trait_obj as *const _ as usize;
+        let addr = $trait_obj.as_ref() as *const _ as *const () as usize;
         $crate::barrier::load_barrier::on_object_read(addr);
         $trait_obj.$method()
     }};
     ($trait_obj:expr, $method:ident, $($args:expr),*) => {{
-        let addr = $trait_obj as *const _ as usize;
+        let addr = $trait_obj.as_ref() as *const _ as *const () as usize;
         $crate::barrier::load_barrier::on_object_read(addr);
         $trait_obj.$method($($args),*)
     }};
@@ -514,8 +515,70 @@ macro_rules! index_mut_barrier {
 /// cross-generational references.
 pub mod write_barrier {
     use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Mutex;
 
     static WRITE_BARRIER_ACTIVE: AtomicBool = AtomicBool::new(false);
+
+    lazy_static::lazy_static! {
+        static ref REMEMBERED_SET: Mutex<RememberedSet> = Mutex::new(RememberedSet::new());
+    }
+
+    const CARD_SIZE: usize = 512;
+    const CARD_SHIFT: usize = 9;
+
+    /// Remembered set for tracking cross-generational references
+    struct RememberedSet {
+        cards: Vec<u8>,
+        card_count: usize,
+    }
+
+    impl RememberedSet {
+        fn new() -> Self {
+            Self {
+                cards: Vec::new(),
+                card_count: 0,
+            }
+        }
+
+        fn mark_card(&mut self, address: usize) {
+            let card_index = address >> CARD_SHIFT;
+            let byte_index = card_index / 8;
+            let bit_index = card_index % 8;
+
+            if byte_index >= self.cards.len() {
+                self.cards.resize(byte_index + 1, 0);
+            }
+
+            let mask = 1 << bit_index;
+            if self.cards[byte_index] & mask == 0 {
+                self.card_count += 1;
+                self.cards[byte_index] |= mask;
+            }
+        }
+
+        fn is_card_marked(&self, address: usize) -> bool {
+            let card_index = address >> CARD_SHIFT;
+            let byte_index = card_index / 8;
+            let bit_index = card_index % 8;
+
+            if byte_index >= self.cards.len() {
+                return false;
+            }
+
+            (self.cards[byte_index] & (1 << bit_index)) != 0
+        }
+
+        fn clear(&mut self) {
+            for card in self.cards.iter_mut() {
+                *card = 0;
+            }
+            self.card_count = 0;
+        }
+
+        fn count(&self) -> usize {
+            self.card_count
+        }
+    }
 
     /// Check if write barrier is active
     #[inline]
@@ -538,12 +601,61 @@ pub mod write_barrier {
     /// Called on field write
     ///
     /// # Arguments
-    /// * `obj_addr` - Object address
-    /// * `value` - Value being written
+    /// * `obj_addr` - Object address (in old generation)
+    /// * `value` - Value being written (reference to young generation)
     #[inline]
-    pub fn on_field_write(_obj_addr: usize, _value: usize) {
-        // Write barrier logic for generational GC
-        // Track cross-generational references
+    pub fn on_field_write(obj_addr: usize, value: usize) {
+        if !is_active() || value == 0 {
+            return;
+        }
+
+        if is_cross_generational(obj_addr, value) {
+            if let Ok(mut remembered_set) = REMEMBERED_SET.lock() {
+                remembered_set.mark_card(obj_addr);
+            }
+        }
+    }
+
+    /// Check if reference crosses generations
+    fn is_cross_generational(old_addr: usize, young_addr: usize) -> bool {
+        let old_gen = get_generation(old_addr);
+        let young_gen = get_generation(young_addr);
+
+        old_gen == 1 && young_gen == 0
+    }
+
+    /// Get generation for address (simplified)
+    fn get_generation(addr: usize) -> u8 {
+        if addr < 0x8000_0000 {
+            0
+        } else {
+            1
+        }
+    }
+
+    /// Get remembered set size
+    pub fn remembered_set_size() -> usize {
+        if let Ok(remembered_set) = REMEMBERED_SET.lock() {
+            remembered_set.count()
+        } else {
+            0
+        }
+    }
+
+    /// Clear remembered set
+    pub fn clear_remembered_set() {
+        if let Ok(mut remembered_set) = REMEMBERED_SET.lock() {
+            remembered_set.clear();
+        }
+    }
+
+    /// Check if card is marked
+    pub fn is_card_marked(address: usize) -> bool {
+        if let Ok(remembered_set) = REMEMBERED_SET.lock() {
+            remembered_set.is_card_marked(address)
+        } else {
+            false
+        }
     }
 }
 
@@ -714,12 +826,13 @@ mod tests {
             }
         }
 
-        let obj = TestStruct { value: 42 };
+        let obj = Box::new(TestStruct { value: 42 });
+        let obj_ref = &*obj;
 
-        let result = method_call_barrier!(obj, get_value);
+        let result = method_call_barrier!(obj_ref, get_value);
         assert_eq!(result, 42);
 
-        let result = method_call_barrier!(obj, add, 10);
+        let result = method_call_barrier!(obj_ref, add, 10);
         assert_eq!(result, 52);
     }
 
@@ -832,10 +945,10 @@ mod tests {
 
         let obj: Box<dyn Trait> = Box::new(Impl { v: 42 });
 
-        let val = vtable_call_barrier!(obj, value);
+        let val = vtable_call_barrier!(&obj, value);
         assert_eq!(val, 42);
 
-        let val = vtable_call_barrier!(obj, add, 10);
+        let val = vtable_call_barrier!(&obj, add, 10);
         assert_eq!(val, 52);
     }
 

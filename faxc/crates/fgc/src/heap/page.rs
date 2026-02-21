@@ -59,10 +59,7 @@ pub fn align_up_to_page(addr: usize) -> usize {
 /// Convert bytes to pages (round up)
 pub fn bytes_to_pages(bytes: usize) -> usize {
     let ps = get_page_size();
-    if bytes == 0 {
-        return 0;
-    }
-    (bytes + ps - 1) / ps
+    bytes.div_ceil(ps)
 }
 
 /// Convert pages to bytes
@@ -72,7 +69,7 @@ pub fn pages_to_bytes(pages: usize) -> usize {
 
 /// Check if address is page-aligned
 pub fn is_page_aligned(addr: usize) -> bool {
-    addr % get_page_size() == 0
+    addr.is_multiple_of(get_page_size())
 }
 
 /// Calculate offset within page
@@ -206,7 +203,7 @@ impl PageTable {
         page_size: usize,
         numa_node: usize,
     ) -> Self {
-        let page_count = (region_size + page_size - 1) / page_size;
+        let page_count = region_size.div_ceil(page_size);
         let mut pages = Vec::with_capacity(page_count);
 
         for i in 0..page_count {
@@ -232,7 +229,7 @@ impl PageTable {
     /// Commit range pages
     pub fn commit_range(&self, start: usize, size: usize) -> Result<()> {
         let start_page = start / self.page_size;
-        let end_page = (start + size + self.page_size - 1) / self.page_size;
+        let end_page = (start + size).div_ceil(self.page_size);
 
         for i in start_page..end_page.min(self.page_count) {
             self.pages[i].commit()?;
@@ -244,7 +241,7 @@ impl PageTable {
     /// Uncommit range pages
     pub fn uncommit_range(&self, start: usize, size: usize) -> Result<()> {
         let start_page = start / self.page_size;
-        let end_page = (start + size + self.page_size - 1) / self.page_size;
+        let end_page = (start + size).div_ceil(self.page_size);
 
         for i in start_page..end_page.min(self.page_count) {
             self.pages[i].uncommit()?;

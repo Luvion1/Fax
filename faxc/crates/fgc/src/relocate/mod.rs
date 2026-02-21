@@ -31,6 +31,7 @@ use crate::error::{FgcError, Result};
 use crate::heap::{Heap, Region};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
+use indexmap::IndexMap;
 
 /// Relocator - manager for object relocation
 ///
@@ -47,7 +48,7 @@ pub struct Relocator {
     relocation_set: std::sync::Mutex<Vec<Arc<Region>>>,
 
     /// Forwarding tables per region
-    forwarding_tables: std::sync::Mutex<std::collections::HashMap<usize, Arc<ForwardingTable>>>,
+    forwarding_tables: std::sync::Mutex<IndexMap<usize, Arc<ForwardingTable>>>,
 
     /// Destination regions for relocated objects
     destination_regions: std::sync::Mutex<Vec<Arc<Region>>>,
@@ -73,7 +74,7 @@ impl Relocator {
         Self {
             heap,
             relocation_set: std::sync::Mutex::new(Vec::new()),
-            forwarding_tables: std::sync::Mutex::new(std::collections::HashMap::new()),
+            forwarding_tables: std::sync::Mutex::new(IndexMap::new()),
             destination_regions: std::sync::Mutex::new(Vec::new()),
             copier: ObjectCopier::new(),
             relocated_count: AtomicU64::new(0),

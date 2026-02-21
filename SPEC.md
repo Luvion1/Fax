@@ -1185,7 +1185,7 @@ pub struct FaxCodegen<'ctx> {
 | **Enum variants** | Parsed, limited codegen | parser/src/lib.rs |
 | **Struct declarations** | Not implemented | - |
 | **While/Loop statements** | Tokenized, limited parsing | lexer/src/lib.rs |
-| **Semantic analysis** | Not implemented | - |
+| **Semantic analysis** | Partial implementation | faxc-sem/src/analysis.rs |
 | **Type inference** | Partial | Uses `inferred` type |
 | **Generics** | Grammar defined | SPEC.md |
 | **Traits** | Grammar defined | SPEC.md |

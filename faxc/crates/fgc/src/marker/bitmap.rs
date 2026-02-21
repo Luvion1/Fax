@@ -111,8 +111,8 @@ impl MarkBitmap {
         }
 
         // Calculate number of bits needed
-        let bit_count = (region_size + granularity - 1) / granularity;
-        let word_count = (bit_count + 63) / 64; // 64 bits per word
+        let bit_count = region_size.div_ceil(granularity);
+        let word_count = bit_count.div_ceil(64); // 64 bits per word
 
         let bits = (0..word_count)
             .map(|_| AtomicU64::new(0))

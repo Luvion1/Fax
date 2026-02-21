@@ -9,5 +9,6 @@ repository.workspace = true
 [dependencies]
 faxc-util.workspace = true
 faxc-mir.workspace = true
+faxc-sem.workspace = true
 
 [dev-dependencies]

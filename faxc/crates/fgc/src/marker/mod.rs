@@ -30,13 +30,14 @@ pub use mark_queue::MarkQueue;
 pub use bitmap::MarkBitmap;
 pub use roots::{RootScanner, RootType, RootDescriptor, RootHandle, RootStats};
 pub use object_scanner::{ObjectScanStats, scan_object, scan_object_precise, scan_object_conservative};
-pub use gc_threads::{GcThreadPool, GcPoolStats, GcWorker, GcWorkerStats};
+pub use gc_threads::{GcThreadPool, GcPoolStats, GcWorker};
 
 use crate::error::Result;
 use crate::heap::Heap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use parking_lot::Mutex as ParkingMutex;
+use indexmap::IndexMap;
 
 /// Marker - orchestrator for concurrent marking
 ///
@@ -53,7 +54,7 @@ pub struct Marker {
     global_queue: Arc<MarkQueue>,
 
     /// Mark bitmaps per region
-    bitmaps: std::sync::Mutex<std::collections::HashMap<usize, MarkBitmap>>,
+    bitmaps: std::sync::Mutex<IndexMap<usize, MarkBitmap>>,
 
     /// Root scanner
     root_scanner: RootScanner,
@@ -83,7 +84,7 @@ impl Marker {
         Self {
             heap,
             global_queue: Arc::new(MarkQueue::new()),
-            bitmaps: std::sync::Mutex::new(std::collections::HashMap::new()),
+            bitmaps: std::sync::Mutex::new(IndexMap::new()),
             root_scanner: RootScanner::new(),
             current_mark_bit: AtomicBool::new(false),
             marking_in_progress: AtomicBool::new(false),
@@ -135,12 +136,12 @@ impl Marker {
     ///
     /// Called by GC worker threads.
     /// Process mark queue until empty.
-    pub fn concurrent_mark(&self) -> Result<()> {
+    pub fn concurrent_mark(&self, mut worker: crate::marker::mark_queue::MarkingWorker) -> Result<()> {
         while self.marking_in_progress.load(Ordering::Relaxed) {
-            // Get work from queue
-            if let Some(object) = self.global_queue.pop() {
+            // Get work from local worker (includes stealing)
+            if let Some(object) = worker.pop() {
                 // Process object
-                self.process_object(object)?;
+                self.process_object(object, &mut worker)?;
             } else {
                 // No work, check termination
                 if self.should_terminate() {
@@ -158,7 +159,7 @@ impl Marker {
     /// Process single object
     ///
     /// Scan object fields and enqueue reachable references.
-    fn process_object(&self, object: usize) -> Result<()> {
+    fn process_object(&self, object: usize, worker: &mut crate::marker::mark_queue::MarkingWorker) -> Result<()> {
         // Check if already marked
         if self.is_marked(object) {
             return Ok(());
@@ -168,17 +169,15 @@ impl Marker {
         self.mark_object(object)?;
 
         // Scan object fields and enqueue references using object scanner
-        let ref_count = scan_object(object, |ref_addr| {
+        let _ref_count = scan_object(object, |ref_addr| {
             unsafe {
                 let ref_value = crate::memory::read_pointer(ref_addr);
                 if ref_value != 0 {
-                    self.global_queue.push(ref_value);
+                    // Push to local worker queue for efficiency
+                    worker.push(ref_value);
                 }
             }
         });
-
-        // Update statistics
-        self.marked_count.fetch_add(ref_count as u64, Ordering::Relaxed);
 
         Ok(())
     }
@@ -214,7 +213,7 @@ impl Marker {
 
     /// Wait until marking is complete
     pub fn wait_marking_complete(&self) -> Result<()> {
-        // Wait until queue is empty and all threads are idle
+        // Wait until injector is empty and all threads are idle
         while !self.global_queue.is_empty() {
             std::thread::sleep(std::time::Duration::from_millis(1));
         }
@@ -236,6 +235,8 @@ impl Marker {
 
     /// Check if marking should terminate
     fn should_terminate(&self) -> bool {
+        // Note: Real termination detection would need a distributed quiescence algorithm
+        // Simplified: injector is empty and no marking in progress
         self.global_queue.is_empty() && !self.marking_in_progress.load(Ordering::Relaxed)
     }
 
@@ -303,7 +304,7 @@ impl Marker {
 
         // Create and start GC thread pool
         let marker_arc = Arc::new(self.clone_for_pool());
-        let mut pool = GcThreadPool::new(marker_arc, num_threads);
+        let pool = GcThreadPool::new(num_threads, marker_arc, Arc::clone(&self.global_queue));
         
         // Start the pool before storing
         pool.start();
@@ -334,14 +335,14 @@ impl Marker {
     /// Get GC pool statistics
     pub fn get_pool_stats(&self) -> Option<GcPoolStats> {
         let pool_guard = self.gc_thread_pool.lock();
-        pool_guard.as_ref().map(|pool| pool.get_stats())
+        pool_guard.as_ref().map(|pool| pool.stats())
     }
 
     /// Clone marker for thread pool (creates Arc-compatible version)
     fn clone_for_pool(&self) -> Marker {
         let bitmaps_clone = self.bitmaps.lock()
             .map(|g| g.clone())
-            .unwrap_or_else(|_| std::collections::HashMap::new());
+            .unwrap_or_else(|_| IndexMap::new());
         
         Marker {
             heap: self.heap.clone(),
@@ -366,7 +367,7 @@ impl Clone for Marker {
     fn clone(&self) -> Self {
         let bitmaps_clone = self.bitmaps.lock()
             .map(|g| g.clone())
-            .unwrap_or_else(|_| std::collections::HashMap::new());
+            .unwrap_or_else(|_| IndexMap::new());
         
         Self {
             heap: self.heap.clone(),

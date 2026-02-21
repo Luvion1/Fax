@@ -24,7 +24,7 @@ Instead, please report them via one of the following methods:
    - Provide detailed information about the vulnerability
 
 2. **Email** (if configured)
-   - Send an email to: **[INSERT SECURITY EMAIL]**
+   - Send an email to: [security@fax-lang.org](mailto:security@fax-lang.org)
    - Include "[SECURITY]" in the subject line
 
 ### What to Include

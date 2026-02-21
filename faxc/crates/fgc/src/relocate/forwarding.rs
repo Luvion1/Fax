@@ -15,9 +15,9 @@
 //! 3. Lookup from load barrier for pointer healing
 //! 4. Cleanup after relocation complete
 
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::RwLock;
+use indexmap::IndexMap;
 
 /// ForwardingTable - mapping old addresses to new addresses
 ///
@@ -36,7 +36,7 @@ pub struct ForwardingTable {
     region_size: usize,
 
     /// Forwarding entries: old_offset -> new_address
-    entries: RwLock<HashMap<usize, usize>>,
+    entries: RwLock<IndexMap<usize, usize>>,
 
     /// Table is complete (no more additions)
     complete: AtomicBool,
@@ -59,7 +59,7 @@ impl ForwardingTable {
         Self {
             region_start,
             region_size,
-            entries: RwLock::new(HashMap::new()),
+            entries: RwLock::new(IndexMap::new()),
             complete: AtomicBool::new(false),
             entry_count: AtomicUsize::new(0),
             generation: AtomicU64::new(0),  // FIX Issue 8: Initialize generation counter

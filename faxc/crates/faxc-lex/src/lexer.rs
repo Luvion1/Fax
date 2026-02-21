@@ -197,6 +197,14 @@ impl<'a> Lexer<'a> {
             }
 
             // Identifiers and keywords
+            'r' => {
+                let next_char = self.cursor.peek_char(1);
+                if next_char == '"' || next_char == '#' {
+                    self.lex_raw_string()
+                } else {
+                    self.lex_identifier()
+                }
+            },
             c if is_ascii_ident_start(c) => self.lex_identifier(),
 
             // Numbers
@@ -452,6 +460,70 @@ impl<'a> Lexer<'a> {
         }
 
         Token::String(faxc_util::Symbol::intern(&content))
+    }
+
+
+    /// Lexes a raw string literal (r"..." or r#"..."#).
+    ///
+    /// Raw strings don't process escape sequences and can contain quotes.
+    /// The number of # characters determines the delimiter.
+    ///
+    /// # Returns
+    ///
+    /// `Token::RawString(symbol)` with the raw string content
+    fn lex_raw_string(&mut self) -> Token {
+        // Consume the 'r'
+        self.cursor.advance();
+
+        // Count the number of # characters (delimiter)
+        let mut hash_count = 0;
+        while self.cursor.current_char() == '#' {
+            hash_count += 1;
+            self.cursor.advance();
+        }
+
+        // Expect opening quote after r and hashes
+        if self.cursor.current_char() != '"' {
+            self.report_error("expected \" after raw string prefix".to_string());
+            return Token::Invalid("raw".to_string());
+        }
+        self.cursor.advance();
+
+        // Build the closing delimiter
+        let mut closing_delimiter = String::from("\"");
+        for _ in 0..hash_count {
+            closing_delimiter.push('#');
+        }
+        closing_delimiter.push('"');
+
+        // Accumulate content until we find the closing delimiter
+        let mut content = String::new();
+        let mut found_closing = false;
+
+        while !self.cursor.is_at_end() {
+            if self.cursor.current_char() == '"' {
+                // Check if this is the closing delimiter
+                let remaining = self.cursor.remaining();
+                if remaining.starts_with(&closing_delimiter) {
+                    // Consume the closing delimiter
+                    for _ in 0..closing_delimiter.len() {
+                        self.cursor.advance();
+                    }
+                    found_closing = true;
+                    break;
+                }
+            }
+
+            // Add current character to content
+            content.push(self.cursor.current_char());
+            self.cursor.advance();
+        }
+
+        if !found_closing {
+            self.report_error("unterminated raw string literal".to_string());
+        }
+
+        Token::RawString(faxc_util::Symbol::intern(&content))
     }
 
     /// Lexes a character literal.
@@ -3084,10 +3156,10 @@ mod tests {
     }
 
     #[test]
-    fn test_raw_string_not_supported() {
-        // Raw strings (r"...") not supported - should be 'r' identifier
+    fn test_raw_string_supported() {
+        // Raw strings (r"...") are supported
         let tokens = lex_tokens("r\"raw\"");
-        assert!(matches!(tokens[0], Token::Ident(_)));
+        assert!(matches!(tokens[0], Token::RawString(_)));
     }
 
     #[test]

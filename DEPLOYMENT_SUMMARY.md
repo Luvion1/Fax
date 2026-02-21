@@ -1,10 +1,12 @@
 # 🚀 Deployment Summary - Fax Compiler v0.0.1 Pre-Alpha
 
+<!-- Source: faxc/Cargo.toml, README.md, docs/getting-started/installation.md -->
+
 ## ✅ Status: READY FOR GITHUB DEPLOYMENT
 
-**Date:** 2026-02-18  
-**Version:** v0.0.1-pre-alpha  
-**Quality Score:** 96/100  
+**Date:** 2026-02-18
+**Version:** v0.0.1-pre-alpha
+**Quality Score:** 96/100
 **Commit:** 3a5294e
 
 ---
@@ -125,6 +127,7 @@ programming-language
 compiler
 rust
 llvm
+llvm-20
 functional-programming
 garbage-collection
 language-design
@@ -203,6 +206,7 @@ Integrations:
 | **Security Scanning** | cargo-deny + cargo-audit |
 | **License** | MIT OR Apache-2.0 |
 | **MSRV** | Rust 1.75+ |
+| **LLVM Version** | 20.x |
 
 ---
 

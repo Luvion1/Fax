@@ -154,7 +154,7 @@ impl VirtualMemory {
         let mapping = MemoryMapping::anonymous(aligned_size)?;
         let base_address = mapping.base();
 
-        let page_count = page::bytes_to_pages(aligned_size);
+        let _page_count = page::bytes_to_pages(aligned_size);
 
         Ok(Self {
             base_address,

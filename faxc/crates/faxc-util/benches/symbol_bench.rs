@@ -4,7 +4,7 @@
 //! Run with: `cargo bench --bench symbol_bench`
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
-use faxc_util::symbol::{Symbol, InternerStats};
+use faxc_util::symbol::Symbol;
 
 /// Benchmark basic symbol interning
 fn bench_intern(c: &mut Criterion) {
@@ -22,7 +22,7 @@ fn bench_intern(c: &mut Criterion) {
 
     // Benchmark interning an existing string (hit)
     group.bench_function("intern_existing_string", |b| {
-        let sym = Symbol::intern("existing_string");
+        let _sym = Symbol::intern("existing_string");
         b.iter(|| {
             black_box(Symbol::intern("existing_string"))
         })
