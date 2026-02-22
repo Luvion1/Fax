@@ -1,5 +1,7 @@
 # Fax Compiler Documentation
 
+![Fax Arctic Fox](../faxc/docs/rubah-arktik.svg =120x120)
+
 Welcome to the official documentation for the Fax programming language and compiler.
 
 <!-- Source: faxc/Cargo.toml, README.md -->
@@ -129,7 +131,7 @@ See [LICENSE](../../LICENSE) for details.
 
 <div align="center">
 
-**Fax Compiler Documentation** v0.0.1 pre-alpha
+**Fax Compiler Documentation** v0.0.2 pre-alpha
 
 Made with ❤️ by the Fax Team
 

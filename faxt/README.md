@@ -1,5 +1,7 @@
 # Faxt
 
+![Fax Arctic Fox](../faxc/docs/rubah-arktik.svg =80x80)
+
 A CLI tool for fax operations, written in Rust.
 
 [![Build Status](https://img.shields.io/github/actions/workflow/status/Fax/faxt/ci.yml?branch=main)](https://github.com/Fax/faxt/actions)

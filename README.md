@@ -1,7 +1,9 @@
 # Fax Compiler
 
-[![Version](https://img.shields.io/badge/version-0.0.1--pre--alpha-orange.svg)](https://github.com/Luvion1/Fax/releases)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Fax Arctic Fox](faxc/docs/rubah-arktik.svg =150x150)
+
+[![Version](https://img.shields.io/badge/version-0.0.2--pre--alpha-orange.svg)](https://github.com/Luvion1/Fax/releases)
+[![License](https://img.shields.io/badge/license-MIT%20or%20Apache--2.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.75+-blue.svg)](https://www.rust-lang.org)
 [![CI](https://img.shields.io/github/actions/workflow/status/Luvion1/Fax/ci.yml?branch=main)](https://github.com/Luvion1/Fax/actions)
 [![Coverage](https://img.shields.io/github/actions/workflow/status/Luvion1/Fax/coverage.yml?branch=main&label=coverage)](https://github.com/Luvion1/Fax/actions)
@@ -303,12 +305,9 @@ git push origin feature/my-feature
 
 ## License
 
-Licensed under either of:
+Dual licensed under **MIT** or **Apache License 2.0** at your option.
 
-- **Apache License, Version 2.0** ([]())
-- **MIT License** ([LICENSE](LICENSE))
-
-at your option.
+See [LICENSE](LICENSE) and [LICENSE-APACHE](LICENSE-APACHE) for details.
 
 ### Contribution License Agreement
 
@@ -328,7 +327,7 @@ Fax draws inspiration from:
 
 <div align="center">
 
-**Fax Compiler** v0.0.1 pre-alpha
+**Fax Compiler** v0.0.2 pre-alpha
 
 Made with ❤️ by the Fax Team
 
