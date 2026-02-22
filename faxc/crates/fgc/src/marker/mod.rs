@@ -19,25 +19,27 @@
 //! - Class roots (loaded classes)
 //! - VM internal roots
 
-pub mod mark_queue;
 pub mod bitmap;
+pub mod gc_threads;
+pub mod mark_queue;
+pub mod object_scanner;
 pub mod roots;
 pub mod stack_scan;
-pub mod object_scanner;
-pub mod gc_threads;
 
-pub use mark_queue::MarkQueue;
 pub use bitmap::MarkBitmap;
-pub use roots::{RootScanner, RootType, RootDescriptor, RootHandle, RootStats};
-pub use object_scanner::{ObjectScanStats, scan_object, scan_object_precise, scan_object_conservative};
-pub use gc_threads::{GcThreadPool, GcPoolStats, GcWorker};
+pub use gc_threads::{GcPoolStats, GcThreadPool, GcWorker};
+pub use mark_queue::MarkQueue;
+pub use object_scanner::{
+    scan_object, scan_object_conservative, scan_object_precise, ObjectScanStats,
+};
+pub use roots::{RootDescriptor, RootHandle, RootScanner, RootStats, RootType};
 
 use crate::error::Result;
 use crate::heap::Heap;
+use indexmap::IndexMap;
+use parking_lot::Mutex as ParkingMutex;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
-use parking_lot::Mutex as ParkingMutex;
-use indexmap::IndexMap;
 
 /// Marker - orchestrator for concurrent marking
 ///
@@ -125,18 +127,55 @@ impl Marker {
             root_count += 1;
         });
 
-        if self.root_scanner.get_stats().live_roots > 0 {
-            self.marked_count.fetch_add(root_count as u64, Ordering::Relaxed);
+        // Also scan current thread's stack for additional roots
+        let stack_roots = self.scan_current_thread_stack();
+        root_count += stack_roots;
+
+        if self.root_scanner.get_stats().live_roots > 0 || stack_roots > 0 {
+            self.marked_count
+                .fetch_add(root_count as u64, Ordering::Relaxed);
         }
 
         Ok(())
+    }
+
+    /// Scan current thread's stack for heap pointers
+    ///
+    /// This is called during root scanning to find references
+    /// that are stored in the current thread's stack.
+    fn scan_current_thread_stack(&self) -> usize {
+        use crate::marker::stack_scan::StackScanner;
+
+        let scanner = StackScanner::new();
+        let heap = self.heap.clone();
+
+        // Get heap range for validation
+        let heap_base = heap.base_address();
+        let heap_size = heap.max_size();
+        let heap_range = (heap_base, heap_base + heap_size);
+
+        // Scan current thread stack conservatively
+        let pointers = scanner.scan_current_stack_conservative(heap_range);
+
+        let mut count = 0;
+        for ptr in pointers {
+            if ptr != 0 {
+                self.global_queue.push(ptr);
+                count += 1;
+            }
+        }
+
+        count
     }
 
     /// Concurrent marking loop
     ///
     /// Called by GC worker threads.
     /// Process mark queue until empty.
-    pub fn concurrent_mark(&self, mut worker: crate::marker::mark_queue::MarkingWorker) -> Result<()> {
+    pub fn concurrent_mark(
+        &self,
+        mut worker: crate::marker::mark_queue::MarkingWorker,
+    ) -> Result<()> {
         while self.marking_in_progress.load(Ordering::Relaxed) {
             // Get work from local worker (includes stealing)
             if let Some(object) = worker.pop() {
@@ -159,7 +198,11 @@ impl Marker {
     /// Process single object
     ///
     /// Scan object fields and enqueue reachable references.
-    fn process_object(&self, object: usize, worker: &mut crate::marker::mark_queue::MarkingWorker) -> Result<()> {
+    fn process_object(
+        &self,
+        object: usize,
+        worker: &mut crate::marker::mark_queue::MarkingWorker,
+    ) -> Result<()> {
         // Check if already marked
         if self.is_marked(object) {
             return Ok(());
@@ -260,6 +303,11 @@ impl Marker {
         self.marking_in_progress.load(Ordering::Relaxed)
     }
 
+    /// Check if there is work in the mark queue
+    pub fn has_mark_work(&self) -> bool {
+        !self.global_queue.is_empty()
+    }
+
     /// Process mark work (called by GC workers)
     ///
     /// This method is called by worker threads to process marking work.
@@ -274,17 +322,16 @@ impl Marker {
         self.mark_object(object)?;
 
         // Scan object fields and enqueue references using object scanner
-        let ref_count = scan_object(object, |ref_addr| {
-            unsafe {
-                let ref_value = crate::memory::read_pointer(ref_addr);
-                if ref_value != 0 {
-                    self.global_queue.push(ref_value);
-                }
+        let ref_count = scan_object(object, |ref_addr| unsafe {
+            let ref_value = crate::memory::read_pointer(ref_addr);
+            if ref_value != 0 {
+                self.global_queue.push(ref_value);
             }
         });
 
         // Update statistics
-        self.marked_count.fetch_add(ref_count as u64, Ordering::Relaxed);
+        self.marked_count
+            .fetch_add(ref_count as u64, Ordering::Relaxed);
 
         Ok(())
     }
@@ -305,10 +352,10 @@ impl Marker {
         // Create and start GC thread pool
         let marker_arc = Arc::new(self.clone_for_pool());
         let pool = GcThreadPool::new(num_threads, marker_arc, Arc::clone(&self.global_queue));
-        
+
         // Start the pool before storing
         pool.start();
-        
+
         // Store in mutex
         let mut pool_guard = self.gc_thread_pool.lock();
         *pool_guard = Some(Arc::new(pool));
@@ -340,10 +387,12 @@ impl Marker {
 
     /// Clone marker for thread pool (creates Arc-compatible version)
     fn clone_for_pool(&self) -> Marker {
-        let bitmaps_clone = self.bitmaps.lock()
+        let bitmaps_clone = self
+            .bitmaps
+            .lock()
             .map(|g| g.clone())
             .unwrap_or_else(|_| IndexMap::new());
-        
+
         Marker {
             heap: self.heap.clone(),
             global_queue: self.global_queue.clone(),
@@ -365,10 +414,12 @@ impl Marker {
 
 impl Clone for Marker {
     fn clone(&self) -> Self {
-        let bitmaps_clone = self.bitmaps.lock()
+        let bitmaps_clone = self
+            .bitmaps
+            .lock()
             .map(|g| g.clone())
             .unwrap_or_else(|_| IndexMap::new());
-        
+
         Self {
             heap: self.heap.clone(),
             global_queue: self.global_queue.clone(),

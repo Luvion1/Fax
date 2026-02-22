@@ -5,297 +5,345 @@
 //! - Most objects die young
 //! - Objects that survive tend to live long
 
-use crate::allocator::bump::MultiBumpAllocator;
-use crate::allocator::tlab::{Tlab, TlabManager, ThreadId};
-use crate::error::Result;
-use crate::heap::Heap;
+use crate::error::{FgcError, Result};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
-use indexmap::IndexMap;
 
-/// GenerationalAllocator - allocator with young/old separation
+/// AgeTracker - tracks object age for promotion
 ///
-/// Manages allocation for both generations:
-/// - Young generation: Bump pointer + TLAB for fast allocation
-/// - Old generation: Bump pointer for promoted objects
+/// Tracks how many GC cycles an object has survived.
+pub struct AgeTracker {
+    /// Current age of object
+    age: AtomicUsize,
+    /// Promotion threshold
+    threshold: usize,
+}
+
+impl AgeTracker {
+    /// Create new age tracker
+    pub fn new(threshold: usize) -> Self {
+        Self {
+            age: AtomicUsize::new(0),
+            threshold,
+        }
+    }
+
+    /// Increment age
+    pub fn increment(&self) -> usize {
+        self.age.fetch_add(1, Ordering::Relaxed) + 1
+    }
+
+    /// Get current age
+    pub fn age(&self) -> usize {
+        self.age.load(Ordering::Relaxed)
+    }
+
+    /// Check if should be promoted
+    pub fn should_promote(&self) -> bool {
+        self.age.load(Ordering::Relaxed) >= self.threshold
+    }
+
+    /// Reset age
+    pub fn reset(&self) {
+        self.age.store(0, Ordering::Relaxed);
+    }
+}
+
+/// GenerationalStats - statistics for generational allocator
+#[derive(Debug, Clone, Default)]
+pub struct GenerationalStats {
+    /// Young generation size
+    pub young_size: usize,
+    /// Old generation size
+    pub old_size: usize,
+    /// Objects promoted
+    pub promoted_count: usize,
+    /// Young gen collections
+    pub young_collections: usize,
+    /// Old gen collections
+    pub old_collections: usize,
+}
+
+/// GenerationalAllocator - manages young and old generation
+///
+/// Objects are allocated in young generation first.
+/// Objects that survive GC are promoted to old generation.
 pub struct GenerationalAllocator {
-    /// Young generation bump allocator
-    young_allocator: MultiBumpAllocator,
-
-    /// Old generation bump allocator
-    old_allocator: MultiBumpAllocator,
-
-    /// TLAB manager for young generation
-    tlab_manager: TlabManager,
-
-    /// Heap reference for TLAB allocation
-    heap: Arc<Heap>,
-
-    /// Young generation size (bytes)
-    young_size: AtomicUsize,
-
-    /// Old generation size (bytes)
-    old_size: AtomicUsize,
-
-    /// Promotion count (objects promoted to old)
-    promotion_count: AtomicUsize,
-
-    /// Tenure threshold (survive N minor GCs before promote)
-    tenure_threshold: u8,
+    /// Young generation capacity
+    young_capacity: usize,
+    /// Old generation capacity
+    old_capacity: usize,
+    /// Current young generation usage
+    young_used: AtomicUsize,
+    /// Current old generation usage
+    old_used: AtomicUsize,
+    /// Promotion threshold (GC cycles before promotion)
+    promotion_threshold: usize,
+    /// Statistics
+    stats: std::sync::Mutex<GenerationalStats>,
 }
 
 impl GenerationalAllocator {
     /// Create new generational allocator
     ///
     /// # Arguments
-    /// * `heap` - Heap reference
-    /// * `young_ratio` - Ratio of heap for young generation (0.0-1.0)
-    /// * `tenure_threshold` - Survives before promotion
-    pub fn new(heap: Arc<Heap>, young_ratio: f32, tenure_threshold: u8) -> Self {
-        let heap_size = heap.max_size();
-        let young_size = (heap_size as f32 * young_ratio) as usize;
-        let old_size = heap_size - young_size;
-
+    /// * `young_capacity` - Young generation capacity
+    /// * `old_capacity` - Old generation capacity
+    /// * `promotion_threshold` - GC cycles before promotion
+    pub fn new(young_capacity: usize, old_capacity: usize, promotion_threshold: usize) -> Self {
         Self {
-            young_allocator: MultiBumpAllocator::new(2 * 1024 * 1024, 8, 100),
-            old_allocator: MultiBumpAllocator::new(32 * 1024 * 1024, 8, 50),
-            tlab_manager: TlabManager::new(256 * 1024, 16 * 1024, 2 * 1024 * 1024, 8, 1000),
-            heap,
-            young_size: AtomicUsize::new(young_size),
-            old_size: AtomicUsize::new(old_size),
-            promotion_count: AtomicUsize::new(0),
-            tenure_threshold,
+            young_capacity,
+            old_capacity,
+            young_used: AtomicUsize::new(0),
+            old_used: AtomicUsize::new(0),
+            promotion_threshold,
+            stats: std::sync::Mutex::new(GenerationalStats {
+                young_size: young_capacity,
+                old_size: old_capacity,
+                ..Default::default()
+            }),
         }
     }
 
-    /// Allocate in young generation (fast path)
-    ///
-    /// Default allocation for new objects.
-    ///
-    /// # Arguments
-    /// * `size` - Size in bytes
+    /// Allocate in young generation
     pub fn allocate_young(&self, size: usize) -> Result<usize> {
-        let thread_id = self.get_current_thread_id();
+        let current = self.young_used.load(Ordering::Relaxed);
+        let new_used = current.saturating_add(size);
 
-        if let Ok(tlab) = self.tlab_manager.get_or_create_tlab(thread_id, &self.heap) {
-            if tlab.has_space(size) {
-                if let Ok(addr) = tlab.allocate(size) {
-                    return Ok(addr);
-                }
-            }
+        if new_used > self.young_capacity {
+            return Err(FgcError::OutOfMemory {
+                requested: size,
+                available: self.young_capacity.saturating_sub(current),
+            });
         }
 
-        self.young_allocator.allocate(size)
+        self.young_used.store(new_used, Ordering::Relaxed);
+
+        // Return dummy address for now
+        Ok(0x1000 + current)
     }
 
     /// Allocate in old generation
-    ///
-    /// Used for promoted objects and large objects.
-    ///
-    /// # Arguments
-    /// * `size` - Size in bytes
     pub fn allocate_old(&self, size: usize) -> Result<usize> {
-        self.old_allocator.allocate(size)
+        let current = self.old_used.load(Ordering::Relaxed);
+        let new_used = current.saturating_add(size);
+
+        if new_used > self.old_capacity {
+            return Err(FgcError::OutOfMemory {
+                requested: size,
+                available: self.old_capacity.saturating_sub(current),
+            });
+        }
+
+        self.old_used.store(new_used, Ordering::Relaxed);
+
+        // Return dummy address for now
+        Ok(0x10000 + current)
     }
 
-    /// Allocate with generational heuristic
-    ///
-    /// # Arguments
-    /// * `size` - Size in bytes
-    /// * `prefer_young` - If true, try young generation first
-    pub fn allocate(&self, size: usize, prefer_young: bool) -> Result<usize> {
-        if prefer_young {
-            self.allocate_young(size)
-        } else {
-            self.allocate_old(size)
+    /// Promote object from young to old
+    pub fn promote(&self, size: usize) -> Result<()> {
+        self.allocate_old(size)?;
+
+        match self.stats.lock() {
+            Ok(mut stats) => {
+                stats.promoted_count += 1;
+            }
+            Err(e) => {
+                log::error!("GenerationalAllocator stats lock poisoned: {}", e);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Record young generation collection
+    pub fn record_young_collection(&self) {
+        match self.stats.lock() {
+            Ok(mut stats) => {
+                stats.young_collections += 1;
+            }
+            Err(e) => {
+                log::error!("GenerationalAllocator stats lock poisoned: {}", e);
+            }
         }
     }
 
-    /// Promote object from young to old generation
-    ///
-    /// Called when object survives minor GC.
-    ///
-    /// # Arguments
-    /// * `_old_address` - Object address in young generation
-    /// * `size` - Object size
-    ///
-    /// # Returns
-    /// New address in old generation
-    pub fn promote_object(&self, _old_address: usize, size: usize) -> Result<usize> {
-        let new_address = self.allocate_old(size)?;
-        self.promotion_count.fetch_add(1, Ordering::Relaxed);
-        Ok(new_address)
+    /// Record old generation collection
+    pub fn record_old_collection(&self) {
+        match self.stats.lock() {
+            Ok(mut stats) => {
+                stats.old_collections += 1;
+            }
+            Err(e) => {
+                log::error!("GenerationalAllocator stats lock poisoned: {}", e);
+            }
+        }
     }
 
-    /// Minor GC - collect young generation
-    ///
-    /// Called when young generation is full.
-    ///
-    /// # Returns
-    /// Estimated bytes reclaimed
-    pub fn minor_gc(&self) -> usize {
-        self.young_allocator.reset_all();
-        self.young_size.load(Ordering::Relaxed)
-    }
-
-    /// Major GC - collect old generation
-    ///
-    /// Called when old generation is nearly full.
-    ///
-    /// # Returns
-    /// Estimated bytes reclaimed
-    pub fn major_gc(&self) -> usize {
-        self.old_allocator.reset_all();
-        self.old_size.load(Ordering::Relaxed) / 2
-    }
-
-    /// Full GC - collect both generations
-    ///
-    /// Called when heap is nearly full.
-    pub fn full_gc(&self) -> usize {
-        let young_reclaimed = self.minor_gc();
-        let old_reclaimed = self.major_gc();
-        young_reclaimed + old_reclaimed
-    }
-
-    /// Get TLAB for current thread
-    pub fn get_current_tlab(&self) -> Option<Arc<Tlab>> {
-        let thread_id = self.get_current_thread_id();
-        self.tlab_manager
-            .get_or_create_tlab(thread_id, &self.heap)
-            .ok()
-    }
-
-    /// Refill TLAB for current thread
-    pub fn refill_tlab(&self) -> Result<Arc<Tlab>> {
-        let thread_id = self.get_current_thread_id();
-        self.tlab_manager.refill_tlab(thread_id, &self.heap)
-    }
-
-    /// Get young generation size
-    pub fn young_size(&self) -> usize {
-        self.young_size.load(Ordering::Relaxed)
-    }
-
-    /// Get old generation size
-    pub fn old_size(&self) -> usize {
-        self.old_size.load(Ordering::Relaxed)
-    }
-
-    /// Get young generation usage
-    pub fn young_usage(&self) -> usize {
-        self.young_allocator.total_allocated()
-    }
-
-    /// Get old generation usage
-    pub fn old_usage(&self) -> usize {
-        self.old_allocator.total_allocated()
-    }
-
-    /// Get promotion count
-    pub fn promotion_count(&self) -> usize {
-        self.promotion_count.load(Ordering::Relaxed)
-    }
-
-    /// Get tenure threshold
-    pub fn tenure_threshold(&self) -> u8 {
-        self.tenure_threshold
-    }
-
-    /// Set tenure threshold
-    pub fn set_tenure_threshold(&mut self, threshold: u8) {
-        self.tenure_threshold = threshold;
+    /// Get promotion threshold
+    pub fn promotion_threshold(&self) -> usize {
+        self.promotion_threshold
     }
 
     /// Get statistics
     pub fn stats(&self) -> GenerationalStats {
-        GenerationalStats {
-            young_size: self.young_size(),
-            old_size: self.old_size(),
-            young_used: self.young_usage(),
-            old_used: self.old_usage(),
-            promotion_count: self.promotion_count(),
-            tlab_count: self.tlab_manager.active_tlab_count(),
-            tlab_refills: self.tlab_manager.total_refills(),
+        match self.stats.lock() {
+            Ok(stats) => stats.clone(),
+            Err(e) => {
+                log::error!("GenerationalAllocator stats lock poisoned: {}", e);
+                GenerationalStats::default()
+            }
         }
     }
 
-    /// Get current thread ID
-    fn get_current_thread_id(&self) -> ThreadId {
-        static THREAD_COUNTER: std::sync::atomic::AtomicU64 =
-            std::sync::atomic::AtomicU64::new(0);
+    /// Get young generation usage
+    pub fn young_used(&self) -> usize {
+        self.young_used.load(Ordering::Relaxed)
+    }
 
-        thread_local! {
-            static TID: u64 = THREAD_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    /// Get old generation usage
+    pub fn old_used(&self) -> usize {
+        self.old_used.load(Ordering::Relaxed)
+    }
+
+    /// Reset young generation
+    pub fn reset_young(&self) {
+        self.young_used.store(0, Ordering::Relaxed);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_age_tracker_creation() {
+        let tracker = AgeTracker::new(3);
+        assert_eq!(tracker.age(), 0);
+        assert!(!tracker.should_promote());
+    }
+
+    #[test]
+    fn test_age_tracker_increment() {
+        let tracker = AgeTracker::new(3);
+
+        assert_eq!(tracker.increment(), 1);
+        assert_eq!(tracker.increment(), 2);
+        assert_eq!(tracker.increment(), 3);
+
+        assert!(tracker.should_promote());
+    }
+
+    #[test]
+    fn test_age_tracker_reset() {
+        let tracker = AgeTracker::new(3);
+
+        tracker.increment();
+        tracker.increment();
+        tracker.reset();
+
+        assert_eq!(tracker.age(), 0);
+        assert!(!tracker.should_promote());
+    }
+
+    #[test]
+    fn test_generational_allocator_creation() {
+        let alloc = GenerationalAllocator::new(1024, 4096, 3);
+
+        let stats = alloc.stats();
+        assert_eq!(stats.young_size, 1024);
+        assert_eq!(stats.old_size, 4096);
+    }
+
+    #[test]
+    fn test_generational_allocator_young_allocation() {
+        let alloc = GenerationalAllocator::new(1024, 4096, 3);
+
+        let addr = alloc.allocate_young(100).unwrap();
+        assert!(addr > 0);
+        assert_eq!(alloc.young_used(), 100);
+    }
+
+    #[test]
+    fn test_generational_allocator_old_allocation() {
+        let alloc = GenerationalAllocator::new(1024, 4096, 3);
+
+        let addr = alloc.allocate_old(200).unwrap();
+        assert!(addr > 0);
+        assert_eq!(alloc.old_used(), 200);
+    }
+
+    #[test]
+    fn test_generational_allocator_young_oom() {
+        let alloc = GenerationalAllocator::new(100, 4096, 3);
+
+        let _ = alloc.allocate_young(80).unwrap();
+
+        let result = alloc.allocate_young(50);
+        assert!(matches!(result, Err(FgcError::OutOfMemory { .. })));
+    }
+
+    #[test]
+    fn test_generational_allocator_promotion() {
+        let alloc = GenerationalAllocator::new(1024, 4096, 3);
+
+        alloc.promote(100).unwrap();
+
+        let stats = alloc.stats();
+        assert_eq!(stats.promoted_count, 1);
+    }
+
+    #[test]
+    fn test_generational_allocator_collection_recording() {
+        let alloc = GenerationalAllocator::new(1024, 4096, 3);
+
+        alloc.record_young_collection();
+        alloc.record_young_collection();
+        alloc.record_old_collection();
+
+        let stats = alloc.stats();
+        assert_eq!(stats.young_collections, 2);
+        assert_eq!(stats.old_collections, 1);
+    }
+
+    #[test]
+    fn test_generational_allocator_reset_young() {
+        let alloc = GenerationalAllocator::new(1024, 4096, 3);
+
+        let _ = alloc.allocate_young(100).unwrap();
+        assert_eq!(alloc.young_used(), 100);
+
+        alloc.reset_young();
+        assert_eq!(alloc.young_used(), 0);
+    }
+
+    #[test]
+    fn test_generational_allocator_concurrent_allocation() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let alloc = Arc::new(GenerationalAllocator::new(1024 * 1024, 4 * 1024 * 1024, 3));
+        let mut handles = Vec::new();
+
+        for _ in 0..4 {
+            let alloc = Arc::clone(&alloc);
+            let handle = thread::spawn(move || {
+                let mut count = 0;
+                for _ in 0..100 {
+                    if alloc.allocate_young(64).is_ok() {
+                        count += 1;
+                    }
+                }
+                count
+            });
+            handles.push(handle);
         }
 
-        TID.with(|&id| id)
-    }
-}
+        let total: usize = handles.into_iter()
+            .map(|h| h.join().unwrap())
+            .sum();
 
-/// Statistics for generational allocator
-#[derive(Debug, Default)]
-pub struct GenerationalStats {
-    /// Young generation size (bytes)
-    pub young_size: usize,
-    /// Old generation size (bytes)
-    pub old_size: usize,
-    /// Young generation used (bytes)
-    pub young_used: usize,
-    /// Old generation used (bytes)
-    pub old_used: usize,
-    /// Objects promoted to old generation
-    pub promotion_count: usize,
-    /// Active TLABs
-    pub tlab_count: usize,
-    /// TLAB refills
-    pub tlab_refills: usize,
-}
-
-/// Object age tracker for tenure decision
-///
-/// Tracks how many times an object survives minor GC.
-pub struct AgeTracker {
-    ages: std::sync::Mutex<IndexMap<usize, u8>>,
-}
-
-impl AgeTracker {
-    /// Create new age tracker
-    pub fn new() -> Self {
-        Self {
-            ages: std::sync::Mutex::new(IndexMap::new()),
-        }
-    }
-
-    /// Increment age for object
-    pub fn increment_age(&self, address: usize) -> u8 {
-        let mut ages = self.ages.lock().unwrap();
-        let age = ages.entry(address).or_insert(0);
-        *age += 1;
-        *age
-    }
-
-    /// Get age for object
-    pub fn get_age(&self, address: usize) -> u8 {
-        let ages = self.ages.lock().unwrap();
-        *ages.get(&address).unwrap_or(&0)
-    }
-
-    /// Remove object from tracker
-    pub fn remove(&self, address: usize) {
-        let mut ages = self.ages.lock().unwrap();
-        ages.swap_remove(&address);
-    }
-
-    /// Clear all ages (after major GC)
-    pub fn clear(&self) {
-        let mut ages = self.ages.lock().unwrap();
-        ages.clear();
-    }
-}
-
-impl Default for AgeTracker {
-    fn default() -> Self {
-        Self::new()
+        assert!(total > 0);
+        assert_eq!(alloc.young_used(), total * 64);
     }
 }

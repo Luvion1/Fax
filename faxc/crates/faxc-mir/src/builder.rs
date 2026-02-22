@@ -17,6 +17,8 @@ impl Builder {
             blocks: IndexVec::new(),
             entry_block: BlockId(0),
             return_ty: return_ty.clone(),
+            arg_count: 0,
+            arg_locals: Vec::new(),
         };
 
         // Add return place (local 0)

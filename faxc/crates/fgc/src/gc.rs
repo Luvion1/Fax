@@ -198,19 +198,31 @@ impl GarbageCollector {
     /// Result indicating success or GC error
     fn execute_gc_cycle(&self) -> Result<()> {
         // Marking phase
-        *self.state.lock().unwrap() = GcState::Marking;
+        *self
+            .state
+            .lock()
+            .map_err(|e| FgcError::LockPoisoned(format!("state mutex poisoned: {}", e)))? =
+            GcState::Marking;
         self.pause_mark_start()?;
         self.concurrent_mark()?;
         self.pause_mark_end()?;
 
         // Relocating phase
-        *self.state.lock().unwrap() = GcState::Relocating;
+        *self
+            .state
+            .lock()
+            .map_err(|e| FgcError::LockPoisoned(format!("state mutex poisoned: {}", e)))? =
+            GcState::Relocating;
         self.prepare_relocation()?;
         self.concurrent_relocate()?;
 
         // Cleanup phase
         self.cleanup()?;
-        *self.state.lock().unwrap() = GcState::Idle;
+        *self
+            .state
+            .lock()
+            .map_err(|e| FgcError::LockPoisoned(format!("state mutex poisoned: {}", e)))? =
+            GcState::Idle;
 
         Ok(())
     }
@@ -265,6 +277,15 @@ impl GarbageCollector {
     /// Marking runs concurrently with the application.
     /// Load barriers mark objects as they are accessed.
     fn concurrent_mark(&self) -> Result<()> {
+        // Check if there's any work to do after scanning roots
+        if !self.marker.has_mark_work() {
+            // No roots scanned, skip concurrent marking phase entirely
+            if self.config.verbose {
+                println!("[GC] No roots to mark, skipping concurrent marking");
+            }
+            return Ok(());
+        }
+
         let num_threads = self.config.gc_threads.unwrap_or(4);
         if self.config.verbose {
             println!("[GC] Concurrent Mark with {} threads", num_threads);
@@ -347,12 +368,15 @@ impl GarbageCollector {
 
     /// Check if GC is currently running
     pub fn is_collecting(&self) -> bool {
-        *self.state.lock().unwrap() != GcState::Idle
+        self.state
+            .lock()
+            .map(|g| *g != GcState::Idle)
+            .unwrap_or(false)
     }
 
     /// Get current GC state
     pub fn state(&self) -> GcState {
-        *self.state.lock().unwrap()
+        self.state.lock().map(|g| *g).unwrap_or(GcState::Idle)
     }
 
     /// Get heap reference for allocation
@@ -369,10 +393,6 @@ impl GarbageCollector {
     pub fn cycle_count(&self) -> u64 {
         self.cycle_count.load(Ordering::Relaxed)
     }
-
-    /// Shutdown GC gracefully
-    ///
-    /// Stops all GC threads and cleans up resources.
 
     /// Allocate memory from the heap
     ///
@@ -406,10 +426,9 @@ impl GarbageCollector {
         }
 
         // Register with root scanner
-        self.marker.root_scanner().register_global_root(
-            address,
-            Some("anonymous_root"),
-        );
+        self.marker
+            .root_scanner()
+            .register_global_root(address, Some("anonymous_root"));
 
         Ok(())
     }

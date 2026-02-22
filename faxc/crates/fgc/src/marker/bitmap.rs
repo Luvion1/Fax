@@ -49,11 +49,12 @@ pub struct MarkBitmap {
 
 impl Clone for MarkBitmap {
     fn clone(&self) -> Self {
-        let bits: Vec<AtomicU64> = self.bits
+        let bits: Vec<AtomicU64> = self
+            .bits
             .iter()
             .map(|atom| AtomicU64::new(atom.load(Ordering::Relaxed)))
             .collect();
-        
+
         Self {
             bits,
             region_size: self.region_size,
@@ -84,39 +85,39 @@ impl MarkBitmap {
         // Validate region_size > 0
         if region_size == 0 {
             return Err(FgcError::InvalidArgument(
-                "region_size must be greater than 0".to_string()
+                "region_size must be greater than 0".to_string(),
             ));
         }
 
         // Validate granularity is power of two
         if !granularity.is_power_of_two() {
-            return Err(FgcError::InvalidArgument(
-                format!("granularity ({}) must be a power of two", granularity)
-            ));
+            return Err(FgcError::InvalidArgument(format!(
+                "granularity ({}) must be a power of two",
+                granularity
+            )));
         }
 
         // Validate granularity is reasonable
         if granularity < 1 || granularity > 1024 {
-            return Err(FgcError::InvalidArgument(
-                format!("granularity ({}) must be between 1 and 1024 bytes", granularity)
-            ));
+            return Err(FgcError::InvalidArgument(format!(
+                "granularity ({}) must be between 1 and 1024 bytes",
+                granularity
+            )));
         }
 
         // Validate base_address is aligned to granularity
         if base_address % granularity != 0 {
-            return Err(FgcError::InvalidArgument(
-                format!("base_address ({:#x}) must be aligned to granularity ({})",
-                       base_address, granularity)
-            ));
+            return Err(FgcError::InvalidArgument(format!(
+                "base_address ({:#x}) must be aligned to granularity ({})",
+                base_address, granularity
+            )));
         }
 
         // Calculate number of bits needed
         let bit_count = region_size.div_ceil(granularity);
         let word_count = bit_count.div_ceil(64); // 64 bits per word
 
-        let bits = (0..word_count)
-            .map(|_| AtomicU64::new(0))
-            .collect();
+        let bits = (0..word_count).map(|_| AtomicU64::new(0)).collect();
 
         Ok(Self {
             bits,
@@ -157,7 +158,7 @@ impl MarkBitmap {
     /// ```
     pub fn mark(&self, address: usize) {
         // CRIT-06 FIX: Use checked indices calculation
-        if let Some((word_index, bit_index)) = self.calculate_indices(address) {
+        if let Some((word_index, bit_index)) = self.indices(address) {
             // Relaxed: safe due to GC safepoint protocol (see module docs)
             self.bits[word_index].fetch_or(1 << bit_index, Ordering::Relaxed);
         }
@@ -195,11 +196,11 @@ impl MarkBitmap {
     /// ```
     pub fn is_marked(&self, address: usize) -> bool {
         // CRIT-06 FIX: Use checked indices calculation
-        if let Some((word_index, bit_index)) = self.calculate_indices(address) {
+        if let Some((word_index, bit_index)) = self.indices(address) {
             // Relaxed: safe due to GC safepoint protocol (see module docs)
             (self.bits[word_index].load(Ordering::Relaxed) & (1 << bit_index)) != 0
         } else {
-            false  // Invalid address treated as not marked
+            false // Invalid address treated as not marked
         }
     }
 
@@ -207,6 +208,44 @@ impl MarkBitmap {
     pub fn clear(&self) {
         for word in &self.bits {
             word.store(0, Ordering::Relaxed);
+        }
+    }
+
+    /// Bulk mark multiple addresses efficiently
+    ///
+    /// More efficient than calling mark() multiple times.
+    pub fn mark_bulk(&self, addresses: &[usize]) {
+        for &addr in addresses {
+            self.mark(addr);
+        }
+    }
+
+    /// Mark range of addresses (bulk operation)
+    ///
+    /// Marks all addresses in the range with given step.
+    pub fn mark_range(&self, start: usize, end: usize, step: usize) {
+        if step == 0 || start >= end {
+            return;
+        }
+
+        let mut addr = start;
+        while addr < end {
+            self.mark(addr);
+            addr = addr.saturating_add(step);
+        }
+    }
+
+    /// Clear specific address
+    pub fn unmark(&self, address: usize) {
+        if let Some((word_index, bit_index)) = self.indices(address) {
+            self.bits[word_index].fetch_and(!(1 << bit_index), Ordering::Relaxed);
+        }
+    }
+
+    /// Bulk unmark multiple addresses
+    pub fn unmark_bulk(&self, addresses: &[usize]) {
+        for &addr in addresses {
+            self.unmark(addr);
         }
     }
 
@@ -242,7 +281,7 @@ impl MarkBitmap {
     ///
     /// # Returns
     /// Some((word_index, bit_offset)) if valid, None if out of bounds
-    fn calculate_indices(&self, address: usize) -> Option<(usize, usize)> {
+    fn indices(&self, address: usize) -> Option<(usize, usize)> {
         // CRIT-06 FIX: Validate address is within region
         // Check if address is before base (would cause underflow)
         if address < self.base_address {
@@ -317,8 +356,7 @@ impl<'a> MarkBitmapScanner<'a> {
                 let address = self.bitmap.base_address + (bit_position * self.bitmap.granularity);
 
                 // Clear bit for next iteration
-                self.bitmap.bits[self.current_word]
-                    .fetch_and(!(1 << bit_index), Ordering::Relaxed);
+                self.bitmap.bits[self.current_word].fetch_and(!(1 << bit_index), Ordering::Relaxed);
 
                 return Some(address);
             }

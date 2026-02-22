@@ -2,7 +2,7 @@ use crate::types::*;
 use crate::hir::*;
 use crate::scope::{ScopeTree, RibKind};
 use faxc_par as ast;
-use faxc_util::{Handler, DefIdGenerator};
+use faxc_util::{Handler, DefIdGenerator, Span};
 
 /// Main semantic analyzer
 pub struct SemanticAnalyzer<'a> {
@@ -55,7 +55,7 @@ impl<'a> SemanticAnalyzer<'a> {
                 res
             })
             .collect();
-        
+
         println!("Generated {} HIR items.", hir_items.len());
         hir_items
     }
@@ -96,22 +96,22 @@ impl<'a> SemanticAnalyzer<'a> {
     /// Analyze function item
     fn analyze_fn_item(&mut self, item: ast::FnItem) -> Option<FnItem> {
         let def_id = self.scope_tree.resolve(item.name)?;
-        
+
         // Enter function scope
         self.scope_tree.enter_scope(RibKind::Function);
-        
+
         // Analyze parameters (Placeholder for now)
         let params = vec![];
 
         // Analyze body
         let body_expr = self.analyze_block(item.body)?;
-        
+
         self.scope_tree.exit_scope();
 
         // Extract body into proper structure
-        let body = Body { 
+        let body = Body {
             params: vec![], // TODO: Handle patterns
-            value: body_expr 
+            value: body_expr
         };
 
         Some(FnItem {
@@ -164,7 +164,7 @@ impl<'a> SemanticAnalyzer<'a> {
                 } else {
                     None
                 };
-                
+
                 // Placeholder pattern handling
                 let (name, mutability) = match l.pattern {
                     ast::Pattern::Ident(s, m) => (s, matches!(m, ast::Mutability::Mutable)),
@@ -176,7 +176,7 @@ impl<'a> SemanticAnalyzer<'a> {
                 self.scope_tree.add_binding(name, def_id);
                 self.type_context.set_def_type(def_id, Type::Int);
 
-                let pat = Pattern::Binding { 
+                let pat = Pattern::Binding {
                     name,
                     ty: Type::Int, // Inference placeholder
                     mutability,
@@ -233,14 +233,14 @@ impl<'a> SemanticAnalyzer<'a> {
     /// Analyze if expression
     fn analyze_if(&mut self, expr: ast::IfExpr) -> Option<Expr> {
         let cond = self.analyze_expr(*expr.cond)?;
-        
+
         // Condition must be bool
         if cond.ty() != Type::Bool {
             self.handler.error("If condition must be a boolean".to_string(), faxc_util::Span::DUMMY);
         }
 
         let then_expr = Box::new(self.analyze_block(expr.then_block)?);
-        
+
         let mut else_expr = None;
         let mut ty = Type::Unit;
 
@@ -248,7 +248,7 @@ impl<'a> SemanticAnalyzer<'a> {
             let e_analyzed = self.analyze_expr(*e)?;
             ty = e_analyzed.ty();
             else_expr = Some(Box::new(e_analyzed));
-            
+
             // Check type compatibility
             if then_expr.ty() != ty {
                 self.handler.error("If and Else branches must have the same type".to_string(), faxc_util::Span::DUMMY);
@@ -299,14 +299,14 @@ impl<'a> SemanticAnalyzer<'a> {
         let left = self.analyze_expr(*expr.left)?;
         let right = self.analyze_expr(*expr.right)?;
 
-        let op = self.convert_binop(expr.op);
-        
+        let op = self.convert_binop(expr.op, expr.span)?;
+
         // Determine result type
         let ty = match op {
             BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Gt | BinOp::Le | BinOp::Ge => Type::Bool,
             _ => left.ty(),
         };
-        
+
         Some(Expr::Binary {
             op,
             left: Box::new(left),
@@ -315,26 +315,47 @@ impl<'a> SemanticAnalyzer<'a> {
         })
     }
 
-    fn convert_binop(&self, op: ast::BinOp) -> BinOp {
+    fn convert_binop(&self, op: ast::BinOp, span: Span) -> Option<BinOp> {
         match op {
-            ast::BinOp::Add => BinOp::Add,
-            ast::BinOp::Sub => BinOp::Sub,
-            ast::BinOp::Mul => BinOp::Mul,
-            ast::BinOp::Div => BinOp::Div,
-            ast::BinOp::Mod => BinOp::Mod,
-            ast::BinOp::Eq => BinOp::Eq,
-            ast::BinOp::Ne => BinOp::Ne,
-            ast::BinOp::Lt => BinOp::Lt,
-            ast::BinOp::Gt => BinOp::Gt,
-            ast::BinOp::Le => BinOp::Le,
-            ast::BinOp::Ge => BinOp::Ge,
-            ast::BinOp::And => BinOp::And,
-            ast::BinOp::Or => BinOp::Or,
-            ast::BinOp::BitAnd => BinOp::And, // Map bitwise
-            ast::BinOp::BitOr => BinOp::Or,
-            ast::BinOp::BitXor => todo!(), // Need to add BitXor to HIR BinOp
-            ast::BinOp::Shl => todo!(),
-            ast::BinOp::Shr => todo!(),
+            ast::BinOp::Add => Some(BinOp::Add),
+            ast::BinOp::Sub => Some(BinOp::Sub),
+            ast::BinOp::Mul => Some(BinOp::Mul),
+            ast::BinOp::Div => Some(BinOp::Div),
+            ast::BinOp::Mod => Some(BinOp::Mod),
+            ast::BinOp::Eq => Some(BinOp::Eq),
+            ast::BinOp::Ne => Some(BinOp::Ne),
+            ast::BinOp::Lt => Some(BinOp::Lt),
+            ast::BinOp::Gt => Some(BinOp::Gt),
+            ast::BinOp::Le => Some(BinOp::Le),
+            ast::BinOp::Ge => Some(BinOp::Ge),
+            ast::BinOp::And => Some(BinOp::And),
+            ast::BinOp::Or => Some(BinOp::Or),
+            ast::BinOp::BitAnd => Some(BinOp::And), // Map bitwise AND to logical AND for MVP
+            ast::BinOp::BitOr => Some(BinOp::Or),   // Map bitwise OR to logical OR for MVP
+            ast::BinOp::BitXor => {
+                // Bitwise XOR not yet supported in HIR
+                self.handler.error(
+                    "Bitwise XOR operator is not yet supported".to_string(),
+                    span
+                );
+                Some(BinOp::And) // Fallback to prevent compilation failure
+            },
+            ast::BinOp::Shl => {
+                // Shift left not yet supported in HIR
+                self.handler.error(
+                    "Shift left operator is not yet supported".to_string(),
+                    span
+                );
+                Some(BinOp::Add) // Fallback to prevent compilation failure
+            },
+            ast::BinOp::Shr => {
+                // Shift right not yet supported in HIR
+                self.handler.error(
+                    "Shift right operator is not yet supported".to_string(),
+                    span
+                );
+                Some(BinOp::Add) // Fallback to prevent compilation failure
+            },
         }
     }
 }

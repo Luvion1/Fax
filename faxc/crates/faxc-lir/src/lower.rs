@@ -1,9 +1,20 @@
+//! MIR to LIR Lowering
+//!
+//! MIR-LIR-CODEGEN-DEV-001: Subtask 2
+//! Converts MIR constructs to LIR with x86-64 instructions.
+
 use crate::lir::*;
 use faxc_mir as mir;
 use faxc_util::Symbol;
 use std::collections::HashMap;
 
 use faxc_util::Idx;
+
+/// Condition type for MIR compatibility
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MirCondition {
+    Eq, Ne, Lt, Gt, Le, Ge,
+}
 
 pub fn lower_mir_to_lir(mir_fn: &mir::Function) -> Function {
     let mut lowerer = LirLowerer::new(mir_fn.name.clone());
@@ -18,7 +29,7 @@ pub struct LirLowerer {
     pub function: Function,
     pub register_counter: u32,
     pub label_counter: u32,
-    pub mir_to_lir_reg: HashMap<mir::LocalId, Register>,
+    pub mir_to_lir_reg: HashMap<mir::LocalId, VirtualRegister>,
 }
 
 impl LirLowerer {
@@ -30,6 +41,8 @@ impl LirLowerer {
                 instructions: Vec::new(),
                 labels: Vec::new(),
                 frame_size: 0,
+                param_count: 0,
+                is_external: false,
             },
             register_counter: 0,
             label_counter: 0,
@@ -37,8 +50,8 @@ impl LirLowerer {
         }
     }
 
-    pub fn new_reg(&mut self) -> Register {
-        let reg = Register(self.register_counter);
+    pub fn new_reg(&mut self) -> VirtualRegister {
+        let reg = VirtualRegister::new(self.register_counter);
         self.register_counter += 1;
         self.function.registers.push(reg);
         reg
@@ -47,7 +60,7 @@ impl LirLowerer {
     pub fn lower_block(&mut self, block: &mir::BasicBlock) {
         let label = format!(".Lbb{}", block.id.0);
         self.function.instructions.push(Instruction::Label { name: label });
-        
+
         for stmt in &block.statements {
             if let mir::Statement::Assign(place, rvalue) = stmt {
                 let dest = self.get_place_reg(place);
@@ -57,49 +70,83 @@ impl LirLowerer {
         self.lower_terminator(&block.terminator);
     }
 
-    fn lower_rvalue(&mut self, dest: Register, rvalue: &mir::Rvalue) {
+    fn lower_rvalue(&mut self, dest: VirtualRegister, rvalue: &mir::Rvalue) {
         match rvalue {
             mir::Rvalue::Use(operand) => {
                 let src = self.lower_operand(operand);
-                self.function.instructions.push(Instruction::Mov { dest, src });
+                self.function.instructions.push(Instruction::Mov { dest: Operand::Reg(dest), src });
             }
             mir::Rvalue::BinaryOp(op, left, right) => {
-                let src1 = self.lower_operand_to_reg(left);
+                let src1_reg = self.lower_operand_to_reg(left);
                 let src2 = self.lower_operand(right);
-                self.function.instructions.push(Instruction::BinOp {
-                    op: convert_binop(*op),
-                    dest,
-                    src1,
-                    src2,
-                });
+                let bin_op = convert_binop(*op);
+                // First move src1 to dest
+                self.function.instructions.push(Instruction::Mov { dest: Operand::Reg(dest), src: Operand::Reg(src1_reg) });
+                // Then apply the operation
+                match bin_op {
+                    BinOp::Add => {
+                        self.function.instructions.push(Instruction::Add { dest: Operand::Reg(dest), src: src2 });
+                    }
+                    BinOp::Sub => {
+                        self.function.instructions.push(Instruction::Sub { dest: Operand::Reg(dest), src: src2 });
+                    }
+                    BinOp::Mul => {
+                        self.function.instructions.push(Instruction::Mul { dest: Operand::Reg(dest), src: src2, signed: true });
+                    }
+                    BinOp::Div => {
+                        self.function.instructions.push(Instruction::Idiv { dest: Operand::Reg(dest), src: src2 });
+                    }
+                    BinOp::Rem => {
+                        // Rem requires special handling with div
+                        self.function.instructions.push(Instruction::IdivSigned { divisor: src2 });
+                    }
+                    BinOp::And => {
+                        self.function.instructions.push(Instruction::And { dest: Operand::Reg(dest), src: src2 });
+                    }
+                    BinOp::Or => {
+                        self.function.instructions.push(Instruction::Or { dest: Operand::Reg(dest), src: src2 });
+                    }
+                    BinOp::Xor => {
+                        self.function.instructions.push(Instruction::Xor { dest: Operand::Reg(dest), src: src2 });
+                    }
+                    BinOp::Shl => {
+                        self.function.instructions.push(Instruction::Shl { dest: Operand::Reg(dest), count: src2 });
+                    }
+                    BinOp::Shr => {
+                        self.function.instructions.push(Instruction::Shr { dest: Operand::Reg(dest), count: src2 });
+                    }
+                    BinOp::Sar => {
+                        self.function.instructions.push(Instruction::Sar { dest: Operand::Reg(dest), count: src2 });
+                    }
+                }
             }
             _ => {}
         }
     }
 
-    fn lower_operand(&mut self, operand: &mir::Operand) -> Value {
+    fn lower_operand(&mut self, operand: &mir::Operand) -> Operand {
         match operand {
-            mir::Operand::Copy(p) | mir::Operand::Move(p) => Value::Reg(self.get_place_reg(p)),
+            mir::Operand::Copy(p) | mir::Operand::Move(p) => Operand::Reg(self.get_place_reg(p)),
             mir::Operand::Constant(c) => match &c.kind {
-                mir::ConstantKind::Int(n) => Value::Imm(*n),
-                _ => Value::Imm(0),
+                mir::ConstantKind::Int(n) => Operand::Imm(*n),
+                _ => Operand::Imm(0),
             },
         }
     }
 
-    fn lower_operand_to_reg(&mut self, operand: &mir::Operand) -> Register {
+    fn lower_operand_to_reg(&mut self, operand: &mir::Operand) -> VirtualRegister {
         match self.lower_operand(operand) {
-            Value::Reg(r) => r,
-            Value::Imm(i) => {
+            Operand::Reg(r) => r,
+            Operand::Imm(i) => {
                 let reg = self.new_reg();
-                self.function.instructions.push(Instruction::Mov { dest: reg, src: Value::Imm(i) });
+                self.function.instructions.push(Instruction::Mov { dest: Operand::Reg(reg), src: Operand::Imm(i) });
                 reg
             }
             _ => self.new_reg(),
         }
     }
 
-    fn get_place_reg(&mut self, place: &mir::Place) -> Register {
+    fn get_place_reg(&mut self, place: &mir::Place) -> VirtualRegister {
         match place {
             mir::Place::Local(id) => {
                 if let Some(reg) = self.mir_to_lir_reg.get(id) {
@@ -114,32 +161,39 @@ impl LirLowerer {
         }
     }
 
-    fn lower_terminator(&mut self, term: &mir::Terminator) {
-        match term {
-            mir::Terminator::Return => self.function.instructions.push(Instruction::Ret),
+    fn lower_terminator(&mut self, terminator: &mir::Terminator) {
+        match terminator {
+            mir::Terminator::Return => {
+                self.function.instructions.push(Instruction::Ret { value: None });
+            }
             mir::Terminator::Goto { target } => {
                 self.function.instructions.push(Instruction::Jmp { target: format!(".Lbb{}", target.0) });
             }
             mir::Terminator::If { cond, then_block, else_block } => {
-                let cond_reg = self.lower_operand_to_reg(cond);
-                // Simple comparison against zero/false
-                self.function.instructions.push(Instruction::Cmp { 
-                    src1: cond_reg, 
-                    src2: Value::Imm(1) 
-                });
-                self.function.instructions.push(Instruction::Jcc { 
-                    cond: Condition::Eq, 
-                    target: format!(".Lbb{}", then_block.0) 
-                });
-                self.function.instructions.push(Instruction::Jmp { 
-                    target: format!(".Lbb{}", else_block.0) 
-                });
+                let cond_reg = match cond {
+                    mir::Operand::Copy(p) | mir::Operand::Move(p) => self.get_place_reg(p),
+                    mir::Operand::Constant(c) => {
+                        let reg = self.new_reg();
+                        let imm = match c.kind {
+                            mir::ConstantKind::Bool(b) => if b { 1 } else { 0 },
+                            mir::ConstantKind::Int(i) => i,
+                            _ => 0,
+                        };
+                        self.function.instructions.push(Instruction::Mov { dest: Operand::Reg(reg), src: Operand::Imm(imm) });
+                        reg
+                    }
+                };
+                self.function.instructions.push(Instruction::Cmp { src1: Operand::Reg(cond_reg), src2: Operand::Imm(0) });
+                self.function.instructions.push(Instruction::Jcc { cond: Condition::Ne, target: format!(".Lbb{}", then_block.0) });
+                self.function.instructions.push(Instruction::Jmp { target: format!(".Lbb{}", else_block.0) });
             }
             _ => {}
         }
     }
 
-    pub fn finish(self) -> Function { self.function }
+    pub fn finish(self) -> Function {
+        self.function
+    }
 }
 
 fn convert_binop(op: mir::BinOp) -> BinOp {
@@ -154,11 +208,6 @@ fn convert_binop(op: mir::BinOp) -> BinOp {
         mir::BinOp::BitXor => BinOp::Xor,
         mir::BinOp::Shl => BinOp::Shl,
         mir::BinOp::Shr => BinOp::Shr,
-        mir::BinOp::Eq | mir::BinOp::Ne | mir::BinOp::Lt | mir::BinOp::Le | mir::BinOp::Gt | mir::BinOp::Ge => {
-            // Comparisons in LIR are handled by Cmp + Jcc or explicit BinOp
-            // For now, map to Add as placeholder but they should trigger Cmp logic elsewhere
-            BinOp::Add 
-        }
         _ => BinOp::Add,
     }
 }

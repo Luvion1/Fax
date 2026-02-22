@@ -197,7 +197,7 @@ fn test_concurrent_state_reads() {
         let states = Arc::clone(&states_read[i]);
         
         let handle = thread::spawn(move || {
-            let mut local_states = states.lock().unwrap();
+            let mut local_states = states.lock().expect("Lock should not be poisoned");
             for _ in 0..reads_per_thread {
                 let state = gc.state();
                 local_states.push(state);
@@ -214,7 +214,7 @@ fn test_concurrent_state_reads() {
     
     // Assert - all state reads should be valid
     for (i, states) in states_read.iter().enumerate() {
-        let states = states.lock().unwrap();
+        let states = states.lock().expect("Lock should not be poisoned");
         assert_eq!(
             states.len(),
             reads_per_thread,

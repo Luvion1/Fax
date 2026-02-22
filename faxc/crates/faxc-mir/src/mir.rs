@@ -1,7 +1,12 @@
+//! MIR (Mid-level Intermediate Representation) for Fax Compiler
+//! 
+//! MIR-LIR-CODEGEN-DEV-001: Subtask 1 - MIR Development
+//! Enhanced with complete constructs, CFG support, and optimization hooks.
+
 use faxc_sem::Type;
 use faxc_util::{Idx, IndexVec, Span, Symbol, DefId};
 
-/// MIR Function
+/// MIR Function with complete Control Flow Graph
 #[derive(Clone)]
 pub struct Function {
     pub name: Symbol,
@@ -9,6 +14,41 @@ pub struct Function {
     pub blocks: IndexVec<BlockId, BasicBlock>,
     pub entry_block: BlockId,
     pub return_ty: Type,
+    pub arg_count: usize,
+    pub arg_locals: Vec<LocalId>,
+}
+
+impl Function {
+    pub fn new(name: Symbol, return_ty: Type, arg_count: usize) -> Self {
+        Self {
+            name,
+            locals: IndexVec::new(),
+            blocks: IndexVec::new(),
+            entry_block: BlockId(0),
+            return_ty,
+            arg_count,
+            arg_locals: Vec::new(),
+        }
+    }
+
+    pub fn block_count(&self) -> usize {
+        self.blocks.len()
+    }
+
+    pub fn local_count(&self) -> usize {
+        self.locals.len()
+    }
+}
+
+impl std::fmt::Debug for Function {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Function")
+            .field("name", &self.name)
+            .field("block_count", &self.block_count())
+            .field("local_count", &self.local_count())
+            .field("return_ty", &self.return_ty)
+            .finish()
+    }
 }
 
 /// Local variable

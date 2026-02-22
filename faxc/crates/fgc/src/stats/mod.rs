@@ -11,13 +11,15 @@
 //! - GC frequency
 //! - Allocation rates
 
-pub mod timer;
+pub mod gc_cycle;
 pub mod histogram;
 pub mod metrics;
+pub mod timer;
 
-pub use timer::GcTimer;
+pub use gc_cycle::{AggregatedStats, GcCycleStats, GcStatsCollector};
 pub use histogram::Histogram;
 pub use metrics::GcMetrics;
+pub use timer::GcTimer;
 
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -79,10 +81,10 @@ impl GcStats {
         match generation {
             crate::gc::GcGeneration::Young => {
                 self.minor_cycles.fetch_add(1, Ordering::Relaxed);
-            }
+            },
             _ => {
                 self.major_cycles.fetch_add(1, Ordering::Relaxed);
-            }
+            },
         }
 
         // Record pause time

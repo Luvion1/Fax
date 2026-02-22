@@ -1,4 +1,6 @@
-use faxc_lir::{Function as LirFunction, Instruction, Value, Register, BinOp, Condition};
+//! Assembly Code Generator
+
+use faxc_lir::{Function as LirFunction, Instruction, VirtualRegister, BinOp, Condition};
 use std::collections::HashMap;
 
 pub struct AsmGenerator {
@@ -8,7 +10,7 @@ pub struct AsmGenerator {
 }
 
 pub struct RegisterAllocator {
-    pub allocation: HashMap<Register, Location>,
+    pub allocation: HashMap<VirtualRegister, Location>,
     pub frame_size: u32,
 }
 
@@ -29,7 +31,13 @@ impl AsmGenerator {
         }
     }
 
-    pub fn generate_function(&mut self, func: &LirFunction) {
+    pub fn generate_function(&mut self, _func: &LirFunction) {
         // Assembly generation logic
+    }
+}
+
+impl Default for AsmGenerator {
+    fn default() -> Self {
+        Self::new()
     }
 }

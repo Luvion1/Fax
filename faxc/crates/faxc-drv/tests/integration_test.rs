@@ -12,12 +12,11 @@ fn test_compile_if_else_logic() {
     "#;
 
     let mut config = Config::default();
-    config.emit = EmitType::Lir; // Test up to LIR to bypass LLVM linkage
-    
-    let mut session = Session::new(config);
+    config.emit = EmitType::Lir;
+
+    let mut session = Session::new(config).expect("Failed to create session");
     session.sources.add(PathBuf::from("logic.fax"), source_code.to_string());
-    
-    // Step 1: Lex & Parse manually to inspect AST
+
     let source = &session.sources.iter().next().unwrap().1.content;
     let mut lexer = faxc_lex::Lexer::new(source, &mut session.diagnostics);
     let tokens: Vec<_> = std::iter::from_fn(|| Some(lexer.next_token()))
@@ -25,12 +24,11 @@ fn test_compile_if_else_logic() {
         .collect();
     let mut parser = faxc_par::Parser::new(tokens, &mut session.diagnostics);
     let ast = parser.parse();
-    
+
     println!("Generated AST: {:#?}", ast);
-    
-    // Continue with normal compilation
+
     let result = session.compile().expect("Compilation failed up to LIR");
-    
+
     let mut found_cmp = false;
     let mut found_jcc = false;
     let mut found_jmp = false;
@@ -47,9 +45,8 @@ fn test_compile_if_else_logic() {
             }
         }
     }
-    
+
     assert!(found_cmp, "LIR should contain Cmp instruction");
     assert!(found_jcc, "LIR should contain Jcc instruction");
     assert!(found_jmp, "LIR should contain Jmp instruction");
 }
-

@@ -1,0 +1,62 @@
+[workspace]
+members = [
+    "faxc/crates/faxc-util",
+    "faxc/crates/faxc-lex",
+    "faxc/crates/faxc-par",
+    "faxc/crates/faxc-sem",
+    "faxc/crates/fgc",
+    "faxc/crates/faxc-mir",
+    "faxc/crates/faxc-lir",
+    "faxc/crates/faxc-gen",
+    "faxc/crates/faxc-drv",
+    "faxt",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Fax Team"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/fax-lang/faxc"
+rust-version = "1.75"
+
+[workspace.dependencies]
+# Core utilities
+faxc-util = { path = "faxc/crates/faxc-util" }
+
+# Compiler phases
+faxc-lex = { path = "faxc/crates/faxc-lex" }
+faxc-par = { path = "faxc/crates/faxc-par" }
+faxc-sem = { path = "faxc/crates/faxc-sem" }
+fgc = { path = "faxc/crates/fgc" }
+faxc-mir = { path = "faxc/crates/faxc-mir" }
+faxc-lir = { path = "faxc/crates/faxc-lir" }
+faxc-gen = { path = "faxc/crates/faxc-gen" }
+faxc-drv = { path = "faxc/crates/faxc-drv" }
+
+# External dependencies
+inkwell = { version = "0.8.0", features = ["llvm20-1", "target-all"] }
+thiserror = "1.0"
+anyhow = "1.0"
+indexmap = "2.1"
+rustc-hash = "1.1"
+parking_lot = "0.12"
+crossbeam = "0.8"
+rayon = "1.8"
+
+# Testing dependencies
+assert_cmd = "2.0"
+predicates = "3.0"
+tempfile = "3.9"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[profile.dev]
+opt-level = 1
+
+[profile.test]
+opt-level = 2

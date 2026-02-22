@@ -1,0 +1,35 @@
+// Test fixture: Variables
+// Tests variable declaration, initialization, and reassignment
+
+fn main() {
+    // Integer variables
+    let intVar: Int = 42;
+    print(intVar);
+    
+    // String variables
+    let strVar: String = "Hello, Variables!";
+    print(strVar);
+    
+    // Boolean variables
+    let boolVar: Bool = true;
+    print(boolVar);
+    
+    // Variable reassignment
+    let counter: Int = 0;
+    counter = 1;
+    counter = counter + 1;
+    counter = counter + 1;
+    print(counter);
+    
+    // Multiple variables of same type
+    let x: Int = 10;
+    let y: Int = 20;
+    let z: Int = x + y;
+    print(z);
+    
+    // Variable scope test
+    {
+        let inner: Int = 100;
+        print(inner);
+    }
+}

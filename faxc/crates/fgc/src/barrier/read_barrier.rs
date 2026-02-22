@@ -523,7 +523,9 @@ pub mod write_barrier {
         static ref REMEMBERED_SET: Mutex<RememberedSet> = Mutex::new(RememberedSet::new());
     }
 
+    #[allow(dead_code)]
     const CARD_SIZE: usize = 512;
+    #[allow(dead_code)]
     const CARD_SHIFT: usize = 9;
 
     /// Remembered set for tracking cross-generational references

@@ -221,12 +221,11 @@ impl ObjectHeader {
         self.mark_word.fetch_or(FORWARDED_MASK, Ordering::Release);
     }
 
-    /// Get forwarding pointer
+    /// Returns forwarding pointer
     ///
     /// Uses Acquire ordering to ensure we see prior writes.
     #[inline]
-    pub fn get_forwarding_ptr(&self) -> usize {
-        // Acquire: must see prior writes to forwarding pointer
+    pub fn forwarding_ptr(&self) -> usize {
         self.mark_word.load(Ordering::Acquire) & HASH_MASK
     }
 
@@ -235,7 +234,7 @@ impl ObjectHeader {
     ///
     /// Uses Acquire for initial read and AcqRel for CAS operations.
     #[inline]
-    pub fn try_set_forwarding_ptr(&self, new_addr: usize) -> bool {
+    pub fn try_set_forwarding(&self, new_addr: usize) -> bool {
         // Acquire: must see prior writes to check if already forwarded
         let mut current = self.mark_word.load(Ordering::Acquire);
         loop {
@@ -601,18 +600,18 @@ mod tests {
 
         // Initially not forwarded
         assert!(!header.is_forwarded());
-        assert_eq!(header.get_forwarding_ptr(), 0);
+        assert_eq!(header.forwarding_ptr(), 0);
 
         // Set forwarding pointer
-        let success = header.try_set_forwarding_ptr(new_addr);
+        let success = header.try_set_forwarding(new_addr);
         assert!(success);
         assert!(header.is_forwarded());
-        assert_eq!(header.get_forwarding_ptr(), new_addr & HASH_MASK);
+        assert_eq!(header.forwarding_ptr(), new_addr & HASH_MASK);
 
         // Try to set again (should fail)
-        let success = header.try_set_forwarding_ptr(0x6000);
+        let success = header.try_set_forwarding(0x6000);
         assert!(!success);
-        assert_eq!(header.get_forwarding_ptr(), new_addr & HASH_MASK);
+        assert_eq!(header.forwarding_ptr(), new_addr & HASH_MASK);
     }
 
     #[test]

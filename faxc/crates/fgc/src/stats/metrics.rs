@@ -3,6 +3,7 @@
 //! Module for exporting metrics to monitoring systems
 //! (Prometheus, Grafana, etc.)
 
+use crate::error::{FgcError, Result};
 use indexmap::IndexMap;
 
 /// GcMetrics - metrics exporter
@@ -21,37 +22,52 @@ impl GcMetrics {
     }
 
     /// Add metric
-    pub fn add(&self, name: String, value: MetricValue) {
-        self.metrics.lock().unwrap().insert(name, value);
+    pub fn add(&self, name: String, value: MetricValue) -> Result<()> {
+        self.metrics
+            .lock()
+            .map_err(|e| FgcError::LockPoisoned(format!("metrics mutex poisoned: {}", e)))?
+            .insert(name, value);
+        Ok(())
     }
 
     /// Get metric
-    pub fn get(&self, name: &str) -> Option<MetricValue> {
-        self.metrics.lock().unwrap().get(name).copied()
+    pub fn get(&self, name: &str) -> Result<Option<MetricValue>> {
+        Ok(self
+            .metrics
+            .lock()
+            .map_err(|e| FgcError::LockPoisoned(format!("metrics mutex poisoned: {}", e)))?
+            .get(name)
+            .copied())
     }
 
     /// Export to Prometheus format
-    pub fn to_prometheus(&self) -> String {
-        let metrics = self.metrics.lock().unwrap();
+    pub fn to_prometheus(&self) -> Result<String> {
+        let metrics = self
+            .metrics
+            .lock()
+            .map_err(|e| FgcError::LockPoisoned(format!("metrics mutex poisoned: {}", e)))?;
         let mut output = String::new();
 
         for (name, value) in metrics.iter() {
             output.push_str(&format!("{} {}\n", name, value.as_f64()));
         }
 
-        output
+        Ok(output)
     }
 
     /// Export to JSON
-    pub fn to_json(&self) -> String {
-        let metrics = self.metrics.lock().unwrap();
+    pub fn to_json(&self) -> Result<String> {
+        let metrics = self
+            .metrics
+            .lock()
+            .map_err(|e| FgcError::LockPoisoned(format!("metrics mutex poisoned: {}", e)))?;
         let mut pairs = Vec::new();
 
         for (name, value) in metrics.iter() {
             pairs.push(format!("\"{}\": {}", name, value.as_f64()));
         }
 
-        format!("{{{}}}", pairs.join(","))
+        Ok(format!("{{{}}}", pairs.join(",")))
     }
 }
 

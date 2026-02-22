@@ -153,7 +153,7 @@ pub unsafe fn zero_memory(addr: usize, size: usize) {
 pub unsafe fn read_pointer(addr: usize) -> usize {
     // CRIT-04 FIX: Validate address before dereference
     if addr == 0 || !addr.is_multiple_of(std::mem::align_of::<usize>()) {
-        return 0;  // Treat as null
+        return 0; // Treat as null
     }
 
     // Use unwrap_or(false) to treat inconclusive checks as unsafe
@@ -187,7 +187,7 @@ pub unsafe fn read_pointer(addr: usize) -> usize {
 pub unsafe fn write_pointer(addr: usize, value: usize) {
     // CRIT-04 FIX: Validate address before dereference
     if addr == 0 || !addr.is_multiple_of(std::mem::align_of::<usize>()) {
-        return;  // Cannot write to null or unaligned address
+        return; // Cannot write to null or unaligned address
     }
 
     // Use unwrap_or(false) to treat inconclusive checks as unsafe
@@ -271,7 +271,7 @@ pub unsafe fn read_value<T: Copy>(addr: usize) -> T {
 pub unsafe fn write_value<T>(addr: usize, value: T) {
     // CRIT-04 FIX: Validate address before dereference
     if addr == 0 || !addr.is_multiple_of(std::mem::align_of::<T>()) {
-        return;  // Cannot write to null or unaligned address
+        return; // Cannot write to null or unaligned address
     }
 
     // Use unwrap_or(false) to treat inconclusive checks as unsafe
@@ -430,7 +430,7 @@ pub unsafe fn swap_values<T>(addr1: usize, addr2: usize) {
 #[inline]
 pub fn is_readable(addr: usize) -> Result<bool, FgcError> {
     // FIX Issue 7: Add comprehensive validation before platform-specific checks
-    
+
     // Null address is never readable
     if addr == 0 {
         return Ok(false);
@@ -440,12 +440,12 @@ pub fn is_readable(addr: usize) -> Result<bool, FgcError> {
     if addr > 0x0000_7FFF_FFFF_FFFF {
         return Ok(false);
     }
-    
+
     // Check for very low addresses (typically unmapped)
     if addr < 0x1000 {
         return Ok(false);
     }
-    
+
     // Check alignment - misaligned addresses may cause issues
     // This is a heuristic, not a guarantee
     if !addr.is_multiple_of(std::mem::align_of::<u8>()) {
@@ -454,18 +454,21 @@ pub fn is_readable(addr: usize) -> Result<bool, FgcError> {
 
     #[cfg(unix)]
     {
-        return is_readable_unix(addr);
+        is_readable_unix(addr)
     }
 
     #[cfg(windows)]
     {
-        return is_readable_windows(addr);
+        is_readable_windows(addr)
     }
 
     #[cfg(not(any(unix, windows)))]
     {
         // Fallback: heuristic only for non-Unix/Windows platforms
-        log::trace!("Using heuristic memory check (unreliable) for addr: {:#x}", addr);
+        log::trace!(
+            "Using heuristic memory check (unreliable) for addr: {:#x}",
+            addr
+        );
         Ok(addr > 0x1000 && addr < 0x0000_7FFF_FFFF_FFFF)
     }
 }
@@ -477,7 +480,7 @@ fn is_readable_unix(addr: usize) -> Result<bool, FgcError> {
 
     unsafe {
         let page_size = sysconf(_SC_PAGESIZE) as usize;
-        if page_size <= 0 {
+        if page_size == 0 {
             // Cannot determine page size, use heuristic
             return Ok(addr > 0x1000);
         }
@@ -500,9 +503,10 @@ fn is_readable_unix(addr: usize) -> Result<bool, FgcError> {
             } else {
                 // Other error - inconclusive
                 log::debug!("mincore failed for {:#x}: {}", addr, err);
-                Err(FgcError::VirtualMemoryError(
-                    format!("mincore failed: {}", err)
-                ))
+                Err(FgcError::VirtualMemoryError(format!(
+                    "mincore failed: {}",
+                    err
+                )))
             }
         }
     }
@@ -526,7 +530,7 @@ fn is_readable_windows(addr: usize) -> Result<bool, FgcError> {
         if result == 0 {
             // VirtualQuery failed
             return Err(FgcError::VirtualMemoryError(
-                "VirtualQuery failed".to_string()
+                "VirtualQuery failed".to_string(),
             ));
         }
 
@@ -581,7 +585,7 @@ fn is_readable_windows(addr: usize) -> Result<bool, FgcError> {
 #[inline]
 pub fn is_writable(addr: usize) -> Result<bool, FgcError> {
     // FIX Issue 7: Add comprehensive validation before platform-specific checks
-    
+
     // Null address is never writable
     if addr == 0 {
         return Ok(false);
@@ -591,12 +595,12 @@ pub fn is_writable(addr: usize) -> Result<bool, FgcError> {
     if addr > 0x0000_7FFF_FFFF_FFFF {
         return Ok(false);
     }
-    
+
     // Check for very low addresses (typically unmapped)
     if addr < 0x1000 {
         return Ok(false);
     }
-    
+
     // Check alignment
     if !addr.is_multiple_of(std::mem::align_of::<u8>()) {
         return Ok(false);
@@ -604,12 +608,12 @@ pub fn is_writable(addr: usize) -> Result<bool, FgcError> {
 
     #[cfg(unix)]
     {
-        return is_writable_unix(addr);
+        is_writable_unix(addr)
     }
 
     #[cfg(windows)]
     {
-        return is_writable_windows(addr);
+        is_writable_windows(addr)
     }
 
     #[cfg(not(any(unix, windows)))]
@@ -634,8 +638,7 @@ fn is_writable_unix(addr: usize) -> Result<bool, FgcError> {
 #[cfg(windows)]
 fn is_writable_windows(addr: usize) -> Result<bool, FgcError> {
     use windows_sys::Win32::System::Memory::{
-        VirtualQuery, MEMORY_BASIC_INFORMATION, MEM_COMMIT, PAGE_EXECUTE_READWRITE,
-        PAGE_READWRITE,
+        VirtualQuery, MEMORY_BASIC_INFORMATION, MEM_COMMIT, PAGE_EXECUTE_READWRITE, PAGE_READWRITE,
     };
 
     unsafe {
@@ -648,7 +651,7 @@ fn is_writable_windows(addr: usize) -> Result<bool, FgcError> {
 
         if result == 0 {
             return Err(FgcError::VirtualMemoryError(
-                "VirtualQuery failed".to_string()
+                "VirtualQuery failed".to_string(),
             ));
         }
 
@@ -686,21 +689,30 @@ pub fn validate_pointer(addr: usize, operation: &str) -> Result<(), FgcError> {
     }
 
     if !addr.is_multiple_of(std::mem::align_of::<usize>()) {
-        return Err(FgcError::InvalidArgument(
-            format!("Unaligned address for {}: {:#x}", operation, addr)
-        ));
+        return Err(FgcError::InvalidArgument(format!(
+            "Unaligned address for {}: {:#x}",
+            operation, addr
+        )));
     }
 
     // Check readability
     match is_readable(addr) {
-        Ok(true) => {},  // Good
-        Ok(false) => return Err(FgcError::InvalidArgument(
-            format!("Address not readable for {}: {:#x}", operation, addr)
-        )),
+        Ok(true) => {}, // Good
+        Ok(false) => {
+            return Err(FgcError::InvalidArgument(format!(
+                "Address not readable for {}: {:#x}",
+                operation, addr
+            )))
+        },
         Err(e) => {
             // Check inconclusive - log warning but allow
-            log::warn!("Memory check inconclusive for {}: {:#x} - {}", operation, addr, e);
-        }
+            log::warn!(
+                "Memory check inconclusive for {}: {:#x} - {}",
+                operation,
+                addr,
+                e
+            );
+        },
     }
 
     Ok(())
@@ -876,11 +888,7 @@ mod tests {
         let original = buffer.clone();
 
         unsafe {
-            copy_memory_overlapping(
-                buffer.as_ptr() as usize,
-                buffer.as_mut_ptr() as usize,
-                0,
-            );
+            copy_memory_overlapping(buffer.as_ptr() as usize, buffer.as_mut_ptr() as usize, 0);
         }
 
         assert_eq!(buffer, original);
@@ -1042,10 +1050,7 @@ mod tests {
         let mut b: i32 = 2;
 
         unsafe {
-            swap_values::<i32>(
-                &mut a as *mut i32 as usize,
-                &mut b as *mut i32 as usize,
-            );
+            swap_values::<i32>(&mut a as *mut i32 as usize, &mut b as *mut i32 as usize);
         }
 
         assert_eq!(a, 2);
@@ -1058,10 +1063,7 @@ mod tests {
         let mut b: usize = 0x2000;
 
         unsafe {
-            swap_values::<usize>(
-                &mut a as *mut usize as usize,
-                &mut b as *mut usize as usize,
-            );
+            swap_values::<usize>(&mut a as *mut usize as usize, &mut b as *mut usize as usize);
         }
 
         assert_eq!(a, 0x2000);
@@ -1181,11 +1183,7 @@ mod tests {
         let b = [1u8, 2, 3, 4, 5];
 
         unsafe {
-            assert!(compare_memory(
-                a.as_ptr() as usize,
-                b.as_ptr() as usize,
-                5
-            ));
+            assert!(compare_memory(a.as_ptr() as usize, b.as_ptr() as usize, 5));
         }
     }
 
@@ -1195,11 +1193,7 @@ mod tests {
         let b = [1u8, 2, 3, 4, 6];
 
         unsafe {
-            assert!(!compare_memory(
-                a.as_ptr() as usize,
-                b.as_ptr() as usize,
-                5
-            ));
+            assert!(!compare_memory(a.as_ptr() as usize, b.as_ptr() as usize, 5));
         }
     }
 
@@ -1209,11 +1203,7 @@ mod tests {
         let b = [4u8, 5, 6];
 
         unsafe {
-            assert!(compare_memory(
-                a.as_ptr() as usize,
-                b.as_ptr() as usize,
-                0
-            ));
+            assert!(compare_memory(a.as_ptr() as usize, b.as_ptr() as usize, 0));
         }
     }
 
@@ -1223,16 +1213,8 @@ mod tests {
         let b = [1u8, 2, 3, 9, 9];
 
         unsafe {
-            assert!(compare_memory(
-                a.as_ptr() as usize,
-                b.as_ptr() as usize,
-                3
-            ));
-            assert!(!compare_memory(
-                a.as_ptr() as usize,
-                b.as_ptr() as usize,
-                5
-            ));
+            assert!(compare_memory(a.as_ptr() as usize, b.as_ptr() as usize, 3));
+            assert!(!compare_memory(a.as_ptr() as usize, b.as_ptr() as usize, 5));
         }
     }
 
@@ -1303,11 +1285,7 @@ mod tests {
 
             // Copy to another buffer
             let mut dst = [0u8; 32];
-            copy_memory(
-                buffer.as_ptr() as usize,
-                dst.as_mut_ptr() as usize,
-                32,
-            );
+            copy_memory(buffer.as_ptr() as usize, dst.as_mut_ptr() as usize, 32);
             assert_eq!(buffer, dst);
 
             // Zero the buffer

@@ -47,6 +47,7 @@ impl Default for GcTimer {
 
 /// Scoped timer for automatic timing
 pub struct ScopedTimer<'a> {
+    #[allow(dead_code)]
     name: &'a str,
     start: std::time::Instant,
     callback: Box<dyn FnMut(Duration) + 'a>,

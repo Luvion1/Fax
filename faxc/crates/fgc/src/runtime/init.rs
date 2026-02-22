@@ -58,9 +58,9 @@ impl RuntimeInitializer {
         }
 
         // Validate config
-        self.config.validate().map_err(|e| {
-            crate::error::FgcError::Configuration(format!("Invalid config: {}", e))
-        })?;
+        self.config
+            .validate()
+            .map_err(|e| crate::error::FgcError::Configuration(format!("Invalid config: {}", e)))?;
 
         // Create runtime
         let runtime = super::Runtime::new(self.config.clone())?;
@@ -71,7 +71,8 @@ impl RuntimeInitializer {
         // Register shutdown hook
         self.register_shutdown_hook();
 
-        self.initialized.store(true, std::sync::atomic::Ordering::SeqCst);
+        self.initialized
+            .store(true, std::sync::atomic::Ordering::SeqCst);
 
         Ok(runtime)
     }
@@ -79,10 +80,8 @@ impl RuntimeInitializer {
     /// Register shutdown hook for cleanup
     fn register_shutdown_hook(&self) {
         // Setup shutdown guard that will be called when program exits
-        SHUTDOWN_INIT.call_once(|| {
-            unsafe {
-                SHUTDOWN_GUARD = Some(ShutdownGuard::new());
-            }
+        SHUTDOWN_INIT.call_once(|| unsafe {
+            SHUTDOWN_GUARD = Some(ShutdownGuard::new());
         });
     }
 

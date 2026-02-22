@@ -10,7 +10,7 @@ use std::sync::Arc;
 pub struct MarkQueue {
     /// Global injector for work from mutators or initial roots
     injector: Injector<usize>,
-    
+
     /// Stealers from all workers
     stealers: Arc<parking_lot::RwLock<Vec<Stealer<usize>>>>,
 
@@ -47,9 +47,9 @@ impl MarkQueue {
     pub fn create_worker(&self) -> MarkingWorker<'_> {
         let worker = Worker::new_fifo();
         let stealer = worker.stealer();
-        
+
         self.stealers.write().push(stealer);
-        
+
         MarkingWorker {
             worker,
             injector: &self.injector,

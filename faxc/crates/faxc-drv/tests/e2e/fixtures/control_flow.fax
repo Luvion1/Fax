@@ -1,0 +1,14 @@
+fn main() {
+    let x: Int = 10;
+    if x > 5 {
+        print("x is greater than 5");
+    } else {
+        print("x is not greater than 5");
+    }
+    
+    let i: Int = 0;
+    while i < 5 {
+        print(i);
+        i = i + 1;
+    }
+}

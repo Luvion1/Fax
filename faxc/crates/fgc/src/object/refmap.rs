@@ -82,7 +82,7 @@ impl ReferenceMap {
     /// # Arguments
     ///
     /// * `offsets` - Array of byte offsets where pointers are located.
-    ///               Each offset must be aligned to SLOT_SIZE (8 bytes).
+    ///   Each offset must be aligned to SLOT_SIZE (8 bytes).
     ///
     /// # Panics
     ///
@@ -108,7 +108,7 @@ impl ReferenceMap {
         for &offset in offsets {
             // Validate alignment
             debug_assert!(
-                offset % SLOT_SIZE == 0,
+                offset.is_multiple_of(SLOT_SIZE),
                 "Offset {} must be aligned to {} bytes",
                 offset,
                 SLOT_SIZE
@@ -178,7 +178,7 @@ impl ReferenceMap {
     #[inline]
     pub fn is_reference(&self, offset: usize) -> bool {
         // Only check aligned offsets
-        if offset % SLOT_SIZE != 0 {
+        if !offset.is_multiple_of(SLOT_SIZE) {
             return false;
         }
 
@@ -266,6 +266,7 @@ impl ReferenceMap {
     ///
     /// * `bit` - Bit position to check (0-63)
     #[inline]
+    #[allow(dead_code)]
     const fn has_bit(&self, bit: usize) -> bool {
         if bit >= MAX_REFS {
             return false;
@@ -361,7 +362,7 @@ impl ReferenceMapBuilder {
     #[inline]
     pub fn with_reference(mut self, offset: usize) -> Self {
         debug_assert!(
-            offset % SLOT_SIZE == 0,
+            offset.is_multiple_of(SLOT_SIZE),
             "Offset {} must be aligned to {} bytes",
             offset,
             SLOT_SIZE

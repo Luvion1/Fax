@@ -1,0 +1,38 @@
+// Regression test for QC-002
+// Tests that were previously failing but now should pass
+
+fn main() {
+    // Test basic arithmetic
+    let a: Int = 1 + 2 + 3;
+    print(a);
+    
+    // Test comparison operators
+    let x: Int = 10;
+    let y: Int = 20;
+    
+    if x < y {
+        print("x is less than y");
+    }
+    
+    if y > x {
+        print("y is greater than x");
+    }
+    
+    if x <= x {
+        print("x is less than or equal to x");
+    }
+    
+    if y >= y {
+        print("y is greater than or equal to y");
+    }
+    
+    // Test equality
+    let z: Int = 10;
+    if x == z {
+        print("x equals z");
+    }
+    
+    if x != y {
+        print("x is not equal to y");
+    }
+}

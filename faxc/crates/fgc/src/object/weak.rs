@@ -31,7 +31,6 @@ pub struct WeakReference {
     id: u64,
 }
 
-/// Global weak reference registry
 lazy_static::lazy_static! {
     static ref WEAK_REFS: Mutex<Vec<WeakReference>> = Mutex::new(Vec::new());
     static ref NEXT_WEAK_ID: AtomicUsize = AtomicUsize::new(1);
@@ -166,6 +165,316 @@ impl Default for ReferenceQueue {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Reference types similar to Java (ZGC)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReferenceType {
+    /// Weak reference - cleared after marking
+    Weak,
+    /// Soft reference - cleared when memory pressure
+    Soft,
+    /// Phantom reference - for post-mortem cleanup
+    Phantom,
+    /// Final reference - object with finalize()
+    Final,
+}
+
+/// SoftReference - cleared based on memory pressure
+///
+/// Unlike weak references, soft references are cleared based on
+/// the garbage collector's discretion when memory is low.
+pub struct SoftReference {
+    /// Address of referent object
+    referent: AtomicUsize,
+
+    /// Reference queue (optional)
+    queue: Option<usize>,
+
+    /// Unique ID
+    id: u64,
+
+    /// Timestamp for LRU eviction
+    timestamp: AtomicUsize,
+}
+
+lazy_static::lazy_static! {
+    static ref SOFT_REFS: Mutex<Vec<SoftReference>> = Mutex::new(Vec::new());
+    static ref NEXT_SOFT_ID: AtomicUsize = AtomicUsize::new(1);
+}
+
+impl SoftReference {
+    /// Create new soft reference
+    pub fn new(referent_addr: usize) -> Self {
+        let id = NEXT_SOFT_ID.fetch_add(1, Ordering::Relaxed) as u64;
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as usize)
+            .unwrap_or(0);
+
+        Self {
+            referent: AtomicUsize::new(referent_addr),
+            queue: None,
+            id,
+            timestamp: AtomicUsize::new(timestamp),
+        }
+    }
+
+    /// Create with reference queue
+    pub fn with_queue(referent_addr: usize, queue_addr: usize) -> Self {
+        let mut this = Self::new(referent_addr);
+        this.queue = Some(queue_addr);
+        this
+    }
+
+    /// Get referent
+    pub fn get(&self) -> Option<usize> {
+        let addr = self.referent.load(Ordering::Acquire);
+        if addr == 0 {
+            None
+        } else {
+            Some(addr)
+        }
+    }
+
+    /// Clear reference
+    pub fn clear(&self) {
+        self.referent.store(0, Ordering::Release);
+    }
+
+    /// Check if cleared
+    pub fn is_cleared(&self) -> bool {
+        self.referent.load(Ordering::Acquire) == 0
+    }
+
+    /// Get queue (if any)
+    pub fn queue(&self) -> Option<usize> {
+        self.queue
+    }
+
+    /// Get timestamp (for LRU)
+    pub fn timestamp(&self) -> usize {
+        self.timestamp.load(Ordering::Acquire)
+    }
+
+    /// Update timestamp on access
+    pub fn touch(&self) {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as usize)
+            .unwrap_or(0);
+        self.timestamp.store(now, Ordering::Release);
+    }
+
+    /// Get ID
+    pub fn id(&self) -> u64 {
+        self.id
+    }
+}
+
+/// PhantomReference - for post-mortem cleanup
+///
+/// Phantom references are used for performing custom cleanup
+/// actions before an object is garbage collected.
+pub struct PhantomReference {
+    /// Address of referent object
+    referent: AtomicUsize,
+
+    /// Reference queue for notification
+    queue: usize,
+
+    /// Unique ID
+    id: u64,
+}
+
+lazy_static::lazy_static! {
+    static ref PHANTOM_REFS: Mutex<Vec<PhantomReference>> = Mutex::new(Vec::new());
+    static ref NEXT_PHANTOM_ID: AtomicUsize = AtomicUsize::new(1);
+}
+
+impl PhantomReference {
+    /// Create new phantom reference
+    pub fn new(referent_addr: usize, queue_addr: usize) -> Self {
+        let id = NEXT_PHANTOM_ID.fetch_add(1, Ordering::Relaxed) as u64;
+        Self {
+            referent: AtomicUsize::new(referent_addr),
+            queue: queue_addr,
+            id,
+        }
+    }
+
+    /// Get referent
+    pub fn get(&self) -> Option<usize> {
+        let addr = self.referent.load(Ordering::Acquire);
+        if addr == 0 {
+            None
+        } else {
+            Some(addr)
+        }
+    }
+
+    /// Clear reference
+    pub fn clear(&self) {
+        self.referent.store(0, Ordering::Release);
+    }
+
+    /// Check if cleared
+    pub fn is_cleared(&self) -> bool {
+        self.referent.load(Ordering::Acquire) == 0
+    }
+
+    /// Get queue address
+    pub fn queue(&self) -> usize {
+        self.queue
+    }
+
+    /// Get ID
+    pub fn id(&self) -> u64 {
+        self.id
+    }
+}
+
+/// ReferenceProcessor - processes all reference types during GC
+///
+/// Similar to ZGC's reference processing, handles:
+///
+/// - Weak references: cleared after marking
+/// - Soft references: cleared based on memory pressure
+/// - Phantom references: enqueued for post-mortem cleanup
+/// - Finalizers: processed after object is reachable
+pub struct ReferenceProcessor {
+    /// Reference queues for each type
+    weak_queue: ReferenceQueue,
+    soft_queue: ReferenceQueue,
+    phantom_queue: ReferenceQueue,
+    #[allow(dead_code)]
+    final_queue: ReferenceQueue,
+
+    /// Statistics
+    cleared_weak: AtomicUsize,
+    cleared_soft: AtomicUsize,
+    cleared_phantom: AtomicUsize,
+    processed_final: AtomicUsize,
+}
+
+impl ReferenceProcessor {
+    /// Create new reference processor
+    pub fn new() -> Self {
+        Self {
+            weak_queue: ReferenceQueue::new(),
+            soft_queue: ReferenceQueue::new(),
+            phantom_queue: ReferenceQueue::new(),
+            final_queue: ReferenceQueue::new(),
+            cleared_weak: AtomicUsize::new(0),
+            cleared_soft: AtomicUsize::new(0),
+            cleared_phantom: AtomicUsize::new(0),
+            processed_final: AtomicUsize::new(0),
+        }
+    }
+
+    /// Process weak references (ZGC: after marking)
+    ///
+    /// Clears weak references whose referents are not marked.
+    pub fn process_weak_references(&self, marked: &impl Fn(usize) -> bool) -> usize {
+        let mut cleared = 0;
+
+        if let Ok(refs) = WEAK_REFS.lock() {
+            for r in refs.iter() {
+                if let Some(addr) = r.get() {
+                    if !marked(addr) {
+                        r.clear();
+                        if let Some(queue) = r.queue() {
+                            self.weak_queue.enqueue(queue);
+                        }
+                        cleared += 1;
+                    }
+                }
+            }
+        }
+
+        self.cleared_weak.fetch_add(cleared, Ordering::Relaxed);
+        cleared
+    }
+
+    /// Process soft references (ZGC: based on memory pressure)
+    ///
+    /// Clears soft references based on age and memory pressure.
+    /// More aggressive clearing when heap is full.
+    pub fn process_soft_references(
+        &self,
+        marked: &impl Fn(usize) -> bool,
+        heap_percent_used: f32,
+    ) -> usize {
+        let mut cleared = 0;
+        let threshold_ms = (heap_percent_used * 100.0) as usize;
+
+        if let Ok(refs) = SOFT_REFS.lock() {
+            for r in refs.iter() {
+                if let Some(addr) = r.get() {
+                    let is_marked = marked(addr);
+                    let age = r.timestamp();
+
+                    if !is_marked || age < threshold_ms {
+                        r.clear();
+                        if let Some(queue) = r.queue() {
+                            self.soft_queue.enqueue(queue);
+                        }
+                        cleared += 1;
+                    }
+                }
+            }
+        }
+
+        self.cleared_soft.fetch_add(cleared, Ordering::Relaxed);
+        cleared
+    }
+
+    /// Process phantom references (ZGC: enqueue for cleanup)
+    ///
+    /// Enqueues phantom references whose referents are not reachable.
+    pub fn process_phantom_references(&self, marked: &impl Fn(usize) -> bool) -> usize {
+        let mut enqueued = 0;
+
+        if let Ok(refs) = PHANTOM_REFS.lock() {
+            for r in refs.iter() {
+                if let Some(addr) = r.get() {
+                    if !marked(addr) {
+                        r.clear();
+                        self.phantom_queue.enqueue(r.queue());
+                        enqueued += 1;
+                    }
+                }
+            }
+        }
+
+        self.cleared_phantom.fetch_add(enqueued, Ordering::Relaxed);
+        enqueued
+    }
+
+    /// Get statistics
+    pub fn stats(&self) -> ReferenceStats {
+        ReferenceStats {
+            cleared_weak: self.cleared_weak.load(Ordering::Relaxed),
+            cleared_soft: self.cleared_soft.load(Ordering::Relaxed),
+            cleared_phantom: self.cleared_phantom.load(Ordering::Relaxed),
+            processed_final: self.processed_final.load(Ordering::Relaxed),
+        }
+    }
+}
+
+impl Default for ReferenceProcessor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Reference processing statistics
+#[derive(Debug, Clone, Default)]
+pub struct ReferenceStats {
+    pub cleared_weak: usize,
+    pub cleared_soft: usize,
+    pub cleared_phantom: usize,
+    pub processed_final: usize,
 }
 
 /// Process weak references at end of GC cycle

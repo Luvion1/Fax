@@ -1,0 +1,287 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="sky-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#0c1929"/>
+      <stop offset="30%" style="stop-color:#152238"/>
+      <stop offset="70%" style="stop-color:#1e3a5f"/>
+      <stop offset="100%" style="stop-color:#2d5a87"/>
+    </linearGradient>
+    
+    <linearGradient id="fur-main" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff"/>
+      <stop offset="50%" style="stop-color:#f5f5f5"/>
+      <stop offset="100%" style="stop-color:#e8e8e8"/>
+    </linearGradient>
+    
+    <linearGradient id="fur-dark" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#d4d4d4"/>
+      <stop offset="100%" style="stop-color:#b8c4cc"/>
+    </linearGradient>
+    
+    <linearGradient id="fur-accent" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fafafa"/>
+      <stop offset="100%" style="stop-color:#e0e0e0"/>
+    </linearGradient>
+    
+    <linearGradient id="nose-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#2a2a2a"/>
+      <stop offset="100%" style="stop-color:#0a0a0a"/>
+    </linearGradient>
+    
+    <linearGradient id="aurora1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#00ff88;stop-opacity:0"/>
+      <stop offset="50%" style="stop-color:#00ff88;stop-opacity:0.6"/>
+      <stop offset="100%" style="stop-color:#00ff88;stop-opacity:0"/>
+    </linearGradient>
+    
+    <linearGradient id="aurora2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#00d4ff;stop-opacity:0"/>
+      <stop offset="50%" style="stop-color:#00d4ff;stop-opacity:0.5"/>
+      <stop offset="100%" style="stop-color:#00d4ff;stop-opacity:0"/>
+    </linearGradient>
+    
+    <linearGradient id="aurora3" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#aa77ff;stop-opacity:0"/>
+      <stop offset="50%" style="stop-color:#aa77ff;stop-opacity:0.4"/>
+      <stop offset="100%" style="stop-color:#aa77ff;stop-opacity:0"/>
+    </linearGradient>
+    
+    <!-- Filters -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <filter id="soft-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8"/>
+    </filter>
+    
+    <!-- Clip path for snow ground -->
+    <clipPath id="ground-clip">
+      <rect width="512" height="512"/>
+    </clipPath>
+  </defs>
+  
+  <!-- Sky Background -->
+  <rect width="512" height="512" fill="url(#sky-gradient)"/>
+  
+  <!-- Stars - Background layer -->
+  <g fill="#ffffff" opacity="0.4">
+    <circle cx="50" cy="60" r="1"/>
+    <circle cx="120" cy="40" r="0.8"/>
+    <circle cx="180" cy="90" r="1.2"/>
+    <circle cx="250" cy="30" r="0.6"/>
+    <circle cx="320" cy="70" r="1"/>
+    <circle cx="400" cy="45" r="0.8"/>
+    <circle cx="460" cy="85" r="1.1"/>
+    <circle cx="80" cy="130" r="0.7"/>
+    <circle cx="440" cy="120" r="0.9"/>
+    <circle cx="200" cy="150" r="0.6"/>
+  </g>
+  
+  <!-- Bright stars -->
+  <g fill="#ffffff" filter="url(#glow)">
+    <circle cx="150" cy="50" r="1.5" opacity="0.8"/>
+    <circle cx="380" cy="60" r="1.5" opacity="0.8"/>
+    <circle cx="60" cy="100" r="1.2" opacity="0.6"/>
+    <circle cx="470" cy="100" r="1.2" opacity="0.6"/>
+  </g>
+  
+  <!-- Moon -->
+  <g transform="translate(420, 80)">
+    <circle cx="0" cy="0" r="35" fill="#f5f5dc" opacity="0.9"/>
+    <circle cx="10" cy="-5" r="30" fill="url(#sky-gradient)"/>
+  </g>
+  
+  <!-- Aurora Borealis - Back layer -->
+  <g filter="url(#soft-glow)">
+    <path d="M0 120 Q128 80 256 110 Q384 140 512 100 L512 180 Q384 200 256 170 Q128 190 0 150 Z" 
+          fill="url(#aurora3)" opacity="0.5"/>
+    <path d="M0 150 Q128 110 256 140 Q384 170 512 130 L512 200 Q384 230 256 200 Q128 230 0 180 Z" 
+          fill="url(#aurora2)" opacity="0.4"/>
+    <path d="M0 180 Q128 140 256 170 Q384 200 512 160 L512 220 Q384 250 256 220 Q128 250 0 200 Z" 
+          fill="url(#aurora1)" opacity="0.3"/>
+  </g>
+  
+  <!-- Mountains silhouette -->
+  <path d="M0 350 L80 280 L150 320 L220 250 L290 310 L360 240 L440 300 L512 260 L512 512 L0 512 Z" 
+        fill="#0d1a2d" opacity="0.8"/>
+  <path d="M0 380 L100 320 L180 360 L260 300 L340 350 L420 290 L512 340 L512 512 L0 512 Z" 
+        fill="#152238"/>
+  
+  <!-- Snow ground -->
+  <path d="M0 400 Q128 380 256 390 Q384 400 512 370 L512 512 L0 512 Z" 
+        fill="#e8f0f5"/>
+  <path d="M0 420 Q150 400 256 415 Q380 430 512 400 L512 512 L0 512 Z" 
+        fill="#ffffff"/>
+  
+  <!-- Snow particles -->
+  <g fill="#ffffff" opacity="0.8">
+    <circle cx="50" cy="350" r="2"/>
+    <circle cx="100" cy="380" r="1.5"/>
+    <circle cx="180" cy="360" r="2"/>
+    <circle cx="250" cy="390" r="1.8"/>
+    <circle cx="320" cy="370" r="2"/>
+    <circle cx="400" cy="385" r="1.5"/>
+    <circle cx="470" cy="360" r="2"/>
+  </g>
+  
+  <!-- ARCTIC FOX -->
+  <g transform="translate(256, 340)">
+    <!-- Body (mostly hidden, just hint) -->
+    <ellipse cx="0" cy="80" rx="70" ry="50" fill="url(#fur-main)"/>
+    
+    <!-- Tail - fluffy and curved -->
+    <g transform="translate(80, 60)">
+      <path d="M0 0 
+               Q20 -20 50 -10 
+               Q80 0 90 30 
+               Q100 60 80 90 
+               Q60 120 30 110 
+               Q0 100 -10 70 
+               Q-20 40 0 0Z" 
+            fill="url(#fur-main)"/>
+      <!-- Tail stripes -->
+      <path d="M30 20 Q50 30 60 50" stroke="#d0d0d0" stroke-width="3" fill="none"/>
+      <path d="M40 50 Q55 60 65 75" stroke="#d0d0d0" stroke-width="3" fill="none"/>
+    </g>
+    
+    <!-- Legs -->
+    <rect x="-50" y="80" width="15" height="45" rx="7" fill="url(#fur-main)"/>
+    <rect x="-20" y="80" width="15" height="45" rx="7" fill="url(#fur-main)"/>
+    <rect x="10" y="80" width="15" height="45" rx="7" fill="url(#fur-main)"/>
+    <rect x="40" y="80" width="15" height="45" rx="7" fill="url(#fur-main)"/>
+    
+    <!-- Paws -->
+    <ellipse cx="-42" cy="125" rx="12" ry="8" fill="#d8d8d8"/>
+    <ellipse cx="-12" cy="125" rx="12" ry="8" fill="#d8d8d8"/>
+    <ellipse cx="18" cy="125" rx="12" ry="8" fill="#d8d8d8"/>
+    <ellipse cx="48" cy="125" rx="12" ry="8" fill="#d8d8d8"/>
+    
+    <!-- Main Head -->
+    <path d="M-90 -40 
+             Q-110 -100 -70 -140 
+             Q-35 -170 0 -150 
+             Q35 -170 70 -140 
+             Q110 -100 90 -40 
+             Q100 20 60 60 
+             Q0 100 -60 60 
+             Q-100 20 -90 -40Z" 
+          fill="url(#fur-main)"/>
+    
+    <!-- Face marking - white center -->
+    <path d="M-60 -50 
+             Q-70 -90 -40 -110 
+             Q0 -130 40 -110 
+             Q70 -90 60 -50 
+             Q50 0 0 30 
+             Q-50 0 -60 -50Z" 
+          fill="#ffffff"/>
+    
+    <!-- Cheeks - fluffy -->
+    <ellipse cx="-70" cy="-20" rx="30" ry="25" fill="url(#fur-accent)"/>
+    <ellipse cx="70" cy="-20" rx="30" ry="25" fill="url(#fur-accent)"/>
+    
+    <!-- Ears -->
+    <g>
+      <!-- Left ear -->
+      <path d="M-60 -120 L-85 -210 L-30 -150 Z" fill="url(#fur-main)"/>
+      <path d="M-58 -130 L-70 -190 L-35 -145 Z" fill="#f0f0f0"/>
+      <path d="M-55 -140 L-60 -175 L-38 -145 Z" fill="#1a2a3a"/>
+      
+      <!-- Right ear -->
+      <path d="M60 -120 L85 -210 L30 -150 Z" fill="url(#fur-main)"/>
+      <path d="M58 -130 L70 -190 L35 -145 Z" fill="#f0f0f0"/>
+      <path d="M55 -140 L60 -175 L38 -145 Z" fill="#1a2a3a"/>
+    </g>
+    
+    <!-- Eyes -->
+    <g>
+      <!-- Eye sockets/shadow -->
+      <ellipse cx="-40" cy="-45" rx="28" ry="24" fill="#e0e8f0"/>
+      <ellipse cx="40" cy="-45" rx="28" ry="24" fill="#e0e8f0"/>
+      
+      <!-- Eyes -->
+      <ellipse cx="-40" cy="-40" rx="18" ry="20" fill="#1a1a1a"/>
+      <ellipse cx="40" cy="-40" rx="18" ry="20" fill="#1a1a1a"/>
+      
+      <!-- Eye shine -->
+      <ellipse cx="-46" cy="-48" rx="6" ry="8" fill="#ffffff"/>
+      <circle cx="-32" cy="-34" r="3" fill="#ffffff"/>
+      
+      <ellipse cx="46" cy="-48" rx="6" ry="8" fill="#ffffff"/>
+      <circle cx="32" cy="-34" r="3" fill="#ffffff"/>
+      
+      <!-- Pupil detail -->
+      <ellipse cx="-40" cy="-38" rx="8" ry="12" fill="#0a0a0a"/>
+      <ellipse cx="40" cy="-38" rx="8" ry="12" fill="#0a0a0a"/>
+    </g>
+    
+    <!-- Eyebrows - subtle -->
+    <path d="M-60 -70 Q-40 -80 -20 -70" stroke="#c8c8c8" stroke-width="2" fill="none"/>
+    <path d="M20 -70 Q40 -80 60 -70" stroke="#c8c8c8" stroke-width="2" fill="none"/>
+    
+    <!-- Nose -->
+    <ellipse cx="0" cy="-5" rx="18" ry="14" fill="url(#nose-gradient)"/>
+    <ellipse cx="0" cy="-8" rx="10" ry="6" fill="#3a3a3a"/>
+    
+    <!-- Mouth -->
+    <path d="M-15 20 Q0 30 15 20" stroke="#1a1a1a" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M-15 20 L-8 28 L0 20 L8 28 L15 20" stroke="#1a1a1a" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    
+    <!-- Whisker dots -->
+    <g fill="#b0b0b0">
+      <circle cx="-50" cy="5" r="1.5"/>
+      <circle cx="-55" cy="15" r="1.5"/>
+      <circle cx="-48" cy="25" r="1.5"/>
+      
+      <circle cx="50" cy="5" r="1.5"/>
+      <circle cx="55" cy="15" r="1.5"/>
+      <circle cx="48" cy="25" r="1.5"/>
+    </g>
+    
+    <!-- Whisker lines -->
+    <g stroke="#c0c0c0" stroke-width="1" opacity="0.5">
+      <line x1="-45" y1="0" x2="-70" y2="-5"/>
+      <line x1="-48" y1="8" x2="-75" y2="10"/>
+      <line x1="-45" y1="16" x2="-70" y2="25"/>
+      
+      <line x1="45" y1="0" x2="70" y2="-5"/>
+      <line x1="48" y1="8" x2="75" y2="10"/>
+      <line x1="45" y1="16" x2="70" y2="25"/>
+    </g>
+  </g>
+  
+  <!-- Falling snow - foreground -->
+  <g fill="#ffffff" opacity="0.9">
+    <circle cx="30" cy="200" r="3"/>
+    <circle cx="80" cy="280" r="2"/>
+    <circle cx="140" cy="220" r="2.5"/>
+    <circle cx="200" cy="300" r="2"/>
+    <circle cx="260" cy="250" r="3"/>
+    <circle cx="320" cy="310" r="2"/>
+    <circle cx="380" cy="240" r="2.5"/>
+    <circle cx="440" cy="290" r="2"/>
+    <circle cx="490" cy="220" r="3"/>
+    
+    <circle cx="60" cy="420" r="2"/>
+    <circle cx="120" cy="450" r="2.5"/>
+    <circle cx="200" cy="440" r="2"/>
+    <circle cx="300" cy="460" r="3"/>
+    <circle cx="400" cy="430" r="2"/>
+    <circle cx="480" cy="450" r="2.5"/>
+  </g>
+  
+  <!-- Subtle vignette -->
+  <rect width="512" height="512" fill="url(#vignette)" opacity="0.3"/>
+  <defs>
+    <radialGradient id="vignette" cx="50%" cy="50%" r="70%">
+      <stop offset="60%" style="stop-color:#000000;stop-opacity:0"/>
+      <stop offset="100%" style="stop-color:#000000;stop-opacity:0.4"/>
+    </radialGradient>
+  </defs>
+</svg>

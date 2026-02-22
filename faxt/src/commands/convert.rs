@@ -64,8 +64,9 @@ impl ConvertCommand {
         let start_time = Instant::now();
         self.validate_input_files()?;
         let convert_config = self.get_convert_config();
-        let output_format = self.determine_output_format(&convert_config)?;
-        let (files_converted, files_failed) = self.process_all_files(&output_format, &convert_config)?;
+        let output_format = self.output_format(&convert_config)?;
+        let (files_converted, files_failed) =
+            self.process_all_files(&output_format, &convert_config)?;
         self.log_completion(start_time.elapsed(), files_converted, files_failed)?;
         self.check_for_failures(files_failed)?;
         Ok(())
@@ -166,14 +167,10 @@ impl ConvertCommand {
     }
 
     /// Determine the output format.
-    fn determine_output_format(&self, config: &ConvertConfig) -> Result<OutputFormat> {
+    fn output_format(&self, config: &ConvertConfig) -> Result<OutputFormat> {
         if let Some(ref format_str) = self.args.format {
             return OutputFormat::from_str(format_str).ok_or_else(|| {
-                FaxtError::Validation(format!(
-                    "{} {}",
-                    error_messages::UNKNOWN_FORMAT,
-                    format_str
-                ))
+                FaxtError::Validation(format!("{} {}", error_messages::UNKNOWN_FORMAT, format_str))
             });
         }
 
@@ -195,7 +192,7 @@ impl ConvertCommand {
     ) -> Result<()> {
         self.validate_input_file(input_path)?;
 
-        let output_path = self.determine_output_path(input_path, output_format)?;
+        let output_path = self.output_path(input_path, output_format)?;
         self.check_output_writable(&output_path)?;
 
         self.log_conversion_details(input_path, &output_path, output_format, config);
@@ -277,11 +274,7 @@ impl ConvertCommand {
     }
 
     /// Determine the output path for a converted file.
-    fn determine_output_path(
-        &self,
-        input_path: &Path,
-        output_format: &OutputFormat,
-    ) -> Result<PathBuf> {
+    fn output_path(&self, input_path: &Path, output_format: &OutputFormat) -> Result<PathBuf> {
         if let Some(ref output) = self.args.output {
             if output.is_dir() || (!output.exists() && output.extension().is_none()) {
                 let file_name = input_path

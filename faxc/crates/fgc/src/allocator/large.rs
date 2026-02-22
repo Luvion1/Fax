@@ -67,9 +67,10 @@ impl LargeObjectAllocator {
     /// Address of allocated memory
     pub fn allocate(&self, size: usize) -> Result<usize> {
         if size < LARGE_THRESHOLD {
-            return Err(FgcError::TlabError(
-                format!("Size {} too small for large allocator", size)
-            ));
+            return Err(FgcError::TlabError(format!(
+                "Size {} too small for large allocator",
+                size
+            )));
         }
 
         // Align size to page boundary
@@ -80,11 +81,17 @@ impl LargeObjectAllocator {
 
         // Track allocation
         {
-            let mut allocated = self.allocated.lock().unwrap();
+            let mut allocated = self.allocated.lock().map_err(|e| {
+                FgcError::LockPoisoned(format!(
+                    "LargeObjectAllocator allocated lock poisoned: {}",
+                    e
+                ))
+            })?;
             allocated.insert(address, aligned_size);
         }
 
-        self.total_allocated.fetch_add(aligned_size, Ordering::Relaxed);
+        self.total_allocated
+            .fetch_add(aligned_size, Ordering::Relaxed);
         self.object_count.fetch_add(1, Ordering::Relaxed);
 
         Ok(address)
@@ -96,15 +103,25 @@ impl LargeObjectAllocator {
     /// * `address` - Address of object to free
     pub fn free(&self, address: usize) -> Result<()> {
         let size = {
-            let mut allocated = self.allocated.lock().unwrap();
-            allocated.remove(&address).ok_or_else(|| {
-                FgcError::InvalidPointer { address }
-            })?
+            let mut allocated = self.allocated.lock().map_err(|e| {
+                FgcError::LockPoisoned(format!(
+                    "LargeObjectAllocator allocated lock poisoned: {}",
+                    e
+                ))
+            })?;
+            allocated
+                .remove(&address)
+                .ok_or(FgcError::InvalidPointer { address })?
         };
 
         // Add to free list for reuse
         {
-            let mut free_regions = self.free_regions.lock().unwrap();
+            let mut free_regions = self.free_regions.lock().map_err(|e| {
+                FgcError::LockPoisoned(format!(
+                    "LargeObjectAllocator free_regions lock poisoned: {}",
+                    e
+                ))
+            })?;
             free_regions
                 .entry(size)
                 .or_insert_with(Vec::new)
@@ -119,7 +136,12 @@ impl LargeObjectAllocator {
 
     /// Find or create region for specific size
     fn find_or_create_region(&self, size: usize) -> Result<usize> {
-        let mut free_regions = self.free_regions.lock().unwrap();
+        let mut free_regions = self.free_regions.lock().map_err(|e| {
+            FgcError::LockPoisoned(format!(
+                "LargeObjectAllocator free_regions lock poisoned: {}",
+                e
+            ))
+        })?;
 
         // Find free region large enough
         for (&region_size, addresses) in free_regions.iter_mut() {
@@ -176,7 +198,10 @@ impl LargeObjectAllocator {
 
     /// Get statistics about free regions
     pub fn free_region_stats(&self) -> (usize, usize) {
-        let free_regions = self.free_regions.lock().unwrap();
+        let free_regions = self.free_regions.lock().unwrap_or_else(|e| {
+            log::error!("LargeObjectAllocator free_regions lock poisoned: {}", e);
+            std::process::abort();
+        });
         let total_free: usize = free_regions
             .iter()
             .map(|(&size, addrs)| size * addrs.len())

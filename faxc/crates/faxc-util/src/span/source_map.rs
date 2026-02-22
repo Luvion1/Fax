@@ -6,6 +6,7 @@
 use std::sync::Arc;
 
 use super::{FileId, Span};
+use crate::error::{SourceMapError, SourceMapResult};
 
 /// A source file with its content and metadata
 ///
@@ -48,7 +49,7 @@ impl SourceFile {
     /// ```
     pub fn new(id: usize, name: impl Into<String>, content: impl Into<Arc<str>>) -> Self {
         let content = content.into();
-        let line_starts = Self::compute_line_starts(&content);
+        let line_starts = Self::line_starts(&content);
         Self {
             id: FileId(id),
             name: name.into(),
@@ -58,7 +59,7 @@ impl SourceFile {
     }
 
     /// Compute line start offsets from content
-    fn compute_line_starts(content: &str) -> Arc<[usize]> {
+    fn line_starts(content: &str) -> Arc<[usize]> {
         let mut line_starts = Vec::new();
         line_starts.push(0);
 
@@ -170,11 +171,16 @@ impl SourceFile {
         match self.line_starts.binary_search(&offset) {
             Ok(line) => (line + 1, 1), // Exact match = start of line
             Err(insert_point) => {
+                if insert_point == 0 {
+                    // Offset is before the first line start - shouldn't happen normally
+                    return (1, offset + 1);
+                }
                 let line = insert_point - 1;
-                let line_start = self.line_starts.get(line).copied().unwrap_or(0);
-                let col = offset - line_start + 1;
+                // Safe: insert_point > 0, so line is a valid index
+                let line_start = self.line_starts[line];
+                let col = offset.saturating_sub(line_start) + 1;
                 (line + 1, col)
-            }
+            },
         }
     }
 
@@ -205,14 +211,61 @@ impl SourceFile {
     /// assert_eq!(file.line_at(2), Some("line2"));
     /// ```
     pub fn line_at(&self, line: usize) -> Option<&str> {
+        if line == 0 {
+            return None;
+        }
         let start = self.line_start(line - 1)?;
-        let end = self
-            .line_start(line)
-            .unwrap_or(self.content.len());
+        let end = self.line_start(line).unwrap_or(self.content.len());
+
+        if start > end {
+            return None;
+        }
 
         // Trim the newline character(s)
         let line_content = &self.content[start..end];
         Some(line_content.trim_end_matches(['\n', '\r']))
+    }
+
+    /// Extract a substring from the file content with bounds checking
+    ///
+    /// # Arguments
+    ///
+    /// * `start` - Start byte offset (inclusive)
+    /// * `end` - End byte offset (exclusive)
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(&str)` - The extracted substring
+    /// * `Err(SourceMapError)` - Range is out of bounds or invalid
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use faxc_util::span::SourceFile;
+    ///
+    /// let file = SourceFile::new(0, "main.rs", "fn main() {}");
+    /// assert_eq!(file.extract_range(0, 2).unwrap(), "fn");
+    /// ```
+    pub fn extract_range(&self, start: usize, end: usize) -> SourceMapResult<&str> {
+        if start > end {
+            return Err(SourceMapError::InvalidSpan { start, end });
+        }
+        if end > self.content.len() {
+            return Err(SourceMapError::SpanOutOfBounds {
+                file_len: self.content.len(),
+                span_start: start,
+                span_end: end,
+            });
+        }
+
+        // Check for character boundary
+        if !self.content.is_char_boundary(start) || !self.content.is_char_boundary(end) {
+            return Err(SourceMapError::ExtractFailed(
+                "Range is not on character boundaries".to_string(),
+            ));
+        }
+
+        Ok(&self.content[start..end])
     }
 
     /// Extract a substring from the file content
@@ -312,6 +365,33 @@ impl SourceMap {
         self.files.get(id.0).cloned()
     }
 
+    /// Get a source file by its ID with error handling
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The file ID to look up
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Arc<SourceFile>)` - The source file
+    /// * `Err(SourceMapError)` - File not found
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use faxc_util::span::SourceMap;
+    ///
+    /// let mut map = SourceMap::new();
+    /// let file_id = map.add_file("main.rs", "fn main() {}");
+    /// let file = map.get_file(file_id).unwrap();
+    /// ```
+    pub fn get_file(&self, id: FileId) -> SourceMapResult<Arc<SourceFile>> {
+        self.files
+            .get(id.0)
+            .cloned()
+            .ok_or_else(|| SourceMapError::FileNotFound(format!("FileId({})", id.0)))
+    }
+
     /// Get the number of files in the source map
     ///
     /// # Examples
@@ -369,7 +449,7 @@ impl SourceMap {
         let underline_len = if span.start == span.end {
             1
         } else {
-            (span.end - span.start).max(1)
+            (span.end.saturating_sub(span.start)).max(1)
         };
 
         for _ in 0..underline_start {
@@ -435,6 +515,20 @@ mod tests {
     }
 
     #[test]
+    fn test_source_file_extract_range() {
+        let file = SourceFile::new(0, "test.rs", "fn main() {}");
+        assert_eq!(file.extract_range(0, 2).unwrap(), "fn");
+        assert_eq!(file.extract_range(3, 7).unwrap(), "main");
+    }
+
+    #[test]
+    fn test_source_file_extract_range_invalid() {
+        let file = SourceFile::new(0, "test.rs", "fn main() {}");
+        assert!(file.extract_range(10, 5).is_err());
+        assert!(file.extract_range(0, 100).is_err());
+    }
+
+    #[test]
     fn test_source_file_extract() {
         let file = SourceFile::new(0, "test.rs", "fn main() {}");
         assert_eq!(file.extract(0..2), "fn");
@@ -454,6 +548,20 @@ mod tests {
         let file_id = map.add_file("main.rs", "fn main() {}");
         let file = map.get(file_id).unwrap();
         assert_eq!(file.name(), "main.rs");
+    }
+
+    #[test]
+    fn test_source_map_get_file() {
+        let mut map = SourceMap::new();
+        let file_id = map.add_file("main.rs", "fn main() {}");
+        let file = map.get_file(file_id).unwrap();
+        assert_eq!(file.name(), "main.rs");
+    }
+
+    #[test]
+    fn test_source_map_get_file_not_found() {
+        let map = SourceMap::new();
+        assert!(map.get_file(FileId(0)).is_err());
     }
 
     #[test]

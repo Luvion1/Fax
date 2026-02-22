@@ -103,7 +103,7 @@ fn test_tlab_refill_concurrent() {
     // All threads should complete without panic
     let results: Vec<_> = handles
         .into_iter()
-        .map(|h| h.join().unwrap())
+        .map(|h| h.join().expect("Thread should join successfully"))
         .collect();
 
     // At least some should succeed (lock contention may cause some to fail
@@ -298,7 +298,7 @@ fn test_stack_scanner_heap_range_filtering() {
     
     // Verify empty result
     assert!(
-        result.unwrap().is_empty(),
+        result.expect("Scan should succeed").is_empty(),
         "Scan should return empty result for missing watermark"
     );
 }

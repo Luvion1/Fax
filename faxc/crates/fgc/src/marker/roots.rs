@@ -110,7 +110,7 @@ impl RootDescriptor {
     pub fn read_reference(&self) -> Result<usize> {
         // Check for null address
         if self.address == 0 {
-            return Ok(0);  // Treat as null
+            return Ok(0); // Treat as null
         }
 
         // Check alignment - usize must be properly aligned
@@ -125,7 +125,7 @@ impl RootDescriptor {
         if !crate::heap::is_gc_managed_address(self.address) {
             log::warn!("Root address {:#x} not in GC-managed heap", self.address);
             return Err(FgcError::InvalidArgument(
-                "Root must point to GC-managed heap".to_string()
+                "Root must point to GC-managed heap".to_string(),
             ));
         }
 
@@ -163,7 +163,7 @@ impl RootDescriptor {
         if self.address % std::mem::align_of::<usize>() != 0 {
             log::warn!("Unaligned root address for write: {:#x}", self.address);
             return Err(FgcError::InvalidArgument(
-                "Unaligned root address".to_string()
+                "Unaligned root address".to_string(),
             ));
         }
 
@@ -171,7 +171,7 @@ impl RootDescriptor {
         if !crate::heap::is_gc_managed_address(self.address) {
             log::warn!("Root address {:#x} not in GC-managed heap", self.address);
             return Err(FgcError::InvalidArgument(
-                "Root must point to GC-managed heap".to_string()
+                "Root must point to GC-managed heap".to_string(),
             ));
         }
 
@@ -180,7 +180,7 @@ impl RootDescriptor {
         if new_value != 0 && !crate::heap::is_gc_managed_address(new_value) {
             log::warn!("New root value {:#x} not in GC-managed heap", new_value);
             return Err(FgcError::InvalidArgument(
-                "Root must point to GC-managed heap".to_string()
+                "Root must point to GC-managed heap".to_string(),
             ));
         }
 
@@ -188,7 +188,7 @@ impl RootDescriptor {
         if !crate::memory::is_writable(self.address).unwrap_or(false) {
             log::warn!("Invalid writable root address: {:#x}", self.address);
             return Err(FgcError::InvalidArgument(
-                "Root address not writable".to_string()
+                "Root address not writable".to_string(),
             ));
         }
 
@@ -234,9 +234,7 @@ pub struct RootHandle {
 impl RootHandle {
     /// Create new root handle
     fn new(root_id: usize) -> Self {
-        Self {
-            root_id,
-        }
+        Self { root_id }
     }
 
     /// Get root ID
@@ -455,7 +453,13 @@ impl RootScanner {
     ///
     /// # Panics
     /// Panics if lock is poisoned (indicates serious concurrency bug)
-    fn add_root_to_list(&self, address: usize, root_type: RootType, name: Option<&str>, root_id: usize) {
+    fn add_root_to_list(
+        &self,
+        address: usize,
+        root_type: RootType,
+        name: Option<&str>,
+        root_id: usize,
+    ) {
         // Create descriptor
         let descriptor = RootDescriptor::new(address, root_type, name, root_id);
 
@@ -483,29 +487,29 @@ impl RootScanner {
                     return;
                 };
                 stack.push(address);
-            }
+            },
             RootType::Global => {
                 let Ok(mut global) = self.global_roots.write() else {
                     log::error!("RootScanner global_roots lock poisoned");
                     return;
                 };
                 global.push(address);
-            }
+            },
             RootType::Class => {
                 let Ok(mut class) = self.class_roots.write() else {
                     log::error!("RootScanner class_roots lock poisoned");
                     return;
                 };
                 class.push(address);
-            }
+            },
             RootType::Internal => {
                 let Ok(mut internal) = self.internal_roots.write() else {
                     log::error!("RootScanner internal_roots lock poisoned");
                     return;
                 };
                 internal.push(address);
-            }
-            _ => {}
+            },
+            _ => {},
         }
     }
 
@@ -631,35 +635,35 @@ impl RootScanner {
             Err(e) => {
                 log::error!("RootScanner roots read lock poisoned: {}", e);
                 return RootStats::default();
-            }
+            },
         };
         let stack = match self.stack_roots.read() {
             Ok(guard) => guard,
             Err(e) => {
                 log::error!("RootScanner stack_roots read lock poisoned: {}", e);
                 return RootStats::default();
-            }
+            },
         };
         let global = match self.global_roots.read() {
             Ok(guard) => guard,
             Err(e) => {
                 log::error!("RootScanner global_roots read lock poisoned: {}", e);
                 return RootStats::default();
-            }
+            },
         };
         let class = match self.class_roots.read() {
             Ok(guard) => guard,
             Err(e) => {
                 log::error!("RootScanner class_roots read lock poisoned: {}", e);
                 return RootStats::default();
-            }
+            },
         };
         let internal = match self.internal_roots.read() {
             Ok(guard) => guard,
             Err(e) => {
                 log::error!("RootScanner internal_roots read lock poisoned: {}", e);
                 return RootStats::default();
-            }
+            },
         };
 
         let mut null_count = 0;
@@ -698,7 +702,7 @@ impl RootScanner {
                 Err(e) => {
                     log::error!("RootScanner roots write lock poisoned: {}", e);
                     return;
-                }
+                },
             };
             roots.clear();
         }
@@ -709,7 +713,7 @@ impl RootScanner {
                 Err(e) => {
                     log::error!("RootScanner stack_roots write lock poisoned: {}", e);
                     return;
-                }
+                },
             };
             stack.clear();
         }
@@ -720,7 +724,7 @@ impl RootScanner {
                 Err(e) => {
                     log::error!("RootScanner global_roots write lock poisoned: {}", e);
                     return;
-                }
+                },
             };
             global.clear();
         }
@@ -731,7 +735,7 @@ impl RootScanner {
                 Err(e) => {
                     log::error!("RootScanner class_roots write lock poisoned: {}", e);
                     return;
-                }
+                },
             };
             class.clear();
         }
@@ -742,7 +746,7 @@ impl RootScanner {
                 Err(e) => {
                     log::error!("RootScanner internal_roots write lock poisoned: {}", e);
                     return;
-                }
+                },
             };
             internal.clear();
         }
@@ -755,7 +759,7 @@ impl RootScanner {
             Err(e) => {
                 log::error!("RootScanner roots read lock poisoned: {}", e);
                 return 0;
-            }
+            },
         };
         roots.len()
     }
@@ -767,7 +771,7 @@ impl RootScanner {
             Err(e) => {
                 log::error!("RootScanner roots read lock poisoned: {}", e);
                 return 0;
-            }
+            },
         };
         roots.iter().filter(|r| r.is_active()).count()
     }
@@ -783,7 +787,7 @@ impl RootScanner {
             Err(e) => {
                 log::error!("RootScanner roots read lock poisoned: {}", e);
                 return;
-            }
+            },
         };
         for descriptor in roots.iter() {
             if descriptor.is_active() {
@@ -813,45 +817,48 @@ impl Clone for RootScanner {
             Err(e) => {
                 log::error!("RootScanner roots read lock poisoned: {}", e);
                 return Self::new();
-            }
+            },
         };
-        let cloned_roots: Vec<RootDescriptor> = orig_roots.iter().map(|r| {
-            RootDescriptor {
-                address: r.address,
-                root_type: r.root_type,
-                name: r.name.clone(),
-                root_id: r.root_id,  // Keep same root_id
-                active: AtomicBool::new(r.active.load(Ordering::Relaxed)),
-            }
-        }).collect();
+        let cloned_roots: Vec<RootDescriptor> = orig_roots
+            .iter()
+            .map(|r| {
+                RootDescriptor {
+                    address: r.address,
+                    root_type: r.root_type,
+                    name: r.name.clone(),
+                    root_id: r.root_id, // Keep same root_id
+                    active: AtomicBool::new(r.active.load(Ordering::Relaxed)),
+                }
+            })
+            .collect();
 
         let stack_roots = match self.stack_roots.read() {
             Ok(guard) => guard.clone(),
             Err(e) => {
                 log::error!("RootScanner stack_roots read lock poisoned: {}", e);
                 Vec::new()
-            }
+            },
         };
         let global_roots = match self.global_roots.read() {
             Ok(guard) => guard.clone(),
             Err(e) => {
                 log::error!("RootScanner global_roots read lock poisoned: {}", e);
                 Vec::new()
-            }
+            },
         };
         let class_roots = match self.class_roots.read() {
             Ok(guard) => guard.clone(),
             Err(e) => {
                 log::error!("RootScanner class_roots read lock poisoned: {}", e);
                 Vec::new()
-            }
+            },
         };
         let internal_roots = match self.internal_roots.read() {
             Ok(guard) => guard.clone(),
             Err(e) => {
                 log::error!("RootScanner internal_roots read lock poisoned: {}", e);
                 Vec::new()
-            }
+            },
         };
 
         Self {
@@ -860,9 +867,11 @@ impl Clone for RootScanner {
             global_roots: RwLock::new(global_roots),
             class_roots: RwLock::new(class_roots),
             internal_roots: RwLock::new(internal_roots),
-            next_root_id: AtomicUsize::new(self.next_root_id.load(Ordering::Relaxed)),  // Keep same counter
+            next_root_id: AtomicUsize::new(self.next_root_id.load(Ordering::Relaxed)), // Keep same counter
             total_registrations: AtomicUsize::new(self.total_registrations.load(Ordering::Relaxed)),
-            total_unregistrations: AtomicUsize::new(self.total_unregistrations.load(Ordering::Relaxed)),
+            total_unregistrations: AtomicUsize::new(
+                self.total_unregistrations.load(Ordering::Relaxed),
+            ),
         }
     }
 }
@@ -882,8 +891,6 @@ pub struct StackWalker {
     stack_base: usize,
     /// Stack size in bytes
     stack_size: usize,
-    /// Stack pointer (current)
-    stack_pointer: usize,
 }
 
 impl StackWalker {
@@ -898,7 +905,6 @@ impl StackWalker {
             thread_id,
             stack_base,
             stack_size,
-            stack_pointer: stack_base,
         }
     }
 
@@ -1002,7 +1008,12 @@ mod tests {
     #[test]
     fn test_root_descriptor_creation() {
         let value: usize = 0x12345678;
-        let descriptor = RootDescriptor::new(&value as *const usize as usize, RootType::Global, Some("test"), 0);
+        let descriptor = RootDescriptor::new(
+            &value as *const usize as usize,
+            RootType::Global,
+            Some("test"),
+            0,
+        );
 
         assert_eq!(descriptor.address, &value as *const usize as usize);
         assert_eq!(descriptor.root_type, RootType::Global);
@@ -1014,7 +1025,8 @@ mod tests {
     #[test]
     fn test_root_descriptor_read_write() {
         let mut value: usize = 0x12345678;
-        let descriptor = RootDescriptor::new(&mut value as *mut usize as usize, RootType::Global, None, 0);
+        let descriptor =
+            RootDescriptor::new(&mut value as *mut usize as usize, RootType::Global, None, 0);
 
         assert_eq!(descriptor.read_reference().unwrap(), 0x12345678);
         assert!(!descriptor.is_null());
@@ -1047,7 +1059,8 @@ mod tests {
         let value1: usize = 0x11111111;
         let value2: usize = 0x22222222;
 
-        let handle1 = scanner.register_global_root(&value1 as *const usize as usize, Some("global1"));
+        let handle1 =
+            scanner.register_global_root(&value1 as *const usize as usize, Some("global1"));
         let handle2 = scanner.register_stack_root(&value2 as *const usize as usize, Some("stack1"));
 
         assert_eq!(scanner.root_count(), 2);

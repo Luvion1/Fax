@@ -68,7 +68,7 @@ use crate::error::{FgcError, Result};
 use crate::heap::memory_mapping::MemoryMapping;
 use crate::heap::page::{self, PageRange};
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::RwLock;
 
 /// VirtualMemory - manager for virtual memory operations
@@ -102,11 +102,11 @@ pub struct VirtualMemory {
     /// Is this a sparse mapping (commit on demand)
     sparse: bool,
 
-    /// Track if memory has been initialized
-    initialized: AtomicBool,
-
     /// Page allocator for statistics
     page_allocator: page::PageAllocator,
+
+    /// Large page size (0 = regular pages)
+    large_page_size: usize,
 }
 
 impl VirtualMemory {
@@ -139,9 +139,65 @@ impl VirtualMemory {
             committed_size: AtomicUsize::new(0),
             mapping: Some(mapping),
             sparse: true,
-            initialized: AtomicBool::new(true),
             page_allocator: page::PageAllocator::new(),
+            large_page_size: 0,
         })
+    }
+
+    /// Reserve virtual address space with large pages
+    ///
+    /// Uses huge pages (2MB or 1GB) for better TLB performance.
+    /// Falls back to regular pages if large pages unavailable.
+    ///
+    /// # Arguments
+    /// * `size` - Size of address space to reserve
+    /// * `large_page_size` - Large page size (e.g., 2MB = 2*1024*1024)
+    ///
+    /// # Returns
+    /// VirtualMemory instance or error
+    pub fn reserve_large_pages(size: usize, large_page_size: usize) -> Result<Self> {
+        let aligned_size = page::align_to_page(size);
+        let large_aligned = (aligned_size + large_page_size - 1) & !(large_page_size - 1);
+
+        let mapping = match MemoryMapping::anonymous_large_pages(large_aligned, large_page_size) {
+            Ok(m) => {
+                log::info!(
+                    "Using large pages ({} bytes) for {} bytes heap",
+                    large_page_size,
+                    large_aligned
+                );
+                m
+            },
+            Err(e) => {
+                log::warn!(
+                    "Large pages unavailable ({}), falling back to regular pages",
+                    e
+                );
+                MemoryMapping::anonymous(aligned_size)?
+            },
+        };
+
+        let base_address = mapping.base();
+
+        Ok(Self {
+            base_address,
+            reserved_size: aligned_size,
+            committed_ranges: RwLock::new(BTreeMap::new()),
+            committed_size: AtomicUsize::new(0),
+            mapping: Some(mapping),
+            sparse: true,
+            page_allocator: page::PageAllocator::new(),
+            large_page_size,
+        })
+    }
+
+    /// Enable transparent huge pages for this memory region
+    pub fn enable_thp(&self) -> Result<()> {
+        if let Some(ref mapping) = self.mapping {
+            mapping.enable_transparent_huge_pages()
+        } else {
+            Ok(())
+        }
     }
 
     /// Reserve with pre-committed memory
@@ -163,8 +219,8 @@ impl VirtualMemory {
             committed_size: AtomicUsize::new(aligned_size),
             mapping: Some(mapping),
             sparse: false,
-            initialized: AtomicBool::new(true),
             page_allocator: page::PageAllocator::new(),
+            large_page_size: 0,
         })
     }
 
@@ -372,6 +428,40 @@ impl VirtualMemory {
     pub fn available_size(&self) -> usize {
         self.reserved_size
             .saturating_sub(self.committed_size.load(Ordering::Relaxed))
+    }
+
+    /// Return unused memory to the operating system
+    ///
+    /// This is similar to ZGC's ability to uncommit memory when not needed.
+    /// Uses MADV_DONTNEED on Linux to return physical pages to the OS.
+    ///
+    /// # Returns
+    /// Number of bytes actually returned to OS
+    pub fn release_unused_memory(&self) -> usize {
+        let committed = self.committed_size.load(Ordering::Relaxed);
+        if committed == 0 {
+            return 0;
+        }
+
+        if let Some(ref mapping) = self.mapping {
+            if self.sparse {
+                let _ = mapping.advise_dont_need();
+                let old_committed = self.committed_size.load(Ordering::Acquire);
+                self.committed_size.store(0, Ordering::Release);
+                return old_committed;
+            }
+        }
+        0
+    }
+
+    /// Check if transparent huge pages are enabled
+    pub fn is_thp_enabled(&self) -> bool {
+        self.large_page_size > 0
+    }
+
+    /// Get large page size
+    pub fn large_page_size(&self) -> usize {
+        self.large_page_size
     }
 
     /// Check if sparse allocation

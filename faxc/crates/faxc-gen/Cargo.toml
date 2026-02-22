@@ -10,6 +10,6 @@ repository.workspace = true
 faxc-util.workspace = true
 faxc-lir.workspace = true
 inkwell.workspace = true
-anyhow.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]

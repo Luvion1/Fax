@@ -218,15 +218,15 @@ impl Default for GcConfig {
     fn default() -> Self {
         let num_cpus = num_cpus::get();
         let total_memory = get_total_memory();
-        let max_heap = calculate_max_heap(total_memory);
-        let min_heap = max_heap / 4;
+        let heap_max = max_heap(total_memory);
+        let min_heap = heap_max / 4;
 
         GcConfig {
             // Heap size
             min_heap_size: min_heap.max(16 * MB),
-            max_heap_size: max_heap,
+            max_heap_size: heap_max,
             initial_heap_size: min_heap,
-            soft_max_heap_size: max_heap,
+            soft_max_heap_size: heap_max,
 
             // Pause time
             target_pause_time_ms: 10,
@@ -486,7 +486,7 @@ fn get_total_memory() -> usize {
 }
 
 /// Calculate max heap size based on available memory
-fn calculate_max_heap(total_memory: usize) -> usize {
+fn max_heap(total_memory: usize) -> usize {
     let ratio = if total_memory < 4 * GB {
         0.5
     } else if total_memory < 16 * GB {

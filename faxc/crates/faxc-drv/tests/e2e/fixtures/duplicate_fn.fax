@@ -1,0 +1,10 @@
+// Test fixture: Duplicate function error
+// Should fail with semantic error
+
+fn main() {
+    print("hello");
+}
+
+fn main() {
+    print("world");
+}

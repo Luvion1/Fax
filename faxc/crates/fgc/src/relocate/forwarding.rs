@@ -519,7 +519,7 @@ mod tests {
         let test_cases = vec![
             (REGION_START + 0x100, 0x1000usize),      // Small aligned address
             (REGION_START + 0x200, 0x2000_0000usize), // Medium aligned address
-            (REGION_START + 0x300, 0x7FFF_FFFF_FFFF_FFFFusize), // Max user space (aligned)
+            (REGION_START + 0x300, 0x0000_7FFF_FFFF_FFF8usize), // Max user space (aligned)
         ];
 
         for (old_addr, new_addr) in test_cases {

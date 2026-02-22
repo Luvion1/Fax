@@ -27,7 +27,7 @@ pub const TEST_TIMEOUT: Duration = Duration::from_secs(30);
 /// ============================================================================
 
 /// Test fixture for GC operations
-/// 
+///
 /// Provides a clean GC instance for each test with automatic cleanup.
 pub struct GcFixture {
     pub gc: Arc<GarbageCollector>,
@@ -50,7 +50,7 @@ impl GcFixture {
 
         let gc = Arc::new(
             GarbageCollector::new(config.clone())
-                .expect("GC initialization should succeed with valid config")
+                .expect("GC initialization should succeed with valid config"),
         );
 
         Self { gc, config }
@@ -73,7 +73,7 @@ impl GcFixture {
 
         let gc = Arc::new(
             GarbageCollector::new(config.clone())
-                .expect("GC initialization should succeed with valid heap size")
+                .expect("GC initialization should succeed with valid heap size"),
         );
 
         Self { gc, config }
@@ -94,32 +94,31 @@ impl GcFixture {
 
         let gc = Arc::new(
             GarbageCollector::new(config.clone())
-                .expect("GC initialization should succeed with minimal heap")
+                .expect("GC initialization should succeed with minimal heap"),
         );
 
         Self { gc, config }
     }
-    
+
     /// Allocate memory and return address
-    /// 
+    ///
     /// **Bug this finds:** Allocation failures, alignment bugs, duplicate addresses
     pub fn allocate(&self, size: usize) -> usize {
-        self.gc.heap()
+        self.gc
+            .heap()
             .allocate_tlab_memory(size)
             .unwrap_or_else(|e| {
                 panic!("Allocation of {} bytes failed: {:?}", size, e);
             })
     }
-    
+
     /// Allocate multiple objects and return addresses
-    /// 
+    ///
     /// **Bug this finds:** Race conditions in allocation, duplicate addresses
     pub fn allocate_many(&self, count: usize, size: usize) -> Vec<usize> {
-        (0..count)
-            .map(|_| self.allocate(size))
-            .collect()
+        (0..count).map(|_| self.allocate(size)).collect()
     }
-    
+
     /// Trigger GC and wait for completion
     ///
     /// **Bug this finds:** GC not completing, state machine bugs, deadlock
@@ -128,12 +127,12 @@ impl GcFixture {
         self.gc.request_gc(generation, GcReason::Explicit);
         self.gc.collect().expect("GC should complete successfully");
     }
-    
+
     /// Get current GC state
     pub fn state(&self) -> GcState {
         self.gc.state()
     }
-    
+
     /// Get GC cycle count
     pub fn cycle_count(&self) -> u64 {
         self.gc.cycle_count()
@@ -152,13 +151,13 @@ impl Drop for GcFixture {
 /// ============================================================================
 
 /// Assert that all addresses are unique
-/// 
+///
 /// **Bug this finds:** Race conditions in allocator, duplicate address bugs
 /// **Tolerance:** ZERO - Any duplicate is a bug
 #[track_caller]
 pub fn assert_all_addresses_unique(addresses: &[usize], context: &str) {
     let unique: HashSet<_> = addresses.iter().collect();
-    
+
     assert_eq!(
         unique.len(),
         addresses.len(),
@@ -171,7 +170,7 @@ pub fn assert_all_addresses_unique(addresses: &[usize], context: &str) {
 }
 
 /// Assert that address is properly aligned
-/// 
+///
 /// **Bug this finds:** Alignment bugs, memory corruption potential
 /// **Tolerance:** ZERO - Misaligned access causes undefined behavior
 #[track_caller]
@@ -188,7 +187,7 @@ pub fn assert_address_aligned(address: usize, alignment: usize, context: &str) {
 }
 
 /// Assert that address is within heap bounds
-/// 
+///
 /// **Bug this finds:** Heap overflow, address calculation bugs
 /// **Tolerance:** ZERO - Out-of-bounds access is memory corruption
 #[track_caller]
@@ -200,7 +199,7 @@ pub fn assert_address_in_bounds(address: usize, heap_base: usize, heap_size: usi
         address,
         heap_base
     );
-    
+
     assert!(
         address < heap_base + heap_size,
         "{}: Address {:#x} is beyond heap end {:#x} - heap overflow bug",
@@ -211,7 +210,7 @@ pub fn assert_address_in_bounds(address: usize, heap_base: usize, heap_size: usi
 }
 
 /// Assert that addresses are monotonically increasing (for bump allocator)
-/// 
+///
 /// **Bug this finds:** Bump pointer regression, allocation order bugs
 /// **Tolerance:** ZERO - Non-monotonic allocation indicates serious bug
 #[track_caller]
@@ -222,14 +221,16 @@ pub fn assert_addresses_monotonic(addresses: &[usize], context: &str) {
             "{}: Address regression detected - address[{}] = {:#x} < address[{}] = {:#x}. \
              Bump allocator should only move forward.",
             context,
-            i, addresses[i],
-            i - 1, addresses[i - 1]
+            i,
+            addresses[i],
+            i - 1,
+            addresses[i - 1]
         );
     }
 }
 
 /// Assert that GC completed successfully
-/// 
+///
 /// **Bug this finds:** GC not completing, state machine stuck
 #[track_caller]
 pub fn assert_gc_completed(fixture: &GcFixture, context: &str) {
@@ -238,7 +239,7 @@ pub fn assert_gc_completed(fixture: &GcFixture, context: &str) {
         "{}: GC is still collecting - GC did not complete properly",
         context
     );
-    
+
     assert_eq!(
         fixture.gc.state(),
         GcState::Idle,
@@ -249,7 +250,7 @@ pub fn assert_gc_completed(fixture: &GcFixture, context: &str) {
 }
 
 /// Assert that GC cycle count increased
-/// 
+///
 /// **Bug this finds:** GC not actually running, cycle counter bug
 #[track_caller]
 pub fn assert_gc_cycle_increased(before: u64, after: u64, context: &str) {
@@ -263,7 +264,7 @@ pub fn assert_gc_cycle_increased(before: u64, after: u64, context: &str) {
 }
 
 /// Assert that operation completed within timeout
-/// 
+///
 /// **Bug this finds:** Deadlock, infinite loop, performance regression
 #[track_caller]
 pub fn assert_completed_within_timeout<F, R>(operation: F, timeout: Duration, context: &str) -> R
@@ -273,7 +274,7 @@ where
     let start = std::time::Instant::now();
     let result = operation();
     let elapsed = start.elapsed();
-    
+
     assert!(
         elapsed < timeout,
         "{}: Operation took {:?}, exceeded timeout of {:?} - possible deadlock or performance bug",
@@ -281,7 +282,7 @@ where
         elapsed,
         timeout
     );
-    
+
     result
 }
 
@@ -308,32 +309,32 @@ pub fn run_concurrent_allocations<F>(
 
         let handle = thread::spawn(move || {
             let mut addresses = Vec::with_capacity(allocations_per_thread);
-            
+
             for _ in 0..allocations_per_thread {
-                let addr = gc.heap()
+                let addr = gc
+                    .heap()
                     .allocate_tlab_memory(allocation_size)
                     .unwrap_or_else(|e| {
                         panic!("Thread {} allocation failed: {:?}", thread_id, e);
                     });
                 addresses.push(addr);
             }
-            
+
             addresses
         });
-        
+
         handles.push(handle);
     }
-    
+
     // Collect all addresses
     let mut all_addresses = Vec::new();
     for handle in handles {
-        let addresses = handle.join()
-            .unwrap_or_else(|e| {
-                panic!("Thread panicked: {:?}", e);
-            });
+        let addresses = handle.join().unwrap_or_else(|e| {
+            panic!("Thread panicked: {:?}", e);
+        });
         all_addresses.extend(addresses);
     }
-    
+
     // Run validator
     validator(all_addresses);
 }
@@ -343,7 +344,7 @@ pub fn run_concurrent_allocations<F>(
 /// ============================================================================
 
 /// Validate colored pointer properties
-/// 
+///
 /// **Bug this finds:** Color bit corruption, pointer encoding bugs
 pub struct ColoredPointerValidator {
     pub address: usize,
@@ -354,38 +355,34 @@ impl ColoredPointerValidator {
     pub fn new(address: usize, raw: usize) -> Self {
         Self { address, raw }
     }
-    
+
     /// Assert that address bits are preserved correctly
-    /// 
+    ///
     /// **Bug this finds:** Address truncation, bit manipulation bugs
     #[track_caller]
     pub fn assert_address_preserved(&self, expected_address: usize) {
         assert_eq!(
-            self.address,
-            expected_address,
+            self.address, expected_address,
             "Address mismatch: expected {:#x}, got {:#x} - address bits corrupted",
-            expected_address,
-            self.address
+            expected_address, self.address
         );
     }
-    
+
     /// Assert that color bits are in correct position (bits 44-47)
-    /// 
+    ///
     /// **Bug this finds:** Wrong bit positions, mask bugs
     #[track_caller]
     pub fn assert_color_bits_position(&self) {
         // Color bits should be in bits 44-47
         let color_bits = (self.raw >> 44) & 0xF;
         let address_bits = self.raw & ((1u64 << 44) - 1) as usize;
-        
+
         assert_eq!(
-            address_bits,
-            self.address,
+            address_bits, self.address,
             "Address extraction failed: extracted {:#x}, expected {:#x}",
-            address_bits,
-            self.address
+            address_bits, self.address
         );
-        
+
         // Verify no overlap between color and address bits
         assert_eq!(
             color_bits << 44 | address_bits,
@@ -403,7 +400,7 @@ impl ColoredPointerValidator {
 /// ============================================================================
 
 /// Check for potential memory safety issues
-/// 
+///
 /// **Bug this finds:** Double-free, use-after-free, memory leaks
 pub struct MemorySafetyChecker {
     allocated: HashSet<usize>,
@@ -417,7 +414,7 @@ impl MemorySafetyChecker {
             freed: HashSet::new(),
         }
     }
-    
+
     /// Record allocation
     pub fn record_allocation(&mut self, address: usize) {
         if self.freed.contains(&address) {
@@ -426,17 +423,17 @@ impl MemorySafetyChecker {
                 address
             );
         }
-        
+
         if self.allocated.contains(&address) {
             panic!(
                 "DOUBLE-ALLOC detected: Address {:#x} already allocated",
                 address
             );
         }
-        
+
         self.allocated.insert(address);
     }
-    
+
     /// Record deallocation
     pub fn record_free(&mut self, address: usize) {
         if !self.allocated.contains(&address) {
@@ -445,22 +442,19 @@ impl MemorySafetyChecker {
                 address
             );
         }
-        
+
         if self.freed.contains(&address) {
-            panic!(
-                "DOUBLE-FREE detected: Address {:#x} already freed",
-                address
-            );
+            panic!("DOUBLE-FREE detected: Address {:#x} already freed", address);
         }
-        
+
         self.freed.insert(address);
     }
-    
+
     /// Check for memory leaks (allocated but not freed)
     #[track_caller]
     pub fn assert_no_leaks(&self, context: &str) {
         let leaked: Vec<_> = self.allocated.difference(&self.freed).collect();
-        
+
         assert!(
             leaked.is_empty(),
             "{}: Memory leak detected - {} addresses allocated but not freed: {:?}",
@@ -482,7 +476,7 @@ impl Default for MemorySafetyChecker {
 /// ============================================================================
 
 /// Validate GC statistics
-/// 
+///
 /// **Bug this finds:** Stats tracking bugs, incorrect metrics
 #[track_caller]
 pub fn assert_gc_stats_valid(before_used: usize, after_used: usize, collected: bool) {

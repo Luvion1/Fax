@@ -1,0 +1,37 @@
+// Test fixture: Functions
+// Tests function definition, parameters, and return values
+
+fn add(a: Int, b: Int) -> Int {
+    return a + b;
+}
+
+fn multiply(x: Int, y: Int) -> Int {
+    return x * y;
+}
+
+fn greet(name: String) {
+    print("Hello, ");
+    print(name);
+    print("!");
+}
+
+fn factorial(n: Int) -> Int {
+    if n <= 1 {
+        return 1;
+    } else {
+        return n * factorial(n - 1);
+    }
+}
+
+fn main() {
+    let sum: Int = add(5, 3);
+    print(sum);
+    
+    let product: Int = multiply(4, 7);
+    print(product);
+    
+    greet("World");
+    
+    let fact: Int = factorial(5);
+    print(fact);
+}

@@ -10,4 +10,8 @@ pub use header::{get_data_start, get_header, get_object_addr};
 pub use header::{ObjectHeader, HEADER_SIZE, OBJECT_ALIGNMENT};
 
 pub use refmap::ReferenceMap;
-pub use weak::{ReferenceQueue, WeakReference};
+
+pub use weak::{
+    PhantomReference, ReferenceProcessor, ReferenceQueue, ReferenceStats, ReferenceType,
+    SoftReference, WeakReference,
+};

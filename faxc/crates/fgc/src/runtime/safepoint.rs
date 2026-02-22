@@ -70,10 +70,10 @@ pub const SAFEPOINT_REACHED: u8 = 2;
 pub struct Safepoint {
     /// Current safepoint state
     state: AtomicU8,
-    
+
     /// Number of threads that have arrived at safepoint
     paused_threads: AtomicUsize,
-    
+
     /// Total number of threads that must reach safepoint
     total_threads: AtomicUsize,
 }
@@ -114,7 +114,7 @@ impl Safepoint {
     /// Uses Acquire to synchronize with arriving threads.
     pub fn wait_for_safepoint(&self) {
         let total = self.total_threads.load(Ordering::Acquire);
-        
+
         while self.paused_threads.load(Ordering::Acquire) < total {
             std::hint::spin_loop();
         }
@@ -202,7 +202,7 @@ impl Safepoint {
     pub fn block_until_released(&self) {
         // Signal arrival
         self.arrive();
-        
+
         // Wait for release (state back to NONE)
         while self.state.load(Ordering::Acquire) != SAFEPOINT_NONE {
             std::hint::spin_loop();
@@ -231,6 +231,7 @@ pub struct SafepointManager {
     total_threads: std::sync::atomic::AtomicUsize,
 
     /// Safepoint lock
+    #[allow(dead_code)]
     lock: std::sync::Mutex<()>,
 }
 
@@ -336,6 +337,8 @@ impl<'a> SafepointGuard<'a> {
 
 impl<'a> Drop for SafepointGuard<'a> {
     fn drop(&mut self) {
-        self.manager.threads_at_safepoint.fetch_sub(1, Ordering::SeqCst);
+        self.manager
+            .threads_at_safepoint
+            .fetch_sub(1, Ordering::SeqCst);
     }
 }

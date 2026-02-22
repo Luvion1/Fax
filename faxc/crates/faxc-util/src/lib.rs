@@ -9,6 +9,7 @@
 //! - [`index_vec`] - Type-safe indexed vectors
 //! - [`diagnostic`] - Error and warning reporting infrastructure
 //! - [`span`] - Source location tracking
+//! - [`error`] - Core error types
 //!
 //! # Example
 //!
@@ -48,6 +49,7 @@ pub mod index_vec;
 pub mod diagnostic;
 pub mod span;
 pub mod def_id;
+pub mod error;
 
 // Re-export commonly used types at crate root for convenience
 pub use symbol::{Symbol, InternerStats, KW_FN, KW_LET, KW_CONST, KW_MUT, KW_IF, KW_ELSE, KW_WHILE, KW_FOR, KW_LOOP, KW_RETURN, KW_BREAK, KW_CONTINUE, KW_STRUCT, KW_ENUM, KW_IMPL, KW_TRAIT, KW_TYPE, KW_MOD, KW_USE, KW_PUB, KW_TRUE, KW_FALSE, KW_SELF, KW_SELF_UPPER, KW_AS, KW_MATCH, KW_UNSAFE, KW_EXTERN, KW_CRATE, KW_SUPER};
@@ -64,6 +66,10 @@ pub use diagnostic::{
     W_UNUSED_VARIABLE, W_UNUSED_FUNCTION, W_DEAD_CODE,
 };
 pub use span::{FileId, Span, SourceFile, SourceMap};
+pub use error::{
+    SymbolError, SourceMapError, IndexVecError, DiagnosticError,
+    SymbolResult, SourceMapResult, IndexVecResult, DiagnosticResult,
+};
 
 // Re-export from external crates
 pub use rustc_hash::{FxHashMap, FxHashSet};

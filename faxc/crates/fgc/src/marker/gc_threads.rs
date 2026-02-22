@@ -3,9 +3,9 @@
 //! This module implements worker threads for concurrent marking.
 //! Uses work-stealing for load balancing between threads.
 
-use crate::marker::Marker;
-use crate::marker::mark_queue::MarkQueue;
 use crate::error::Result;
+use crate::marker::mark_queue::MarkQueue;
+use crate::marker::Marker;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
@@ -54,26 +54,46 @@ impl GcWorker {
     }
 
     fn run(&self, marking_worker: &mut crate::marker::mark_queue::MarkingWorker) {
+        let mut empty_count = 0;
+
         while !self.should_stop.load(Ordering::Relaxed) {
             // MarkingWorker::pop handles local pop, global injector pop, and stealing
             if let Some(object) = marking_worker.pop() {
                 self.idle.store(false, Ordering::Relaxed);
+                empty_count = 0;
 
                 // marker.concurrent_mark logic integrated here
                 match self.marker.process_object(object, marking_worker) {
                     Ok(_) => {
                         self.processed_count.fetch_add(1, Ordering::Relaxed);
-                    }
+                    },
                     Err(e) => {
-                        log::error!("[GC Worker {}] Error processing object {:#x}: {:?}",
-                                   self.id, object, e);
-                    }
+                        log::error!(
+                            "[GC Worker {}] Error processing object {:#x}: {:?}",
+                            self.id,
+                            object,
+                            e
+                        );
+                    },
                 }
                 continue;
             }
 
             // No work found
             self.idle.store(true, Ordering::Relaxed);
+            empty_count += 1;
+
+            // If queue is empty for ~500ms, consider marking complete
+            // This handles the case where all roots have been processed
+            // but marking_in_progress hasn't been set to false yet
+            if empty_count > 50 {
+                // Double-check with a small wait
+                std::thread::sleep(Duration::from_millis(10));
+                if self.global_queue.is_empty() && !self.marker.is_marking_in_progress() {
+                    break;
+                }
+                empty_count = 0;
+            }
 
             // Brief sleep to reduce CPU usage when idle
             std::thread::sleep(Duration::from_micros(100));
@@ -105,7 +125,11 @@ impl GcThreadPool {
     pub fn new(count: usize, marker: Arc<Marker>, global_queue: Arc<MarkQueue>) -> Self {
         let mut workers = Vec::with_capacity(count);
         for i in 0..count {
-            workers.push(Arc::new(GcWorker::new(i, Arc::clone(&marker), Arc::clone(&global_queue))));
+            workers.push(Arc::new(GcWorker::new(
+                i,
+                Arc::clone(&marker),
+                Arc::clone(&global_queue),
+            )));
         }
 
         Self {
@@ -161,7 +185,7 @@ impl GcThreadPool {
     pub fn stats(&self) -> GcPoolStats {
         let total_processed = self.workers.iter().map(|w| w.processed_count()).sum();
         let idle_count = self.workers.iter().filter(|w| w.is_idle()).count();
-        
+
         let mut worker_stats = Vec::new();
         for worker in &self.workers {
             worker_stats.push(WorkerStats {
@@ -186,7 +210,7 @@ impl GcThreadPool {
     }
 
     /// Distribute work items to workers (round-robin)
-    /// 
+    ///
     /// Note: This is a simplified implementation for testing.
     /// In a real implementation, work would be pushed to local queues.
     pub fn distribute_work(&self, work_items: &[usize]) {

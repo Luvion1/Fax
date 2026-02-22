@@ -2,102 +2,44 @@
 //!
 //! Bump pointer allocator is the fastest allocation technique.
 //! Allocation only requires a single atomic increment operation.
-//!
-//! How it works:
-//! 1. Region is allocated from heap
-//! 2. Pointer is set to region start
-//! 3. For allocate: increment pointer, return old address
-//! 4. Region full: allocate new region
-//!
-//! Speed: O(1) - constant time regardless of size or fragmentation
-//!
-//! Limitations:
-//! - Cannot free individual objects
-//! - Region must be reset entirely
-//! - Suitable for generational GC (young gen)
 
 use crate::error::{FgcError, Result};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// BumpPointerAllocator - fast bump pointer allocator
-///
-/// Allocator for a single region using bump pointer technique.
-/// Thread-safe using atomic operations.
 pub struct BumpPointerAllocator {
-    /// Start address of region
     start: AtomicUsize,
-
-    /// Current bump pointer (next free address)
     top: AtomicUsize,
-
-    /// End address of region
     end: AtomicUsize,
-
-    /// Alignment requirement (typically 8 bytes)
     alignment: usize,
 }
 
 impl BumpPointerAllocator {
-    /// Create new bump allocator for region [start, end)
-    ///
-    /// # Arguments
-    /// * `start` - Start address of region
-    /// * `end` - End address of region (exclusive)
-    /// * `alignment` - Alignment requirement for allocated objects
-    ///
-    /// # Returns
-    /// * `Ok(Self)` - Successfully created allocator
-    /// * `Err(FgcError::InvalidArgument)` - Invalid parameters
-    ///
-    /// # Validation
-    /// - `start` must be less than `end`
-    /// - `alignment` must be a power of two
-    /// - `alignment` must not exceed 1024 bytes
-    /// - Region size must be at least `alignment` bytes
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use fgc::allocator::bump::BumpPointerAllocator;
-    ///
-    /// // Valid allocator
-    /// let allocator = BumpPointerAllocator::new(0x1000, 0x2000, 8).unwrap();
-    ///
-    /// // Invalid: start >= end
-    /// assert!(BumpPointerAllocator::new(0x2000, 0x1000, 8).is_err());
-    ///
-    /// // Invalid: alignment not power of two
-    /// assert!(BumpPointerAllocator::new(0, 1000, 3).is_err());
-    /// ```
     pub fn new(start: usize, end: usize, alignment: usize) -> Result<Self> {
-        // Validate start < end
         if start >= end {
-            return Err(FgcError::InvalidArgument(
-                format!("start ({:#x}) must be less than end ({:#x})", start, end)
-            ));
+            return Err(FgcError::InvalidArgument(format!(
+                "start ({:#x}) must be less than end ({:#x})",
+                start, end
+            )));
         }
-
-        // Validate alignment is power of two
         if !alignment.is_power_of_two() {
-            return Err(FgcError::InvalidArgument(
-                format!("alignment ({}) must be a power of two", alignment)
-            ));
+            return Err(FgcError::InvalidArgument(format!(
+                "alignment ({}) must be a power of two",
+                alignment
+            )));
         }
-
-        // Validate alignment is not too large
         if alignment > 1024 {
-            return Err(FgcError::InvalidArgument(
-                format!("alignment ({}) is too large (max 1024)", alignment)
-            ));
+            return Err(FgcError::InvalidArgument(format!(
+                "alignment ({}) is too large (max 1024)",
+                alignment
+            )));
         }
-
-        // Validate region size is at least alignment
         let region_size = end - start;
         if region_size < alignment {
-            return Err(FgcError::InvalidArgument(
-                format!("region size ({:#x}) must be at least alignment ({:#x})",
-                       region_size, alignment)
-            ));
+            return Err(FgcError::InvalidArgument(format!(
+                "region size ({:#x}) must be at least alignment ({:#x})",
+                region_size, alignment
+            )));
         }
 
         Ok(Self {
@@ -108,68 +50,54 @@ impl BumpPointerAllocator {
         })
     }
 
-    /// Allocate memory with specific size
-    ///
-    /// Fast path: single atomic increment
-    /// Slow path: alignment adjustment
-    ///
-    /// # Arguments
-    /// * `size` - Size in bytes to allocate
-    ///
-    /// # Returns
-    /// Address of allocated memory, or error if region is full
-    ///
-    /// # Safety
-    ///
-    /// Uses checked arithmetic to prevent integer overflow.
-    /// The returned address is guaranteed to be:
-    /// - Aligned to the allocator's alignment requirement
-    /// - Within the region bounds [start, end)
-    /// - Unique (no other thread will receive the same address)
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use fgc::allocator::bump::BumpPointerAllocator;
-    ///
-    /// let allocator = BumpPointerAllocator::new(0x1000, 0x2000, 8);
-    /// let addr = allocator.allocate(64).unwrap();
-    /// assert!(addr >= 0x1000 && addr < 0x2000);
-    /// ```
     pub fn allocate(&self, size: usize) -> Result<usize> {
         let aligned_size = self.align_size(size)?;
         let mut current_top = self.top.load(Ordering::Relaxed);
 
         loop {
-            let new_top = self.calculate_new_top(current_top, aligned_size, size)?;
+            let new_top = self.new_top(current_top, aligned_size, size)?;
 
             match self.try_update_top(current_top, new_top) {
                 Ok(_) => return Ok(current_top),
                 Err(_) => {
-                    // CAS failed, retry with current value
                     current_top = self.top.load(Ordering::Relaxed);
-                }
+                },
             }
         }
     }
 
-    /// Calculate new top pointer with overflow and bounds checking
-    ///
-    /// # Arguments
-    /// * `current_top` - Current bump pointer value
-    /// * `aligned_size` - Size aligned to allocation boundary
-    /// * `requested_size` - Original requested size for error reporting
-    ///
-    /// # Returns
-    /// New top address if valid, or OutOfMemory error
-    ///
-    /// # Errors
-    /// Returns `OutOfMemory` if:
-    /// - Addition would overflow (checked_add fails)
-    /// - New top exceeds region end
-    fn calculate_new_top(&self, current_top: usize, aligned_size: usize, requested_size: usize) -> Result<usize> {
-        let new_top = current_top.checked_add(aligned_size)
-            .ok_or_else(|| FgcError::OutOfMemory {
+    #[inline]
+    pub fn try_allocate_fast(&self, size: usize) -> Option<usize> {
+        let aligned_size = (size + self.alignment - 1) & !(self.alignment - 1);
+
+        let current_top = self.top.load(Ordering::Relaxed);
+        let end = self.end.load(Ordering::Relaxed);
+
+        let new_top = current_top.checked_add(aligned_size)?;
+        if new_top > end {
+            return None;
+        }
+
+        if self
+            .top
+            .compare_exchange(current_top, new_top, Ordering::AcqRel, Ordering::Relaxed)
+            .is_ok()
+        {
+            Some(current_top)
+        } else {
+            None
+        }
+    }
+
+    fn new_top(
+        &self,
+        current_top: usize,
+        aligned_size: usize,
+        requested_size: usize,
+    ) -> Result<usize> {
+        let new_top = current_top
+            .checked_add(aligned_size)
+            .ok_or(FgcError::OutOfMemory {
                 requested: requested_size,
                 available: 0,
             })?;
@@ -185,71 +113,44 @@ impl BumpPointerAllocator {
         Ok(new_top)
     }
 
-    /// Try to update top pointer using CAS
-    ///
-    /// # Arguments
-    /// * `current` - Expected current value
-    /// * `new` - New value to set
-    ///
-    /// # Returns
-    /// Ok(()) if CAS succeeded, Err(FgcError) if failed
-    ///
-    /// # Memory Ordering
-    /// Uses `SeqCst` for success to ensure global visibility of allocation.
-    /// Uses `Relaxed` for failure since we just retry with actual value.
     fn try_update_top(&self, current: usize, new: usize) -> Result<()> {
-        self.top.compare_exchange_weak(
-            current,
-            new,
-            Ordering::SeqCst,
-            Ordering::Relaxed,
-        ).map(|_| ()).map_err(|actual| {
-            FgcError::LockPoisoned(format!("CAS failed, actual value: {:#x}", actual))
-        })
+        self.top
+            .compare_exchange_weak(current, new, Ordering::SeqCst, Ordering::Relaxed)
+            .map(|_| ())
+            .map_err(|actual| {
+                FgcError::LockPoisoned(format!("CAS failed, actual value: {:#x}", actual))
+            })
     }
 
-    /// Reset allocator to region start
-    ///
-    /// Called after GC reclaims all objects in region.
-    /// Safe only when no thread is currently allocating.
     pub fn reset(&self) {
-        self.top.store(self.start.load(Ordering::Relaxed), Ordering::SeqCst);
+        self.top
+            .store(self.start.load(Ordering::Relaxed), Ordering::SeqCst);
     }
 
-    /// Get remaining space in region
     pub fn remaining(&self) -> usize {
         let current_top = self.top.load(Ordering::Relaxed);
         let end_val = self.end.load(Ordering::Relaxed);
         end_val - current_top
     }
 
-    /// Get total region capacity
     pub fn capacity(&self) -> usize {
         let end_val = self.end.load(Ordering::Relaxed);
         let start_val = self.start.load(Ordering::Relaxed);
         end_val - start_val
     }
 
-    /// Get bytes already allocated
     pub fn allocated(&self) -> usize {
         let current_top = self.top.load(Ordering::Relaxed);
         let start_val = self.start.load(Ordering::Relaxed);
         current_top - start_val
     }
 
-    /// Check if allocator is full
     pub fn is_full(&self) -> bool {
         self.remaining() == 0
     }
 
-    /// Align size to boundary
-    ///
-    /// # CRIT-03 FIX: Integer Overflow Prevention
-    /// This method now validates size limits and uses checked arithmetic
-    /// to prevent integer overflow attacks with malicious sizes.
     fn align_size(&self, size: usize) -> Result<usize> {
-        // CRIT-03 FIX: Reject obviously malicious sizes
-        const MAX_ALLOCATION: usize = 1024 * 1024 * 1024; // 1GB
+        const MAX_ALLOCATION: usize = 1024 * 1024 * 1024;
         if size > MAX_ALLOCATION {
             return Err(FgcError::OutOfMemory {
                 requested: size,
@@ -257,12 +158,10 @@ impl BumpPointerAllocator {
             });
         }
 
-        // Safe alignment calculation with overflow check
         let mask = self.alignment.wrapping_sub(1);
         let aligned = size.wrapping_add(mask) & !mask;
 
         if aligned < size {
-            // Overflow detected
             return Err(FgcError::OutOfMemory {
                 requested: size,
                 available: 0,
@@ -272,10 +171,6 @@ impl BumpPointerAllocator {
         Ok(aligned)
     }
 
-    /// Set bump pointer to specific address
-    ///
-    /// For internal GC use only.
-    /// Not thread-safe, must be called when no allocation is happening.
     pub fn set_top(&self, address: usize) {
         let start_val = self.start.load(Ordering::Relaxed);
         let end_val = self.end.load(Ordering::Relaxed);
@@ -286,30 +181,14 @@ impl BumpPointerAllocator {
 }
 
 /// MultiBumpAllocator - multiple bump regions for concurrency
-///
-/// Manages multiple bump pointer regions to reduce contention.
-/// Each thread can get its own region for lock-free allocation.
 pub struct MultiBumpAllocator {
-    /// List of available regions
     regions: std::sync::Mutex<Vec<BumpPointerAllocator>>,
-
-    /// Region size for each bump allocator
     region_size: usize,
-
-    /// Alignment requirement
     alignment: usize,
-
-    /// Maximum regions allowed
     max_regions: usize,
 }
 
 impl MultiBumpAllocator {
-    /// Create new multi-region bump allocator
-    ///
-    /// # Arguments
-    /// * `region_size` - Size of each region in bytes
-    /// * `alignment` - Alignment requirement
-    /// * `max_regions` - Maximum number of regions
     pub fn new(region_size: usize, alignment: usize, max_regions: usize) -> Self {
         Self {
             regions: std::sync::Mutex::new(Vec::new()),
@@ -319,34 +198,26 @@ impl MultiBumpAllocator {
         }
     }
 
-    /// Allocate from one of the regions
-    ///
-    /// Strategy:
-    /// 1. Try allocate from existing region (lock-free)
-    /// 2. If all full, create new region
-    /// 3. If max regions reached, return error
     pub fn allocate(&self, size: usize) -> Result<usize> {
-        // Try existing regions first
         {
-            let regions = self.regions.lock().unwrap();
-
-            // Try every region (can be optimized with per-thread region)
+            let regions = self.regions.lock().unwrap_or_else(|e| {
+                log::error!("MultiBumpAllocator regions lock poisoned: {}", e);
+                std::process::abort();
+            });
             for region in regions.iter() {
                 if let Ok(addr) = region.allocate(size) {
                     return Ok(addr);
                 }
             }
         }
-
-        // All regions full, create new region
         self.allocate_new_region(size)
     }
 
-    /// Allocate new region and try to allocate
     fn allocate_new_region(&self, size: usize) -> Result<usize> {
-        let mut regions = self.regions.lock().unwrap();
+        let mut regions = self.regions.lock().map_err(|e| {
+            FgcError::LockPoisoned(format!("MultiBumpAllocator regions lock poisoned: {}", e))
+        })?;
 
-        // Check max regions
         if regions.len() >= self.max_regions {
             return Err(FgcError::OutOfMemory {
                 requested: size,
@@ -354,40 +225,41 @@ impl MultiBumpAllocator {
             });
         }
 
-        // Create new region
-        // Note: In real implementation, address should come from heap manager
-        let base_address = 0x1000 * (regions.len() as usize + 1); // Dummy address
+        let base_address = 0x1000 * (regions.len() + 1);
         let region = BumpPointerAllocator::new(
             base_address,
             base_address + self.region_size,
             self.alignment,
         )?;
 
-        // Allocate from new region
         let addr = region.allocate(size)?;
-
         regions.push(region);
-
         Ok(addr)
     }
 
-    /// Reset all regions
     pub fn reset_all(&self) {
-        let regions = self.regions.lock().unwrap();
+        let regions = self.regions.lock().unwrap_or_else(|e| {
+            log::error!("MultiBumpAllocator regions lock poisoned: {}", e);
+            std::process::abort();
+        });
         for region in regions.iter() {
             region.reset();
         }
     }
 
-    /// Get total allocated bytes from all regions
     pub fn total_allocated(&self) -> usize {
-        let regions = self.regions.lock().unwrap();
+        let regions = self.regions.lock().unwrap_or_else(|e| {
+            log::error!("MultiBumpAllocator regions lock poisoned: {}", e);
+            std::process::abort();
+        });
         regions.iter().map(|r| r.allocated()).sum()
     }
 
-    /// Get total capacity from all regions
     pub fn total_capacity(&self) -> usize {
-        let regions = self.regions.lock().unwrap();
+        let regions = self.regions.lock().unwrap_or_else(|e| {
+            log::error!("MultiBumpAllocator regions lock poisoned: {}", e);
+            std::process::abort();
+        });
         regions.len() * self.region_size
     }
 }
@@ -396,66 +268,293 @@ impl MultiBumpAllocator {
 mod tests {
     use super::*;
 
+    // ========================================================================
+    // BumpPointerAllocator Constructor Tests
+    // ========================================================================
+
     #[test]
-    fn test_bump_allocator_helper_functions() {
+    fn test_bump_allocator_new_valid() {
         let allocator = BumpPointerAllocator::new(0x1000, 0x2000, 8).unwrap();
-
-        // Test calculate_new_top with valid values
-        let result = allocator.calculate_new_top(0x1000, 64, 64);
-        assert_eq!(result.unwrap(), 0x1040);
-
-        // Test calculate_new_top with overflow
-        let result = allocator.calculate_new_top(usize::MAX - 10, 100, 100);
-        assert!(matches!(result, Err(FgcError::OutOfMemory { .. })));
-
-        // Test calculate_new_top exceeding region end
-        let result = allocator.calculate_new_top(0x1FF0, 64, 64);
-        assert!(matches!(result, Err(FgcError::OutOfMemory { .. })));
+        assert_eq!(allocator.capacity(), 0x1000);
+        assert_eq!(allocator.allocated(), 0);
+        assert_eq!(allocator.remaining(), 0x1000);
     }
 
     #[test]
-    fn test_try_update_top_success() {
+    fn test_bump_allocator_new_start_ge_end() {
+        assert!(BumpPointerAllocator::new(0x2000, 0x1000, 8).is_err());
+        assert!(BumpPointerAllocator::new(0x1000, 0x1000, 8).is_err());
+    }
+
+    #[test]
+    fn test_bump_allocator_new_invalid_alignment_not_power_of_two() {
+        assert!(BumpPointerAllocator::new(0x1000, 0x2000, 3).is_err());
+        assert!(BumpPointerAllocator::new(0x1000, 0x2000, 15).is_err());
+    }
+
+    #[test]
+    fn test_bump_allocator_new_invalid_alignment_too_large() {
+        assert!(BumpPointerAllocator::new(0x1000, 0x2000, 2048).is_err());
+    }
+
+    #[test]
+    fn test_bump_allocator_new_region_size_less_than_alignment() {
+        assert!(BumpPointerAllocator::new(0x1000, 0x1004, 8).is_err());
+    }
+
+    // ========================================================================
+    // BumpPointerAllocator Allocation Tests
+    // ========================================================================
+
+    #[test]
+    fn test_bump_allocator_allocate_basic() {
         let allocator = BumpPointerAllocator::new(0x1000, 0x2000, 8).unwrap();
-
-        // Test successful CAS
-        let result = allocator.try_update_top(0x1000, 0x1040);
-        assert!(result.is_ok());
-
-        // Verify top was updated
+        let addr = allocator.allocate(64).unwrap();
+        assert_eq!(addr, 0x1000);
         assert_eq!(allocator.allocated(), 64);
     }
 
     #[test]
-    fn test_try_update_top_failure() {
+    fn test_bump_allocator_allocate_multiple() {
         let allocator = BumpPointerAllocator::new(0x1000, 0x2000, 8).unwrap();
-
-        // First update succeeds
-        let result = allocator.try_update_top(0x1000, 0x1040);
-        assert!(result.is_ok());
-
-        // Second update with old current value should fail
-        let result = allocator.try_update_top(0x1000, 0x1080);
-        assert!(result.is_err());
-        // Error should be LockPoisoned with actual value in message
-    }
-
-    #[test]
-    fn test_allocate_uses_helpers() {
-        let allocator = BumpPointerAllocator::new(0x1000, 0x2000, 8).unwrap();
-
-        // Multiple allocations should work
         let addr1 = allocator.allocate(32).unwrap();
         let addr2 = allocator.allocate(64).unwrap();
         let addr3 = allocator.allocate(128).unwrap();
 
-        // Verify addresses are aligned and sequential
-        assert!(addr1 >= 0x1000 && addr1 < 0x2000);
-        assert!(addr2 > addr1);
-        assert!(addr3 > addr2);
-
-        // Verify alignment (8 bytes)
+        assert!(addr1 < addr2);
+        assert!(addr2 < addr3);
         assert_eq!(addr1 % 8, 0);
         assert_eq!(addr2 % 8, 0);
         assert_eq!(addr3 % 8, 0);
+    }
+
+    #[test]
+    fn test_bump_allocator_allocate_alignment() {
+        let allocator = BumpPointerAllocator::new(0x1000, 0x2000, 16).unwrap();
+        let addr = allocator.allocate(1).unwrap();
+        assert_eq!(addr % 16, 0);
+    }
+
+    #[test]
+    fn test_bump_allocator_allocate_zero_size() {
+        let allocator = BumpPointerAllocator::new(0x1000, 0x2000, 8).unwrap();
+        let addr = allocator.allocate(0).unwrap();
+        assert!(addr >= 0x1000 && addr < 0x2000);
+    }
+
+    #[test]
+    fn test_bump_allocator_allocate_out_of_memory() {
+        let allocator = BumpPointerAllocator::new(0x1000, 0x1100, 8).unwrap();
+        let _ = allocator.allocate(200).unwrap();
+        let result = allocator.allocate(100);
+        assert!(matches!(result, Err(FgcError::OutOfMemory { .. })));
+    }
+
+    #[test]
+    fn test_bump_allocator_allocate_exactly_full() {
+        let allocator = BumpPointerAllocator::new(0x1000, 0x1040, 8).unwrap();
+        let _ = allocator.allocate(64).unwrap();
+        assert!(allocator.is_full());
+    }
+
+    #[test]
+    fn test_bump_allocator_allocate_too_large() {
+        let allocator = BumpPointerAllocator::new(0x1000, 0x2000, 8).unwrap();
+        let result = allocator.allocate(2 * 1024 * 1024 * 1024);
+        assert!(matches!(result, Err(FgcError::OutOfMemory { .. })));
+    }
+
+    #[test]
+    fn test_bump_allocator_allocate_overflow() {
+        let allocator = BumpPointerAllocator::new(0x1000, usize::MAX, 8).unwrap();
+        let result = allocator.allocate(usize::MAX - 100);
+        assert!(matches!(result, Err(FgcError::OutOfMemory { .. })));
+    }
+
+    // ========================================================================
+    // BumpPointerAllocator Reset and State Tests
+    // ========================================================================
+
+    #[test]
+    fn test_bump_allocator_reset() {
+        let allocator = BumpPointerAllocator::new(0x1000, 0x2000, 8).unwrap();
+        let _ = allocator.allocate(100).unwrap();
+        assert!(allocator.allocated() > 0);
+
+        allocator.reset();
+        assert_eq!(allocator.allocated(), 0);
+        assert_eq!(allocator.remaining(), allocator.capacity());
+    }
+
+    #[test]
+    fn test_bump_allocator_remaining() {
+        let allocator = BumpPointerAllocator::new(0x1000, 0x2000, 8).unwrap();
+        assert_eq!(allocator.remaining(), 0x1000);
+
+        let _ = allocator.allocate(100).unwrap();
+        assert!(allocator.remaining() < 0x1000);
+    }
+
+    #[test]
+    fn test_bump_allocator_is_full() {
+        let allocator = BumpPointerAllocator::new(0x1000, 0x1040, 8).unwrap();
+        assert!(!allocator.is_full());
+
+        let _ = allocator.allocate(64).unwrap();
+        assert!(allocator.is_full());
+    }
+
+    #[test]
+    fn test_bump_allocator_set_top() {
+        let allocator = BumpPointerAllocator::new(0x1000, 0x2000, 8).unwrap();
+        allocator.set_top(0x1500);
+        assert_eq!(allocator.allocated(), 0x500);
+    }
+
+    #[test]
+    fn test_bump_allocator_set_top_out_of_bounds() {
+        let allocator = BumpPointerAllocator::new(0x1000, 0x2000, 8).unwrap();
+        allocator.set_top(0x0500); // Before start
+        assert_eq!(allocator.allocated(), 0); // Should not change
+
+        allocator.set_top(0x3000); // After end
+        assert_eq!(allocator.allocated(), 0); // Should not change
+    }
+
+    // ========================================================================
+    // BumpPointerAllocator Edge Cases
+    // ========================================================================
+
+    #[test]
+    fn test_bump_allocator_various_sizes() {
+        let allocator = BumpPointerAllocator::new(0x1000, 0x2000, 8).unwrap();
+        let sizes = [1, 7, 8, 15, 16, 31, 32, 63, 64, 127, 128, 255, 256];
+
+        for &size in &sizes {
+            let addr = allocator.allocate(size).unwrap();
+            assert!(addr >= 0x1000 && addr < 0x2000);
+            assert_eq!(addr % 8, 0);
+        }
+    }
+
+    #[test]
+    fn test_bump_allocator_concurrent_allocation() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let allocator = Arc::new(BumpPointerAllocator::new(0x1000, 0x10000, 8).unwrap());
+        let mut handles = Vec::new();
+
+        for _ in 0..4 {
+            let allocator = Arc::clone(&allocator);
+            let handle = thread::spawn(move || {
+                let mut addrs = Vec::new();
+                for _ in 0..10 {
+                    if let Ok(addr) = allocator.allocate(64) {
+                        addrs.push(addr);
+                    }
+                }
+                addrs
+            });
+            handles.push(handle);
+        }
+
+        let mut all_addrs = Vec::new();
+        for handle in handles {
+            all_addrs.extend(handle.join().unwrap());
+        }
+
+        // All addresses should be unique
+        use std::collections::HashSet;
+        let unique: HashSet<_> = all_addrs.iter().collect();
+        assert_eq!(
+            unique.len(),
+            all_addrs.len(),
+            "Concurrent allocations should be unique"
+        );
+    }
+
+    // ========================================================================
+    // MultiBumpAllocator Tests
+    // ========================================================================
+
+    #[test]
+    fn test_multi_bump_allocator_new() {
+        let alloc = MultiBumpAllocator::new(4096, 8, 10);
+        assert_eq!(alloc.total_capacity(), 0);
+        assert_eq!(alloc.total_allocated(), 0);
+    }
+
+    #[test]
+    fn test_multi_bump_allocator_allocate() {
+        let alloc = MultiBumpAllocator::new(4096, 8, 10);
+        let addr = alloc.allocate(64).unwrap();
+        assert!(addr > 0);
+        assert_eq!(alloc.total_allocated(), 64);
+    }
+
+    #[test]
+    fn test_multi_bump_allocator_allocate_multiple_regions() {
+        let alloc = MultiBumpAllocator::new(256, 8, 10);
+
+        // Fill first region
+        for _ in 0..4 {
+            let _ = alloc.allocate(64).unwrap();
+        }
+
+        // This should create a new region
+        let addr = alloc.allocate(64).unwrap();
+        assert!(addr > 0);
+        assert!(alloc.total_capacity() > 256);
+    }
+
+    #[test]
+    fn test_multi_bump_allocator_max_regions() {
+        let alloc = MultiBumpAllocator::new(256, 8, 2);
+
+        // Fill both regions
+        for _ in 0..8 {
+            let _ = alloc.allocate(64).unwrap();
+        }
+
+        // This should fail - max regions reached
+        let result = alloc.allocate(64);
+        assert!(matches!(result, Err(FgcError::OutOfMemory { .. })));
+    }
+
+    #[test]
+    fn test_multi_bump_allocator_reset_all() {
+        let alloc = MultiBumpAllocator::new(4096, 8, 10);
+        let _ = alloc.allocate(100).unwrap();
+        assert!(alloc.total_allocated() > 0);
+
+        alloc.reset_all();
+        assert_eq!(alloc.total_allocated(), 0);
+    }
+
+    #[test]
+    fn test_multi_bump_allocator_concurrent() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let alloc = Arc::new(MultiBumpAllocator::new(4096, 8, 100));
+        let mut handles = Vec::new();
+
+        for _ in 0..4 {
+            let alloc = Arc::clone(&alloc);
+            let handle = thread::spawn(move || {
+                let mut count = 0;
+                for _ in 0..10 {
+                    if alloc.allocate(64).is_ok() {
+                        count += 1;
+                    }
+                }
+                count
+            });
+            handles.push(handle);
+        }
+
+        let total: usize = handles.into_iter().map(|h| h.join().unwrap()).sum();
+        assert!(total > 0);
     }
 }

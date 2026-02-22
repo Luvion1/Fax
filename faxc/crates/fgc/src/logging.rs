@@ -83,6 +83,37 @@ pub enum GcEvent {
         relocated_count: usize,
         bytes_moved: usize,
     },
+
+    /// Reference processing statistics (ZGC-like)
+    ReferenceStats {
+        weak_cleared: u64,
+        soft_cleared: u64,
+        phantom_cleared: u64,
+        finalizers_processed: u64,
+    },
+
+    /// GC thread statistics
+    GcThreadStats {
+        thread_id: u64,
+        work_items_processed: u64,
+        cpu_time_ns: u64,
+    },
+
+    /// Memory statistics
+    MemoryStats {
+        committed_bytes: usize,
+        used_bytes: usize,
+        reclaimed_bytes: usize,
+        large_pages_used: bool,
+    },
+
+    /// Adaptive tuning event
+    TuningEvent {
+        parameter: String,
+        old_value: f64,
+        new_value: f64,
+        reason: String,
+    },
 }
 
 /// GC Logger configuration
@@ -291,6 +322,49 @@ impl GcLogger {
                     relocated_count, bytes_moved
                 );
             },
+            GcEvent::ReferenceStats {
+                weak_cleared,
+                soft_cleared,
+                phantom_cleared,
+                finalizers_processed,
+            } => {
+                println!(
+                    "[GC] References: {} weak, {} soft, {} phantom cleared, {} finalizers",
+                    weak_cleared, soft_cleared, phantom_cleared, finalizers_processed
+                );
+            },
+            GcEvent::GcThreadStats {
+                thread_id,
+                work_items_processed,
+                cpu_time_ns,
+            } => {
+                println!(
+                    "[GC] Thread {}: {} items, {} ns CPU",
+                    thread_id, work_items_processed, cpu_time_ns
+                );
+            },
+            GcEvent::MemoryStats {
+                committed_bytes,
+                used_bytes,
+                reclaimed_bytes,
+                large_pages_used,
+            } => {
+                println!(
+                    "[GC] Memory: {} committed, {} used, {} reclaimed, large_pages={}",
+                    committed_bytes, used_bytes, reclaimed_bytes, large_pages_used
+                );
+            },
+            GcEvent::TuningEvent {
+                parameter,
+                old_value,
+                new_value,
+                reason,
+            } => {
+                println!(
+                    "[GC] Tuning: {} changed from {} to {} ({})",
+                    parameter, old_value, new_value, reason
+                );
+            },
         }
     }
 
@@ -378,7 +452,9 @@ impl GcLogger {
             }),
         };
 
-        println!("{}", serde_json::to_string(&json).unwrap());
+        if let Ok(json_str) = serde_json::to_string(&json) {
+            println!("{}", json_str);
+        }
     }
 
     /// Get all events

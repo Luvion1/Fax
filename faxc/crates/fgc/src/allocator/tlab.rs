@@ -18,10 +18,10 @@
 
 use crate::allocator::bump::BumpPointerAllocator;
 use crate::error::{FgcError, Result};
+use indexmap::IndexMap;
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use indexmap::IndexMap;
 
 /// Thread ID type
 pub type ThreadId = u64;
@@ -68,22 +68,24 @@ impl Tlab {
         // Validate owner is non-zero
         if owner == 0 {
             return Err(FgcError::InvalidArgument(
-                "thread_id must be non-zero".to_string()
+                "thread_id must be non-zero".to_string(),
             ));
         }
 
         // Validate start < end
         if start >= end {
-            return Err(FgcError::InvalidArgument(
-                format!("start ({:#x}) must be less than end ({:#x})", start, end)
-            ));
+            return Err(FgcError::InvalidArgument(format!(
+                "start ({:#x}) must be less than end ({:#x})",
+                start, end
+            )));
         }
 
         // Validate alignment is power of two
         if !alignment.is_power_of_two() {
-            return Err(FgcError::InvalidArgument(
-                format!("alignment ({}) must be a power of two", alignment)
-            ));
+            return Err(FgcError::InvalidArgument(format!(
+                "alignment ({}) must be a power of two",
+                alignment
+            )));
         }
 
         Ok(Self {
@@ -229,7 +231,11 @@ impl TlabManager {
     /// # Arguments
     /// * `thread_id` - Thread ID
     /// * `heap` - Heap for TLAB memory allocation
-    pub fn get_or_create_tlab(&self, thread_id: ThreadId, heap: &crate::heap::Heap) -> Result<Arc<Tlab>> {
+    pub fn get_or_create_tlab(
+        &self,
+        thread_id: ThreadId,
+        heap: &crate::heap::Heap,
+    ) -> Result<Arc<Tlab>> {
         let mut tlabs = self.acquire_tlabs_lock()?;
 
         if let Some(tlab) = self.get_existing_tlab(&tlabs, thread_id) {
@@ -243,10 +249,12 @@ impl TlabManager {
     ///
     /// # Returns
     /// MutexGuard for TLABs map, or LockPoisoned error
-    fn acquire_tlabs_lock(&self) -> Result<std::sync::MutexGuard<'_, IndexMap<ThreadId, Arc<Tlab>>>> {
-        self.tlabs.lock().map_err(|e| {
-            FgcError::LockPoisoned(format!("TlabManager tlabs lock poisoned: {}", e))
-        })
+    fn acquire_tlabs_lock(
+        &self,
+    ) -> Result<std::sync::MutexGuard<'_, IndexMap<ThreadId, Arc<Tlab>>>> {
+        self.tlabs
+            .lock()
+            .map_err(|e| FgcError::LockPoisoned(format!("TlabManager tlabs lock poisoned: {}", e)))
     }
 
     /// Get existing TLAB for thread if available and not retired
@@ -257,8 +265,15 @@ impl TlabManager {
     ///
     /// # Returns
     /// Some(Arc<Tlab>) if found and active, None otherwise
-    fn get_existing_tlab(&self, tlabs: &IndexMap<ThreadId, Arc<Tlab>>, thread_id: ThreadId) -> Option<Arc<Tlab>> {
-        tlabs.get(&thread_id).filter(|tlab| !tlab.is_retired()).cloned()
+    fn get_existing_tlab(
+        &self,
+        tlabs: &IndexMap<ThreadId, Arc<Tlab>>,
+        thread_id: ThreadId,
+    ) -> Option<Arc<Tlab>> {
+        tlabs
+            .get(&thread_id)
+            .filter(|tlab| !tlab.is_retired())
+            .cloned()
     }
 
     /// Create new TLAB and insert into map
@@ -353,7 +368,7 @@ impl TlabManager {
 
         // Insert new TLAB while still holding lock
         tlabs.insert(thread_id, tlab.clone());
-        
+
         // FIX Issue 6: Counter update INSIDE critical section
         self.create_count.fetch_add(1, Ordering::Relaxed);
 
@@ -371,7 +386,7 @@ impl TlabManager {
             Err(e) => {
                 log::error!("TlabManager tlabs lock poisoned: {}", e);
                 return;
-            }
+            },
         };
         if let Some(tlab) = tlabs.get(&thread_id) {
             tlab.retire();
@@ -386,7 +401,7 @@ impl TlabManager {
             Err(e) => {
                 log::error!("TlabManager tlabs lock poisoned: {}", e);
                 0
-            }
+            },
         }
     }
 
@@ -412,7 +427,7 @@ impl TlabManager {
 
 // Thread-local storage for TLAB reference
 thread_local! {
-    static CURRENT_TLAB: RefCell<Option<Arc<Tlab>>> = RefCell::new(None);
+    static CURRENT_TLAB: RefCell<Option<Arc<Tlab>>> = const { RefCell::new(None) };
 }
 
 /// Get TLAB for current thread

@@ -25,7 +25,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 /// # Thread Safety
 /// All fields use atomic operations for thread-safe access.
 /// Stats can be updated from multiple GC threads concurrently.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct LoadBarrierStats {
     /// Total barrier invocations
     pub total_invocations: u64,
@@ -101,6 +101,19 @@ impl LoadBarrierStats {
         println!("  Needed marking (slow path): {} ({:.2}%)", self.needed_marking, self.slow_path_rate());
         println!("  Pointers healed: {}", self.pointers_healed);
         println!("  Null pointers skipped: {}", self.null_pointers);
+    }
+}
+
+impl Default for LoadBarrierStats {
+    fn default() -> Self {
+        Self {
+            total_invocations: 0,
+            already_marked: 0,
+            needed_marking: 0,
+            pointers_healed: 0,
+            null_pointers: 0,
+            fast_path_rate: 100.0, // Default to 100% when no invocations
+        }
     }
 }
 

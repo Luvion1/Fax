@@ -30,8 +30,8 @@
 //! 4. Object migration if thread moves to different node
 
 use crate::error::Result;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use indexmap::IndexMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// NumaManager - manages NUMA-aware allocation
 ///

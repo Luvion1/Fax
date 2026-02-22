@@ -237,7 +237,7 @@ fn test_gc_thread_pool_creation() {
     use fgc::marker::Marker;
     
     let config = Arc::new(fgc::GcConfig::default());
-    let heap = Arc::new(fgc::heap::Heap::new(config.clone()).unwrap());
+    let heap = Arc::new(fgc::heap::Heap::new(config.clone()).expect("Failed to create heap for test"));
     let marker = Arc::new(Marker::new(heap.clone()));
     
     let pool = GcThreadPool::new(4, marker.clone(), marker.get_global_queue());
@@ -252,7 +252,7 @@ fn test_gc_thread_pool_start_stop() {
     use fgc::marker::Marker;
     
     let config = Arc::new(fgc::GcConfig::default());
-    let heap = Arc::new(fgc::heap::Heap::new(config.clone()).unwrap());
+    let heap = Arc::new(fgc::heap::Heap::new(config.clone()).expect("Failed to create heap for test"));
     let marker = Arc::new(Marker::new(heap.clone()));
     
     let mut pool = GcThreadPool::new(2, marker.clone(), marker.get_global_queue());
@@ -277,7 +277,7 @@ fn test_gc_worker_statistics() {
     use fgc::marker::Marker;
     
     let config = Arc::new(fgc::GcConfig::default());
-    let heap = Arc::new(fgc::heap::Heap::new(config.clone()).unwrap());
+    let heap = Arc::new(fgc::heap::Heap::new(config.clone()).expect("Failed to create heap for test"));
     let marker = Arc::new(Marker::new(heap.clone()));
     
     let pool = GcThreadPool::new(4, marker.clone(), marker.get_global_queue());
@@ -305,7 +305,7 @@ fn test_work_distribution() {
     use fgc::marker::Marker;
 
     let config = Arc::new(fgc::GcConfig::default());
-    let heap = Arc::new(fgc::heap::Heap::new(config.clone()).unwrap());
+    let heap = Arc::new(fgc::heap::Heap::new(config.clone()).expect("Failed to create heap for test"));
     let marker = Arc::new(Marker::new(heap.clone()));
 
     let pool = GcThreadPool::new(4, marker.clone(), marker.get_global_queue());
@@ -490,7 +490,7 @@ fn test_marker_start_stop() {
     use fgc::marker::Marker;
     
     let config = Arc::new(fgc::GcConfig::default());
-    let heap = Arc::new(fgc::heap::Heap::new(config.clone()).unwrap());
+    let heap = Arc::new(fgc::heap::Heap::new(config.clone()).expect("Failed to create heap for test"));
     let marker = Marker::new(heap.clone());
     
     // Start marking
@@ -509,7 +509,7 @@ fn test_marker_root_scanning() {
     use fgc::marker::Marker;
     
     let config = Arc::new(fgc::GcConfig::default());
-    let heap = Arc::new(fgc::heap::Heap::new(config.clone()).unwrap());
+    let heap = Arc::new(fgc::heap::Heap::new(config.clone()).expect("Failed to create heap for test"));
     let marker = Marker::new(heap.clone());
     
     // Register a root
@@ -531,7 +531,7 @@ fn test_marker_concurrent_marking_integration() {
     use fgc::marker::Marker;
     
     let config = Arc::new(fgc::GcConfig::default());
-    let heap = Arc::new(fgc::heap::Heap::new(config.clone()).unwrap());
+    let heap = Arc::new(fgc::heap::Heap::new(config.clone()).expect("Failed to create heap for test"));
     let marker = Arc::new(Marker::new(heap.clone()));
     
     // Start concurrent marking

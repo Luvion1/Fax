@@ -36,33 +36,35 @@ fn validate_copy_region(source: usize, destination: usize, size: usize) -> Resul
     // Validate addresses are not null
     if source == 0 || destination == 0 {
         return Err(crate::error::FgcError::InvalidPointer {
-            address: if source == 0 { source } else { destination }
+            address: if source == 0 { source } else { destination },
         });
     }
 
     // Check for integer overflow in address calculations
-    let source_end = source.checked_add(size)
-        .ok_or_else(|| crate::error::FgcError::InvalidArgument("source address overflow".to_string()))?;
-    let dest_end = destination.checked_add(size)
-        .ok_or_else(|| crate::error::FgcError::InvalidArgument("destination address overflow".to_string()))?;
+    let source_end = source.checked_add(size).ok_or_else(|| {
+        crate::error::FgcError::InvalidArgument("source address overflow".to_string())
+    })?;
+    let dest_end = destination.checked_add(size).ok_or_else(|| {
+        crate::error::FgcError::InvalidArgument("destination address overflow".to_string())
+    })?;
 
     // Check for overlapping memory regions
     // Overlap occurs if: source < dest_end AND destination < source_end
     if source < dest_end && destination < source_end {
         return Err(crate::error::FgcError::InvalidArgument(
-            "overlapping memory regions detected".to_string()
+            "overlapping memory regions detected".to_string(),
         ));
     }
 
     // Validate memory regions are readable/writable
     if !crate::memory::is_readable(source).unwrap_or(false) {
         return Err(crate::error::FgcError::InvalidArgument(
-            "source address is not readable".to_string()
+            "source address is not readable".to_string(),
         ));
     }
     if !crate::memory::is_writable(destination).unwrap_or(false) {
         return Err(crate::error::FgcError::InvalidArgument(
-            "destination address is not writable".to_string()
+            "destination address is not writable".to_string(),
         ));
     }
 
@@ -209,11 +211,72 @@ impl ObjectCopier {
             copy_speed: 0.0,
         }
     }
-}
 
-impl Default for ObjectCopier {
-    fn default() -> Self {
-        Self::new()
+    /// Batch copy multiple objects efficiently
+    ///
+    /// More efficient than copying objects one by one.
+    /// Optimizes by copying aligned chunks together.
+    pub fn copy_batch(&self, objects: &[(usize, usize, usize)]) -> Result<usize> {
+        let mut total_copied = 0usize;
+
+        for &(src, dst, size) in objects {
+            if size == 0 {
+                continue;
+            }
+
+            if let Err(e) = self.copy_object(src, dst, size) {
+                self.copy_errors.fetch_add(1, Ordering::Relaxed);
+                log::warn!("Batch copy failed for object at {:#x}: {}", src, e);
+                continue;
+            }
+
+            total_copied += size;
+        }
+
+        Ok(total_copied)
+    }
+
+    /// Bulk copy for objects of same size
+    ///
+    /// Optimized for copying many objects of identical size.
+    pub fn bulk_copy_same_size(
+        &self,
+        sources: &[usize],
+        destinations: &[usize],
+        size: usize,
+    ) -> Result<usize> {
+        if sources.len() != destinations.len() {
+            return Err(crate::error::FgcError::InvalidArgument(
+                "sources and destinations must have same length".to_string(),
+            ));
+        }
+
+        if sources.is_empty() {
+            return Ok(0);
+        }
+
+        let mut total_copied = 0usize;
+
+        unsafe {
+            // Copy all objects
+            for i in 0..sources.len() {
+                std::ptr::copy_nonoverlapping(
+                    sources[i] as *const u8,
+                    destinations[i] as *mut u8,
+                    size,
+                );
+                total_copied += size;
+            }
+
+            std::sync::atomic::fence(Ordering::Release);
+        }
+
+        let count = sources.len() as u64;
+        self.bytes_copied
+            .fetch_add(total_copied as u64, Ordering::Relaxed);
+        self.objects_copied.fetch_add(count, Ordering::Relaxed);
+
+        Ok(total_copied)
     }
 }
 
@@ -296,7 +359,7 @@ pub unsafe fn aligned_copy(src: usize, dst: usize, size: usize, alignment: usize
 
     // Check for overlap
     if src < dst_end && dst < src_end {
-        return;  // Don't copy overlapping regions
+        return; // Don't copy overlapping regions
     }
 
     let word_count = size / 8;

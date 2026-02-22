@@ -7,13 +7,17 @@
 //! - Finalizer queue
 //! - GC thread lifecycle
 
-pub mod init;
-pub mod safepoint;
 pub mod finalizer;
+pub mod init;
+pub mod jit;
+pub mod safepoint;
 
-pub use init::RuntimeInitializer;
-pub use safepoint::SafepointManager;
 pub use finalizer::Finalizer;
+pub use init::RuntimeInitializer;
+pub use jit::{
+    JitEvent, JitGcInterface, JitIntegration, JitRoot, JitRootType, JitStats, NoopJitIntegration,
+};
+pub use safepoint::SafepointManager;
 
 use std::sync::Arc;
 
@@ -49,7 +53,9 @@ impl Runtime {
 
     /// Start runtime
     pub fn start(&self) -> Result<(), crate::error::FgcError> {
-        *self.state.lock().unwrap() = RuntimeState::Running;
+        *self.state.lock().map_err(|e| {
+            crate::error::FgcError::LockPoisoned(format!("state mutex poisoned: {}", e))
+        })? = RuntimeState::Running;
         self.safepoint_manager.start()?;
         self.finalizer.start()?;
         Ok(())
@@ -57,13 +63,17 @@ impl Runtime {
 
     /// Stop runtime
     pub fn stop(&self) -> Result<(), crate::error::FgcError> {
-        *self.state.lock().unwrap() = RuntimeState::Stopping;
+        *self.state.lock().map_err(|e| {
+            crate::error::FgcError::LockPoisoned(format!("state mutex poisoned: {}", e))
+        })? = RuntimeState::Stopping;
 
         self.gc.shutdown()?;
         self.safepoint_manager.stop()?;
         self.finalizer.stop()?;
 
-        *self.state.lock().unwrap() = RuntimeState::Stopped;
+        *self.state.lock().map_err(|e| {
+            crate::error::FgcError::LockPoisoned(format!("state mutex poisoned: {}", e))
+        })? = RuntimeState::Stopped;
 
         Ok(())
     }
@@ -74,16 +84,16 @@ impl Runtime {
     }
 
     /// Get runtime state
-    pub fn state(&self) -> RuntimeState {
-        *self.state.lock().unwrap()
+    pub fn state(&self) -> Result<RuntimeState, crate::error::FgcError> {
+        Ok(*self.state.lock().map_err(|e| {
+            crate::error::FgcError::LockPoisoned(format!("state mutex poisoned: {}", e))
+        })?)
     }
 
     /// Request GC
     pub fn request_gc(&self, generation: crate::gc::GcGeneration) -> crate::error::Result<()> {
-        self.gc.request_gc(
-            generation,
-            crate::gc::GcReason::Explicit,
-        )
+        self.gc
+            .request_gc(generation, crate::gc::GcReason::Explicit)
     }
 
     /// Allocate object
@@ -127,11 +137,11 @@ pub struct GcTrigger;
 impl GcTrigger {
     /// Trigger full GC
     pub fn full_gc(runtime: &Runtime) {
-        runtime.request_gc(crate::gc::GcGeneration::Full);
+        let _ = runtime.request_gc(crate::gc::GcGeneration::Full);
     }
 
     /// Trigger young GC
     pub fn young_gc(runtime: &Runtime) {
-        runtime.request_gc(crate::gc::GcGeneration::Young);
+        let _ = runtime.request_gc(crate::gc::GcGeneration::Young);
     }
 }

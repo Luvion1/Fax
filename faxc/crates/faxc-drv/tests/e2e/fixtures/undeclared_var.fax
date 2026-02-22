@@ -1,0 +1,7 @@
+// Test fixture: Undeclared variable error
+// Should fail with semantic error
+
+fn main() {
+    let x: Int = 10;
+    print(y);  // y is not declared
+}

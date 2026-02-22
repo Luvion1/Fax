@@ -15,8 +15,8 @@
 //! All scanner functions are thread-safe and can be called
 //! from multiple threads concurrently.
 
-use crate::object::{ObjectHeader, ReferenceMap, HEADER_SIZE, OBJECT_ALIGNMENT};
 use crate::memory;
+use crate::object::{ObjectHeader, ReferenceMap, HEADER_SIZE, OBJECT_ALIGNMENT};
 
 /// Object scanning statistics
 #[derive(Debug, Default, Clone)]
@@ -72,7 +72,9 @@ impl ObjectScanStats {
         self.avg_refs_per_object = total_refs as f64 / total_objects as f64;
         self.max_refs_in_object = self.max_refs_in_object.max(other.max_refs_in_object);
 
-        if other.min_refs_in_object > 0 && (self.min_refs_in_object == 0 || other.min_refs_in_object < self.min_refs_in_object) {
+        if other.min_refs_in_object > 0
+            && (self.min_refs_in_object == 0 || other.min_refs_in_object < self.min_refs_in_object)
+        {
             self.min_refs_in_object = other.min_refs_in_object;
         }
     }
@@ -104,7 +106,7 @@ impl ObjectScanStats {
 /// ```
 pub fn scan_object_precise<F>(obj_addr: usize, ref_map: &ReferenceMap, mut callback: F) -> usize
 where
-    F: FnMut(usize),  // Called with address of each reference field
+    F: FnMut(usize), // Called with address of each reference field
 {
     unsafe {
         let header = &*(obj_addr as *const ObjectHeader);
@@ -304,8 +306,6 @@ pub struct ObjectScanner {
     current_offset: usize,
     /// Data size
     data_size: usize,
-    /// Reference map
-    ref_map: ReferenceMap,
     /// Iterator internal
     ref_iter: crate::object::refmap::ReferenceMapIter,
 }
@@ -330,7 +330,6 @@ impl ObjectScanner {
             obj_addr,
             current_offset: 0,
             data_size,
-            ref_map,
             ref_iter,
         })
     }
@@ -627,11 +626,9 @@ mod tests {
         let mut scanner = BatchScanner::new();
         let mut all_refs = Vec::new();
 
-        let stats = scanner.scan_objects(&objects, |ref_addr| {
-            unsafe {
-                let ref_value = memory::read_pointer(ref_addr);
-                all_refs.push(ref_value);
-            }
+        let stats = scanner.scan_objects(&objects, |ref_addr| unsafe {
+            let ref_value = memory::read_pointer(ref_addr);
+            all_refs.push(ref_value);
         });
 
         assert_eq!(stats.objects_scanned, 3);
@@ -670,7 +667,7 @@ mod tests {
         assert_eq!(stats.references_found, 12);
         assert!((stats.avg_refs_per_object - 3.0).abs() < f64::EPSILON);
         assert_eq!(stats.max_refs_in_object, 6);
-        assert_eq!(stats.min_refs_in_object, 0);  // record(0) sets min to 0
+        assert_eq!(stats.min_refs_in_object, 0); // record(0) sets min to 0
     }
 
     #[test]
