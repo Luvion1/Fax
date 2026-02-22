@@ -1,6 +1,8 @@
 # Fax Compiler
 
-<img src="faxc/docs/rubah-arktik.svg" width="150" alt="Fax Arctic Fox">
+<p align="center">
+  <img src="faxc/docs/rubah-arktik.svg" width="150" alt="Fax Arctic Fox">
+</p>
 
 [![Version](https://img.shields.io/badge/version-0.0.2--pre--alpha-orange.svg)](https://github.com/Luvion1/Fax/releases)
 [![License](https://img.shields.io/badge/license-MIT%20or%20Apache--2.0-blue.svg)](LICENSE)

@@ -1,6 +1,8 @@
 # Fax Compiler
 
-<img src="docs/rubah-arktik.svg" width="100" alt="Fax Arctic Fox">
+<p align="center">
+  <img src="docs/rubah-arktik.svg" width="100" alt="Fax Arctic Fox">
+</p>
 
 Fax is a modern systems programming language with static typing and garbage collection.
 

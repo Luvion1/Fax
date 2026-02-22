@@ -1,6 +1,8 @@
 # Faxt
 
-<img src="../faxc/docs/rubah-arktik.svg" width="80" alt="Fax Arctic Fox">
+<p align="center">
+  <img src="../faxc/docs/rubah-arktik.svg" width="80" alt="Fax Arctic Fox">
+</p>
 
 A CLI tool for fax operations, written in Rust.
 
