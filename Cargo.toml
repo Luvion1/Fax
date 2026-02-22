@@ -18,6 +18,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Fax Team"]
 license = "MIT OR Apache-2.0"
+license-file = ["LICENSE", "LICENSE-APACHE"]
 repository = "https://github.com/fax-lang/faxc"
 rust-version = "1.75"
 
