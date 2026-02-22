@@ -1,6 +1,6 @@
 # Fax Compiler Documentation
 
-![Fax Arctic Fox](../faxc/docs/rubah-arktik.svg =120x120)
+<img src="../faxc/docs/rubah-arktik.svg" width="120" alt="Fax Arctic Fox">
 
 Welcome to the official documentation for the Fax programming language and compiler.
 

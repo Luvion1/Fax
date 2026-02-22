@@ -1,6 +1,6 @@
 # FGC - Fax Garbage Collector
 
-![Fax Arctic Fox](../../faxc/docs/rubah-arktik.svg =80x80)
+<img src="../../faxc/docs/rubah-arktik.svg" width="80" alt="Fax Arctic Fox">
 
 [![Crates.io](https://img.shields.io/crates/v/fgc.svg)](https://crates.io/crates/fgc)
 [![Documentation](https://docs.rs/fgc/badge.svg)](https://docs.rs/fgc)
