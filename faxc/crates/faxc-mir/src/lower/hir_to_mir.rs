@@ -1,19 +1,19 @@
+//! HIR to MIR Lowering Implementation
+//!
+//! Transforms HIR (High-level IR) to MIR (Mid-level IR)
+
+use crate::build::Builder;
 use crate::mir::*;
-use crate::builder::Builder;
 use faxc_sem::hir;
 
-/// Lower HIR function to MIR
 pub fn lower_hir_function(hir_fn: &hir::FnItem) -> Function {
     let mut builder = Builder::new(hir_fn.name.clone(), hir_fn.ret_type.clone());
 
-    // Create entry block
     let entry = builder.new_block();
     builder.set_current_block(entry);
 
-    // Lower function body (which is a Block expression in our HIR)
     lower_expr(&mut builder, &hir_fn.body.value);
-    
-    // Final return terminator
+
     builder.terminator(Terminator::Return);
 
     builder.build()
@@ -21,16 +21,20 @@ pub fn lower_hir_function(hir_fn: &hir::FnItem) -> Function {
 
 pub fn lower_expr(builder: &mut Builder, expr: &hir::Expr) -> Place {
     match expr {
-        hir::Expr::Block { stmts, expr: trailing_expr, .. } => {
+        hir::Expr::Block {
+            stmts,
+            expr: trailing_expr,
+            ..
+        } => {
             for stmt in stmts {
                 lower_stmt(builder, stmt);
             }
             if let Some(expr) = trailing_expr {
                 lower_expr(builder, expr)
             } else {
-                Place::Local(LocalId(0)) // Unit
+                Place::Local(LocalId(0))
             }
-        }
+        },
 
         hir::Expr::Literal { lit, ty } => {
             let constant = match lit {
@@ -54,9 +58,14 @@ pub fn lower_expr(builder: &mut Builder, expr: &hir::Expr) -> Place {
             );
 
             place
-        }
+        },
 
-        hir::Expr::Binary { op, left, right, ty } => {
+        hir::Expr::Binary {
+            op,
+            left,
+            right,
+            ty,
+        } => {
             let left_place = lower_expr(builder, left);
             let right_place = lower_expr(builder, right);
 
@@ -72,14 +81,16 @@ pub fn lower_expr(builder: &mut Builder, expr: &hir::Expr) -> Place {
             );
 
             place
-        }
+        },
 
-        hir::Expr::Var { def_id: _, ty } => {
-            // Simplified: treat as local for now
-            Place::Local(LocalId(0))
-        }
+        hir::Expr::Var { def_id: _, ty: _ } => Place::Local(LocalId(0)),
 
-        hir::Expr::If { cond, then_expr, else_expr, ty } => {
+        hir::Expr::If {
+            cond,
+            then_expr,
+            else_expr,
+            ty,
+        } => {
             let cond_place = lower_expr(builder, cond);
             let cond_op = place_to_operand(cond_place);
 
@@ -93,23 +104,20 @@ pub fn lower_expr(builder: &mut Builder, expr: &hir::Expr) -> Place {
                 else_block,
             });
 
-            // Lower then branch
             builder.set_current_block(then_block);
             let _ = lower_expr(builder, then_expr);
             builder.terminator(Terminator::Goto { target: join_block });
 
-            // Lower else branch
             builder.set_current_block(else_block);
             if let Some(e) = else_expr {
                 let _ = lower_expr(builder, e);
             }
             builder.terminator(Terminator::Goto { target: join_block });
 
-            // Join block
             builder.set_current_block(join_block);
             let res_temp = builder.add_local(ty.clone(), None);
             Place::Local(res_temp)
-        }
+        },
 
         _ => Place::Local(LocalId(0)),
     }
@@ -123,10 +131,10 @@ pub fn lower_stmt(builder: &mut Builder, stmt: &hir::Stmt) {
                 let src_place = lower_expr(builder, init_expr);
                 builder.assign(Place::Local(local), Rvalue::Use(Operand::Move(src_place)));
             }
-        }
+        },
         hir::Stmt::Expr(expr) => {
             lower_expr(builder, expr);
-        }
+        },
     }
 }
 

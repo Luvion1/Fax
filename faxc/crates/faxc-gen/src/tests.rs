@@ -1,5 +1,5 @@
 //! CodeGen Crate Integration Tests
-//! 
+//!
 //! MIR-LIR-CODEGEN-DEV-001: Subtask 3
 //! Unit and integration tests for LLVM IR generation, type mapping, and code emission.
 
@@ -11,12 +11,12 @@ use inkwell::OptimizationLevel;
 fn test_llvm_backend_creation() {
     let context = Context::create();
     let backend = LlvmBackend::new(
-        &context, 
-        "test_module", 
-        "x86_64-unknown-linux-gnu".to_string(), 
-        OptimizationLevel::None
+        &context,
+        "test_module",
+        "x86_64-unknown-linux-gnu".to_string(),
+        OptimizationLevel::None,
     );
-    
+
     assert_eq!(backend.target_triple, "x86_64-unknown-linux-gnu");
     assert_eq!(backend.opt_level, OptimizationLevel::None);
 }
@@ -25,14 +25,14 @@ fn test_llvm_backend_creation() {
 fn test_emit_empty_module() {
     let context = Context::create();
     let mut backend = LlvmBackend::new(
-        &context, 
-        "test", 
-        "x86_64-unknown-linux-gnu".to_string(), 
-        OptimizationLevel::None
+        &context,
+        "test",
+        "x86_64-unknown-linux-gnu".to_string(),
+        OptimizationLevel::None,
     );
-    
+
     let ir = backend.emit_llvm_ir();
-    
+
     assert!(ir.contains("target triple"));
     assert!(ir.contains("x86_64-unknown-linux-gnu"));
 }
@@ -41,22 +41,22 @@ fn test_emit_empty_module() {
 fn test_type_mapper_int_types() {
     let context = Context::create();
     let mapper = TypeMapper::new(&context);
-    
+
     // Test Int -> i64
     let int_ty = faxc_sem::Type::Int;
     let llvm_ty = mapper.map_to_basic(&int_ty);
     assert_eq!(llvm_ty.into_int_type().get_bit_width(), 64);
-    
+
     // Test Int8 -> i8
     let int8_ty = faxc_sem::Type::Int8;
     let llvm_ty = mapper.map_to_basic(&int8_ty);
     assert_eq!(llvm_ty.into_int_type().get_bit_width(), 8);
-    
+
     // Test Int16 -> i16
     let int16_ty = faxc_sem::Type::Int16;
     let llvm_ty = mapper.map_to_basic(&int16_ty);
     assert_eq!(llvm_ty.into_int_type().get_bit_width(), 16);
-    
+
     // Test Int32 -> i32
     let int32_ty = faxc_sem::Type::Int32;
     let llvm_ty = mapper.map_to_basic(&int32_ty);
@@ -67,13 +67,13 @@ fn test_type_mapper_int_types() {
 fn test_type_mapper_float_types() {
     let context = Context::create();
     let mapper = TypeMapper::new(&context);
-    
+
     // Test Float -> double
     let float_ty = faxc_sem::Type::Float;
     let llvm_ty = mapper.map_to_basic(&float_ty);
     assert!(llvm_ty.is_float_type());
     assert_eq!(llvm_ty.into_float_type().get_bit_width(), 64);
-    
+
     // Test Float32 -> float
     let float32_ty = faxc_sem::Type::Float32;
     let llvm_ty = mapper.map_to_basic(&float32_ty);
@@ -85,7 +85,7 @@ fn test_type_mapper_float_types() {
 fn test_type_mapper_bool_type() {
     let context = Context::create();
     let mapper = TypeMapper::new(&context);
-    
+
     let bool_ty = faxc_sem::Type::Bool;
     let llvm_ty = mapper.map_to_basic(&bool_ty);
     assert_eq!(llvm_ty.into_int_type().get_bit_width(), 1);
@@ -95,7 +95,7 @@ fn test_type_mapper_bool_type() {
 fn test_type_mapper_array_type() {
     let context = Context::create();
     let mapper = TypeMapper::new(&context);
-    
+
     let array_ty = faxc_sem::Type::Array(Box::new(faxc_sem::Type::Int), 10);
     let llvm_ty = mapper.map_to_basic(&array_ty);
     assert!(llvm_ty.is_array_type());
@@ -105,7 +105,7 @@ fn test_type_mapper_array_type() {
 fn test_type_mapper_pointer_type() {
     let context = Context::create();
     let mapper = TypeMapper::new(&context);
-    
+
     let ptr_ty = faxc_sem::Type::Pointer(Box::new(faxc_sem::Type::Int));
     let llvm_ty = mapper.map_to_basic(&ptr_ty);
     assert!(llvm_ty.is_pointer_type());
@@ -115,7 +115,7 @@ fn test_type_mapper_pointer_type() {
 fn test_type_size_calculations() {
     let context = Context::create();
     let mapper = TypeMapper::new(&context);
-    
+
     assert_eq!(mapper.size_of(&faxc_sem::Type::Int8), 1);
     assert_eq!(mapper.size_of(&faxc_sem::Type::Int16), 2);
     assert_eq!(mapper.size_of(&faxc_sem::Type::Int32), 4);
@@ -127,7 +127,7 @@ fn test_type_size_calculations() {
 fn test_type_alignment_calculations() {
     let context = Context::create();
     let mapper = TypeMapper::new(&context);
-    
+
     assert_eq!(mapper.alignment_of(&faxc_sem::Type::Int8), 1);
     assert_eq!(mapper.alignment_of(&faxc_sem::Type::Int16), 2);
     assert_eq!(mapper.alignment_of(&faxc_sem::Type::Int32), 4);
@@ -137,43 +137,45 @@ fn test_type_alignment_calculations() {
 #[test]
 fn test_compile_lir_function() {
     use faxc_lir::{Function as LirFunction, Instruction, Operand, VirtualRegister};
-    
+
     let context = Context::create();
     let mut backend = LlvmBackend::new(
-        &context, 
-        "test", 
-        "x86_64-unknown-linux-gnu".to_string(), 
-        OptimizationLevel::None
+        &context,
+        "test",
+        "x86_64-unknown-linux-gnu".to_string(),
+        OptimizationLevel::None,
     );
-    
+
     // Create a simple LIR function
     let mut lir_func = LirFunction::new(faxc_util::Symbol::intern("simple_fn"));
-    lir_func.instructions.push(Instruction::Label { name: ".Lbb0".to_string() });
+    lir_func.instructions.push(Instruction::Label {
+        name: ".Lbb0".to_string(),
+    });
     lir_func.instructions.push(Instruction::Ret { value: None });
-    
+
     let func_val = backend.compile_function(&lir_func);
     assert_eq!(func_val.get_name().to_str(), Ok("simple_fn"));
 }
 
 #[test]
 fn test_write_ir_to_file() {
-    use std::path::PathBuf;
     use std::fs;
-    
+    use std::path::PathBuf;
+
     let context = Context::create();
     let mut backend = LlvmBackend::new(
-        &context, 
-        "test", 
-        "x86_64-unknown-linux-gnu".to_string(), 
-        OptimizationLevel::None
+        &context,
+        "test",
+        "x86_64-unknown-linux-gnu".to_string(),
+        OptimizationLevel::None,
     );
-    
+
     let temp_path = PathBuf::from("/tmp/test_faxc_ir.ll");
     let result = backend.write_ir_to_file(&temp_path);
-    
+
     assert!(result.is_ok());
     assert!(temp_path.exists());
-    
+
     // Cleanup
     let _ = fs::remove_file(&temp_path);
 }
@@ -181,10 +183,20 @@ fn test_write_ir_to_file() {
 #[test]
 fn test_optimization_levels() {
     let context = Context::create();
-    
-    let backend_none = LlvmBackend::new(&context, "test", "x86_64".to_string(), OptimizationLevel::None);
+
+    let backend_none = LlvmBackend::new(
+        &context,
+        "test",
+        "x86_64".to_string(),
+        OptimizationLevel::None,
+    );
     assert_eq!(backend_none.opt_level, OptimizationLevel::None);
-    
-    let backend_default = LlvmBackend::new(&context, "test", "x86_64".to_string(), OptimizationLevel::Default);
+
+    let backend_default = LlvmBackend::new(
+        &context,
+        "test",
+        "x86_64".to_string(),
+        OptimizationLevel::Default,
+    );
     assert_eq!(backend_default.opt_level, OptimizationLevel::Default);
 }

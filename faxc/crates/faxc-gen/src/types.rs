@@ -4,7 +4,7 @@
 //! Implements SPEC.md 12.1 Type Mapping
 
 use inkwell::context::Context;
-use inkwell::types::{BasicTypeEnum, IntType, FloatType, PointerType, ArrayType, StructType};
+use inkwell::types::{ArrayType, BasicTypeEnum, FloatType, IntType, PointerType, StructType};
 
 /// Type mapping from Fax types to LLVM IR types
 pub struct TypeMapper<'ctx> {
@@ -26,10 +26,23 @@ impl<'ctx> TypeMapper<'ctx> {
 /// Placeholder Type enum for compilation
 #[derive(Debug, Clone)]
 pub enum Type {
-    Int, Int8, Int16, Int32, Int64,
-    UInt, UInt8, UInt16, UInt32, UInt64,
-    Float, Float32, Float64,
-    Bool, Char, String, Unit,
+    Int,
+    Int8,
+    Int16,
+    Int32,
+    Int64,
+    UInt,
+    UInt8,
+    UInt16,
+    UInt32,
+    UInt64,
+    Float,
+    Float32,
+    Float64,
+    Bool,
+    Char,
+    String,
+    Unit,
     Array(Box<Type>, usize),
     Tuple(Vec<Type>),
     Struct,

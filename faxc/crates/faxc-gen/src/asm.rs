@@ -1,6 +1,6 @@
 //! Assembly Code Generator
 
-use faxc_lir::{Function as LirFunction, Instruction, VirtualRegister, BinOp, Condition};
+use faxc_lir::{BinOp, Condition, Function as LirFunction, Instruction, VirtualRegister};
 use std::collections::HashMap;
 
 pub struct AsmGenerator {

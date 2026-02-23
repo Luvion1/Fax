@@ -1,8 +1,8 @@
-use crate::types::*;
 use crate::hir::*;
-use crate::scope::{ScopeTree, RibKind};
+use crate::scope::{RibKind, ScopeTree};
+use crate::types::*;
 use faxc_par as ast;
-use faxc_util::{Handler, DefIdGenerator, Span};
+use faxc_util::{DefId, DefIdGenerator, Handler, Span};
 
 /// Main semantic analyzer
 pub struct SemanticAnalyzer<'a> {
@@ -23,11 +23,18 @@ pub struct SemanticAnalyzer<'a> {
 
     /// Error handler
     pub handler: &'a mut Handler,
+
+    /// Error count
+    error_count: usize,
 }
 
 impl<'a> SemanticAnalyzer<'a> {
     /// Create new analyzer
-    pub fn new(type_context: &'a mut TypeContext, def_id_gen: &'a DefIdGenerator, handler: &'a mut Handler) -> Self {
+    pub fn new(
+        type_context: &'a mut TypeContext,
+        def_id_gen: &'a DefIdGenerator,
+        handler: &'a mut Handler,
+    ) -> Self {
         Self {
             type_context,
             scope_tree: ScopeTree::new(),
@@ -35,7 +42,45 @@ impl<'a> SemanticAnalyzer<'a> {
             current_ret_type: None,
             loop_stack: Vec::new(),
             handler,
+            error_count: 0,
         }
+    }
+
+    /// Report a type error
+    pub fn type_error(&mut self, message: impl Into<String>, span: Span) {
+        self.error_count += 1;
+        self.handler.error(message, span);
+    }
+
+    /// Check if there were any errors
+    pub fn has_errors(&self) -> bool {
+        self.error_count > 0
+    }
+
+    /// Get error count
+    pub fn error_count(&self) -> usize {
+        self.error_count
+    }
+
+    /// Check if two types are unifiable, emit error if not
+    pub fn unify_types(&mut self, expected: &Type, found: &Type, span: Span) -> bool {
+        if expected == found {
+            return true;
+        }
+
+        // Allow some coercions
+        if let Type::Infer(_) = expected {
+            return true; // Inference variable can accept any type
+        }
+        if let Type::Infer(_) = found {
+            return true;
+        }
+
+        self.type_error(
+            format!("type mismatch: expected {:?}, found {:?}", expected, found),
+            span,
+        );
+        false
     }
 
     /// Analyze AST items and produce HIR
@@ -65,15 +110,50 @@ impl<'a> SemanticAnalyzer<'a> {
         for item in items {
             match item {
                 ast::Item::Fn(f) => {
-                    println!("Registering function: {}", f.name.as_str());
                     let def_id = self.def_id_gen.next();
                     self.scope_tree.add_binding(f.name, def_id);
-                }
+                    let infer_id = self.type_context.new_infer_var();
+                    self.type_context
+                        .set_def_type(def_id, Type::Infer(infer_id));
+                },
                 ast::Item::Struct(s) => {
                     let def_id = self.def_id_gen.next();
                     self.scope_tree.add_binding(s.name, def_id);
-                }
-                _ => {}
+                    self.type_context.set_def_type(def_id, Type::Adt(def_id));
+                },
+                ast::Item::Enum(e) => {
+                    let def_id = self.def_id_gen.next();
+                    self.scope_tree.add_binding(e.name, def_id);
+                    self.type_context.set_def_type(def_id, Type::Adt(def_id));
+                },
+                ast::Item::Trait(t) => {
+                    let def_id = self.def_id_gen.next();
+                    self.scope_tree.add_binding(t.name, def_id);
+                },
+                ast::Item::Impl(imp) => {
+                    let def_id = self.def_id_gen.next();
+                    self.type_context.set_def_type(def_id, Type::Adt(def_id));
+                },
+                ast::Item::Const(c) => {
+                    let def_id = self.def_id_gen.next();
+                    self.scope_tree.add_binding(c.name, def_id);
+                    let infer_id = self.type_context.new_infer_var();
+                    self.type_context
+                        .set_def_type(def_id, Type::Infer(infer_id));
+                },
+                ast::Item::Static(s) => {
+                    let def_id = self.def_id_gen.next();
+                    self.scope_tree.add_binding(s.name, def_id);
+                    let infer_id = self.type_context.new_infer_var();
+                    self.type_context
+                        .set_def_type(def_id, Type::Infer(infer_id));
+                },
+                ast::Item::Use(u) => {
+                    let def_id = self.def_id_gen.next();
+                    if let Some(seg) = u.path.segments.first() {
+                        self.scope_tree.add_binding(seg.ident, def_id);
+                    }
+                },
             }
         }
     }
@@ -111,7 +191,7 @@ impl<'a> SemanticAnalyzer<'a> {
         // Extract body into proper structure
         let body = Body {
             params: vec![], // TODO: Handle patterns
-            value: body_expr
+            value: body_expr,
         };
 
         Some(FnItem {
@@ -148,11 +228,7 @@ impl<'a> SemanticAnalyzer<'a> {
 
         self.scope_tree.exit_scope();
 
-        Some(Expr::Block {
-            stmts,
-            expr,
-            ty,
-        })
+        Some(Expr::Block { stmts, expr, ty })
     }
 
     /// Analyze statement
@@ -187,7 +263,7 @@ impl<'a> SemanticAnalyzer<'a> {
                     ty: Type::Int,
                     init,
                 })
-            }
+            },
             ast::Stmt::If(if_stmt) => {
                 // Convert Stmt::If to Expr::If wrapped in Stmt::Expr
                 let if_expr = self.analyze_if(ast::IfExpr {
@@ -200,21 +276,23 @@ impl<'a> SemanticAnalyzer<'a> {
                             then_block: i.then_block,
                             else_block: i.else_clause.map(|ec| match *ec {
                                 ast::ElseClause::Block(b) => Box::new(ast::Expr::Block(b)),
-                                ast::ElseClause::If(next_i) => Box::new(ast::Expr::If(ast::IfExpr {
-                                    cond: Box::new(next_i.cond),
-                                    then_block: next_i.then_block,
-                                    else_block: None, // Simplified for deep nesting
-                                })),
+                                ast::ElseClause::If(next_i) => {
+                                    Box::new(ast::Expr::If(ast::IfExpr {
+                                        cond: Box::new(next_i.cond),
+                                        then_block: next_i.then_block,
+                                        else_block: None, // Simplified for deep nesting
+                                    }))
+                                },
                             }),
                         })),
                     }),
                 })?;
                 Some(Stmt::Expr(if_expr))
-            }
+            },
             ast::Stmt::Expr(e) => {
                 let expr = self.analyze_expr(e)?;
                 Some(Stmt::Expr(expr))
-            }
+            },
             _ => None,
         }
     }
@@ -225,9 +303,218 @@ impl<'a> SemanticAnalyzer<'a> {
             ast::Expr::Literal(lit) => self.analyze_literal(lit),
             ast::Expr::Path(path) => self.analyze_path(path),
             ast::Expr::Binary(bin) => self.analyze_binary(bin),
+            ast::Expr::Unary(unary) => self.analyze_unary(unary),
             ast::Expr::If(if_expr) => self.analyze_if(if_expr),
+            ast::Expr::Call(call) => self.analyze_call(call),
+            ast::Expr::Block(block) => self.analyze_block(block),
+            ast::Expr::Tuple(items) => self.analyze_tuple(items),
+            ast::Expr::Array(items) => self.analyze_array(items),
+            ast::Expr::Index(index_expr) => self.analyze_index(index_expr),
+            ast::Expr::Field(field_expr) => self.analyze_field(field_expr),
+            ast::Expr::Match(match_expr) => self.analyze_match(match_expr),
+            ast::Expr::Return(ret) => self.analyze_return(ret),
+            ast::Expr::Break(value, label) => self.analyze_break(value, label),
+            ast::Expr::Continue(label) => self.analyze_continue(label),
             _ => None,
         }
+    }
+
+    /// Analyze unary expression
+    fn analyze_unary(&mut self, expr: ast::UnaryExpr) -> Option<Expr> {
+        let inner = self.analyze_expr(*expr.expr)?;
+
+        let op = match expr.op {
+            ast::UnOp::Neg => UnOp::Neg,
+            ast::UnOp::Not => UnOp::Not,
+            ast::UnOp::BitNot => UnOp::Not, // Map to Not for now
+            ast::UnOp::Deref => UnOp::Deref,
+            ast::UnOp::Ref(mutable) => UnOp::Ref(mutable),
+        };
+
+        let ty = match op {
+            UnOp::Neg => inner.ty(),
+            UnOp::Not => Type::Bool,
+            UnOp::Deref => Type::Unit, // TODO: Deref type
+            UnOp::Ref(true) => Type::Ref(Box::new(inner.ty()), true),
+            UnOp::Ref(false) => Type::Ref(Box::new(inner.ty()), false),
+        };
+
+        Some(Expr::Unary {
+            op,
+            expr: Box::new(inner),
+            ty,
+        })
+    }
+
+    /// Analyze function call
+    fn analyze_call(&mut self, call: ast::CallExpr) -> Option<Expr> {
+        let func = self.analyze_expr(*call.func)?;
+
+        let mut args = Vec::new();
+        for arg in call.args {
+            if let Some(a) = self.analyze_expr(arg) {
+                args.push(a);
+            }
+        }
+
+        let ty = Type::Unit; // TODO: Infer return type
+
+        Some(Expr::Call {
+            func: Box::new(func),
+            args,
+            ty,
+        })
+    }
+
+    /// Analyze tuple
+    fn analyze_tuple(&mut self, items: Vec<ast::Expr>) -> Option<Expr> {
+        let mut analyzed = Vec::new();
+        for item in items {
+            if let Some(a) = self.analyze_expr(item) {
+                analyzed.push(a);
+            }
+        }
+
+        let ty = Type::Tuple(analyzed.iter().map(|e| e.ty()).collect());
+
+        Some(Expr::Literal {
+            lit: Literal::Unit,
+            ty,
+        })
+    }
+
+    /// Analyze array
+    fn analyze_array(&mut self, items: Vec<ast::Expr>) -> Option<Expr> {
+        let mut analyzed = Vec::new();
+        for item in items {
+            if let Some(a) = self.analyze_expr(item) {
+                analyzed.push(a);
+            }
+        }
+
+        let ty = Type::Array(Box::new(Type::Unit), analyzed.len()); // TODO: Element type
+
+        Some(Expr::Literal {
+            lit: Literal::Unit,
+            ty,
+        })
+    }
+
+    /// Analyze index expression
+    fn analyze_index(&mut self, index_expr: ast::IndexExpr) -> Option<Expr> {
+        let object = self.analyze_expr(*index_expr.object)?;
+        let index = self.analyze_expr(*index_expr.index)?;
+
+        let ty = Type::Unit; // TODO: Element type
+
+        Some(Expr::Literal {
+            lit: Literal::Unit,
+            ty,
+        })
+    }
+
+    /// Analyze field access
+    fn analyze_field(&mut self, field_expr: ast::FieldExpr) -> Option<Expr> {
+        let object = self.analyze_expr(*field_expr.object)?;
+
+        // Resolve field name to def_id (placeholder)
+        let field = DefId(0);
+
+        let ty = Type::Unit; // TODO: Field type
+
+        Some(Expr::Field {
+            object: Box::new(object),
+            field,
+            ty,
+        })
+    }
+
+    /// Analyze match expression
+    fn analyze_match(&mut self, match_expr: ast::MatchExpr) -> Option<Expr> {
+        let scrutinee = self.analyze_expr(*match_expr.scrutinee)?;
+
+        let mut arms = Vec::new();
+        for arm in match_expr.arms {
+            let pat = self.analyze_pattern(arm.pattern)?;
+            let guard = arm.guard.and_then(|g| self.analyze_expr(g));
+            let body = self.analyze_expr(arm.body)?;
+
+            arms.push(Arm { pat, guard, body });
+        }
+
+        let ty = Type::Unit; // TODO: Infer from arms
+
+        Some(Expr::Match {
+            scrutinee: Box::new(scrutinee),
+            arms,
+            ty,
+        })
+    }
+
+    /// Analyze pattern
+    fn analyze_pattern(&mut self, pat: ast::Pattern) -> Option<Pattern> {
+        match pat {
+            ast::Pattern::Wildcard => Some(Pattern::Wildcard),
+            ast::Pattern::Ident(name, mutability) => {
+                let ty = Type::Infer(InferId(0));
+                Some(Pattern::Binding {
+                    name,
+                    ty,
+                    mutability: matches!(mutability, ast::Mutability::Mutable),
+                })
+            },
+            ast::Pattern::Literal(lit) => {
+                let (lit_kind, ty) = match lit {
+                    ast::Literal::Int(n) => (Literal::Int(n), Type::Int),
+                    ast::Literal::Float(f) => (Literal::Float(f), Type::Float),
+                    ast::Literal::String(s) => (Literal::String(s), Type::String),
+                    ast::Literal::Bool(b) => (Literal::Bool(b), Type::Bool),
+                    ast::Literal::Char(c) => (Literal::Char(c), Type::Char),
+                    ast::Literal::Unit => (Literal::Unit, Type::Unit),
+                };
+                Some(Pattern::Binding {
+                    name: faxc_util::Symbol::intern("_"),
+                    ty,
+                    mutability: false,
+                })
+            },
+            ast::Pattern::Path(path) => {
+                let name = path.segments.first()?.ident;
+                let def_id = self.scope_tree.resolve(name).unwrap_or(DefId(0));
+                Some(Pattern::Path { def_id })
+            },
+            ast::Pattern::Tuple(pats) => {
+                let mut analyzed = Vec::new();
+                for p in pats {
+                    if let Some(ap) = self.analyze_pattern(p) {
+                        analyzed.push(ap);
+                    }
+                }
+                Some(Pattern::Tuple { pats: analyzed })
+            },
+            _ => None,
+        }
+    }
+
+    /// Analyze return expression
+    fn analyze_return(&mut self, value: Option<Box<ast::Expr>>) -> Option<Expr> {
+        let val = value.and_then(|v| self.analyze_expr(*v));
+        Some(Expr::Return(val.map(Box::new)))
+    }
+
+    /// Analyze break expression
+    fn analyze_break(
+        &mut self,
+        value: Option<Box<ast::Expr>>,
+        label: Option<faxc_util::Symbol>,
+    ) -> Option<Expr> {
+        let val = value.and_then(|v| self.analyze_expr(*v));
+        Some(Expr::Break(val.map(Box::new), label.map(|_| LabelId(0))))
+    }
+
+    /// Analyze continue expression
+    fn analyze_continue(&mut self, label: Option<faxc_util::Symbol>) -> Option<Expr> {
+        Some(Expr::Continue(label.map(|_| LabelId(0))))
     }
 
     /// Analyze if expression
@@ -236,7 +523,10 @@ impl<'a> SemanticAnalyzer<'a> {
 
         // Condition must be bool
         if cond.ty() != Type::Bool {
-            self.handler.error("If condition must be a boolean".to_string(), faxc_util::Span::DUMMY);
+            self.handler.error(
+                "If condition must be a boolean".to_string(),
+                faxc_util::Span::DUMMY,
+            );
         }
 
         let then_expr = Box::new(self.analyze_block(expr.then_block)?);
@@ -251,12 +541,18 @@ impl<'a> SemanticAnalyzer<'a> {
 
             // Check type compatibility
             if then_expr.ty() != ty {
-                self.handler.error("If and Else branches must have the same type".to_string(), faxc_util::Span::DUMMY);
+                self.handler.error(
+                    "If and Else branches must have the same type".to_string(),
+                    faxc_util::Span::DUMMY,
+                );
             }
         } else {
             // If no else, type must be unit
             if then_expr.ty() != Type::Unit {
-                self.handler.error("If branch without else must return unit".to_string(), faxc_util::Span::DUMMY);
+                self.handler.error(
+                    "If branch without else must return unit".to_string(),
+                    faxc_util::Span::DUMMY,
+                );
             }
         }
 
@@ -289,7 +585,11 @@ impl<'a> SemanticAnalyzer<'a> {
         let def_id = self.scope_tree.resolve(name.ident)?;
 
         // Get type of definition (Mocked for MVP if not in context)
-        let ty = self.type_context.type_of_def(def_id).cloned().unwrap_or(Type::Int);
+        let ty = self
+            .type_context
+            .type_of_def(def_id)
+            .cloned()
+            .unwrap_or(Type::Int);
 
         Some(Expr::Var { def_id, ty })
     }
@@ -336,23 +636,21 @@ impl<'a> SemanticAnalyzer<'a> {
                 // Bitwise XOR not yet supported in HIR
                 self.handler.error(
                     "Bitwise XOR operator is not yet supported".to_string(),
-                    span
+                    span,
                 );
                 Some(BinOp::And) // Fallback to prevent compilation failure
             },
             ast::BinOp::Shl => {
                 // Shift left not yet supported in HIR
-                self.handler.error(
-                    "Shift left operator is not yet supported".to_string(),
-                    span
-                );
+                self.handler
+                    .error("Shift left operator is not yet supported".to_string(), span);
                 Some(BinOp::Add) // Fallback to prevent compilation failure
             },
             ast::BinOp::Shr => {
                 // Shift right not yet supported in HIR
                 self.handler.error(
                     "Shift right operator is not yet supported".to_string(),
-                    span
+                    span,
                 );
                 Some(BinOp::Add) // Fallback to prevent compilation failure
             },

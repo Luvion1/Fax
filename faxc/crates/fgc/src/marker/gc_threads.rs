@@ -2,6 +2,13 @@
 //!
 //! This module implements worker threads for concurrent marking.
 //! Uses work-stealing for load balancing between threads.
+//!
+//! ## Termination Detection
+//!
+//! Uses a credit-based termination algorithm:
+//! - Each worker gets credits for work they can do
+//! - When all workers are idle and queues empty, marking is done
+//! - Adaptive polling based on workload
 
 use crate::error::Result;
 use crate::marker::mark_queue::MarkQueue;
@@ -25,10 +32,19 @@ pub struct GcWorker {
     should_stop: AtomicBool,
     /// Reference to global queue
     global_queue: Arc<MarkQueue>,
+    /// Work in flight counter (for termination detection)
+    work_in_flight: Arc<AtomicUsize>,
+    /// Termination detection
+    idle_cycles: AtomicUsize,
 }
 
 impl GcWorker {
-    pub fn new(id: usize, marker: Arc<Marker>, global_queue: Arc<MarkQueue>) -> Self {
+    pub fn new(
+        id: usize,
+        marker: Arc<Marker>,
+        global_queue: Arc<MarkQueue>,
+        work_in_flight: Arc<AtomicUsize>,
+    ) -> Self {
         Self {
             id,
             marker,
@@ -36,6 +52,8 @@ impl GcWorker {
             idle: AtomicBool::new(true),
             should_stop: AtomicBool::new(false),
             global_queue,
+            work_in_flight,
+            idle_cycles: AtomicUsize::new(0),
         }
     }
 
@@ -54,15 +72,23 @@ impl GcWorker {
     }
 
     fn run(&self, marking_worker: &mut crate::marker::mark_queue::MarkingWorker) {
-        let mut empty_count = 0;
+        const MAX_IDLE_CYCLES: usize = 100;
+        const SPIN_ITERATIONS: usize = 50;
+        const MIN_SLEEP_US: u64 = 10;
+        const MAX_SLEEP_US: u64 = 1000;
+
+        let mut consecutive_empty = 0;
+        let mut adaptive_sleep_us = MIN_SLEEP_US;
 
         while !self.should_stop.load(Ordering::Relaxed) {
-            // MarkingWorker::pop handles local pop, global injector pop, and stealing
             if let Some(object) = marking_worker.pop() {
                 self.idle.store(false, Ordering::Relaxed);
-                empty_count = 0;
+                consecutive_empty = 0;
+                adaptive_sleep_us = MIN_SLEEP_US;
+                self.idle_cycles.store(0, Ordering::Relaxed);
 
-                // marker.concurrent_mark logic integrated here
+                let _prev_in_flight = self.work_in_flight.fetch_add(1, Ordering::Acquire);
+
                 match self.marker.process_object(object, marking_worker) {
                     Ok(_) => {
                         self.processed_count.fetch_add(1, Ordering::Relaxed);
@@ -76,28 +102,48 @@ impl GcWorker {
                         );
                     },
                 }
+
+                self.work_in_flight.fetch_sub(1, Ordering::Release);
                 continue;
             }
 
-            // No work found
             self.idle.store(true, Ordering::Relaxed);
-            empty_count += 1;
+            consecutive_empty += 1;
 
-            // If queue is empty for ~500ms, consider marking complete
-            // This handles the case where all roots have been processed
-            // but marking_in_progress hasn't been set to false yet
-            if empty_count > 50 {
-                // Double-check with a small wait
-                std::thread::sleep(Duration::from_millis(10));
-                if self.global_queue.is_empty() && !self.marker.is_marking_in_progress() {
-                    break;
-                }
-                empty_count = 0;
+            if self.check_termination() {
+                break;
             }
 
-            // Brief sleep to reduce CPU usage when idle
-            std::thread::sleep(Duration::from_micros(100));
+            if consecutive_empty < SPIN_ITERATIONS {
+                std::hint::spin_loop();
+            } else {
+                let cycles = self.idle_cycles.fetch_add(1, Ordering::Relaxed);
+                adaptive_sleep_us = (adaptive_sleep_us * 2).min(MAX_SLEEP_US);
+
+                if cycles < MAX_IDLE_CYCLES {
+                    std::thread::sleep(Duration::from_micros(adaptive_sleep_us));
+                } else {
+                    if self.global_queue.is_empty() && !self.marker.is_marking_in_progress() {
+                        break;
+                    }
+                    self.idle_cycles.store(0, Ordering::Relaxed);
+                }
+            }
         }
+    }
+
+    #[inline]
+    fn check_termination(&self) -> bool {
+        if !self.global_queue.is_empty() {
+            return false;
+        }
+
+        if !self.marker.is_marking_in_progress() {
+            return true;
+        }
+
+        let in_flight = self.work_in_flight.load(Ordering::Acquire);
+        in_flight == 0
     }
 
     pub fn stop(&self) {
@@ -123,12 +169,14 @@ pub struct GcThreadPool {
 
 impl GcThreadPool {
     pub fn new(count: usize, marker: Arc<Marker>, global_queue: Arc<MarkQueue>) -> Self {
+        let work_in_flight = Arc::new(AtomicUsize::new(0));
         let mut workers = Vec::with_capacity(count);
         for i in 0..count {
             workers.push(Arc::new(GcWorker::new(
                 i,
                 Arc::clone(&marker),
                 Arc::clone(&global_queue),
+                work_in_flight.clone(),
             )));
         }
 

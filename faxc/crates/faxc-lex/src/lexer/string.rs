@@ -74,7 +74,7 @@ impl<'a> Lexer<'a> {
         }
         self.cursor.advance();
 
-        let mut closing_delimiter = String::from("\"");
+        let mut closing_delimiter = String::new();
         for _ in 0..hash_count {
             closing_delimiter.push('#');
         }
@@ -84,15 +84,17 @@ impl<'a> Lexer<'a> {
         let mut found_closing = false;
 
         while !self.cursor.is_at_end() {
-            if self.cursor.current_char() == '"' {
-                let remaining = self.cursor.remaining();
-                if remaining.starts_with(&closing_delimiter) {
-                    for _ in 0..closing_delimiter.len() {
-                        self.cursor.advance();
-                    }
-                    found_closing = true;
-                    break;
+            let mut lookahead = String::new();
+            for i in 0..closing_delimiter.len() {
+                let c = self.cursor.peek_char(i);
+                lookahead.push(c);
+            }
+            if lookahead == closing_delimiter {
+                for _ in 0..closing_delimiter.len() {
+                    self.cursor.advance();
                 }
+                found_closing = true;
+                break;
             }
 
             content.push(self.cursor.current_char());
@@ -270,7 +272,7 @@ mod tests {
 
     #[test]
     fn test_raw_string_with_quotes() {
-        let token = lex_raw_str("r#\"hello \"world\" \"#");
+        let token = lex_raw_str("r#\"hello \"world\" #\"");
         assert_eq!(token, Token::RawString(Symbol::intern("hello \"world\" ")));
     }
 

@@ -2,7 +2,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::{Parser, Ast, Item};
+    use crate::{Ast, Item, Parser};
     use faxc_lex::{Lexer, Token};
     use faxc_util::Handler;
 
@@ -260,7 +260,8 @@ mod tests {
     /// EDGE CASE: All literal types
     #[test]
     fn test_edge_all_literals() {
-        let source = "fn main() { let a = 42; let b = 3.14; let c = \"hello\"; let d = true; let e = 'x'; }";
+        let source =
+            "fn main() { let a = 42; let b = 3.14; let c = \"hello\"; let d = true; let e = 'x'; }";
         let (ast, handler) = parse_source(source);
         assert!(!handler.has_errors());
     }

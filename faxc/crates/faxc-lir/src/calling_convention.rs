@@ -1,9 +1,9 @@
 //! System V AMD64 ABI Calling Convention
-//! 
+//!
 //! MIR-LIR-CODEGEN-DEV-001: Subtask 2
 //! Implements the System V AMD64 calling convention used on Linux, macOS, BSD.
 
-use crate::lir::{PhysicalRegister, Operand, VirtualRegister, RegisterWidth};
+use crate::lir::{Operand, PhysicalRegister, RegisterWidth, VirtualRegister};
 
 /// System V AMD64 ABI calling convention handler
 pub struct SystemVAbi;
@@ -177,7 +177,7 @@ impl CallFrame {
     pub fn new(frame_size: u32) -> Self {
         Self {
             return_address_offset: 0,
-            first_arg_offset: 8,  // After return address
+            first_arg_offset: 8, // After return address
             frame_size,
             saved_regs: Vec::new(),
         }
@@ -202,8 +202,14 @@ mod abi_tests {
 
     #[test]
     fn test_fp_arg_registers() {
-        assert_eq!(SystemVAbi::get_fp_arg_register(0), Some(PhysicalRegister::XMM0));
-        assert_eq!(SystemVAbi::get_fp_arg_register(7), Some(PhysicalRegister::XMM7));
+        assert_eq!(
+            SystemVAbi::get_fp_arg_register(0),
+            Some(PhysicalRegister::XMM0)
+        );
+        assert_eq!(
+            SystemVAbi::get_fp_arg_register(7),
+            Some(PhysicalRegister::XMM7)
+        );
         assert_eq!(SystemVAbi::get_fp_arg_register(8), None);
     }
 

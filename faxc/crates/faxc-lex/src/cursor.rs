@@ -73,10 +73,30 @@ impl<'a> Cursor<'a> {
     /// assert_eq!(cursor.current_char(), 'a');
     /// ```
     pub fn current_char(&self) -> char {
-        self.source[self.position..]
-            .chars()
-            .next()
-            .unwrap_or('\0')
+        self.char_at(0)
+    }
+
+    /// Returns the character at the given byte offset from current position.
+    /// This is more efficient than peek_char for small offsets.
+    ///
+    /// # Arguments
+    ///
+    /// * `offset` - Number of bytes to look ahead
+    #[inline]
+    pub fn char_at(&self, offset: usize) -> char {
+        let pos = self.position + offset;
+        if pos >= self.source.len() {
+            return '\0';
+        }
+
+        // Fast path for ASCII (most common case)
+        let b = self.source.as_bytes()[pos];
+        if b < 128 {
+            return b as char;
+        }
+
+        // Slow path for UTF-8
+        self.source[pos..].chars().next().unwrap_or('\0')
     }
 
     /// Returns the character at the given offset from the current position.
@@ -96,9 +116,47 @@ impl<'a> Cursor<'a> {
     /// assert_eq!(cursor.peek_char(2), 'c');
     /// assert_eq!(cursor.peek_char(3), '\0');
     /// ```
+    #[inline]
     pub fn peek_char(&self, offset: usize) -> char {
-        let mut chars = self.source[self.position..].chars();
-        chars.nth(offset).unwrap_or('\0')
+        self.char_at(offset)
+    }
+
+    /// Returns true if the current character is ASCII.
+    #[inline]
+    pub fn is_ascii(&self) -> bool {
+        if self.position >= self.source.len() {
+            return true; // Treat end as ASCII for simplicity
+        }
+        self.source.as_bytes()[self.position] < 128
+    }
+
+    /// Returns the current character as ASCII byte, or None if not ASCII or at end.
+    #[inline]
+    pub fn current_byte(&self) -> Option<u8> {
+        if self.position >= self.source.len() {
+            return None;
+        }
+        let b = self.source.as_bytes()[self.position];
+        if b < 128 {
+            Some(b)
+        } else {
+            None
+        }
+    }
+
+    /// Peeks at the next character as ASCII byte.
+    #[inline]
+    pub fn peek_byte(&self, offset: usize) -> Option<u8> {
+        let pos = self.position + offset;
+        if pos >= self.source.len() {
+            return None;
+        }
+        let b = self.source.as_bytes()[pos];
+        if b < 128 {
+            Some(b)
+        } else {
+            None
+        }
     }
 
     /// Advances the cursor to the next character.
@@ -115,7 +173,26 @@ impl<'a> Cursor<'a> {
     /// cursor.advance();
     /// assert_eq!(cursor.current_char(), 'b');
     /// ```
+    #[inline]
     pub fn advance(&mut self) {
+        if self.position >= self.source.len() {
+            return;
+        }
+
+        // Fast path for ASCII (most common)
+        let b = self.source.as_bytes()[self.position];
+        if b < 128 {
+            self.position += 1;
+            if b == b'\n' {
+                self.line += 1;
+                self.column = 1;
+            } else {
+                self.column += 1;
+            }
+            return;
+        }
+
+        // Slow path for UTF-8 multi-byte characters
         if let Some(c) = self.source[self.position..].chars().next() {
             self.position += c.len_utf8();
             if c == '\n' {
@@ -149,6 +226,27 @@ impl<'a> Cursor<'a> {
             }
             self.advance();
         }
+    }
+
+    /// Advances by specified byte count (more efficient for ASCII).
+    #[inline]
+    pub fn advance_bytes(&mut self, count: usize) {
+        let remaining = self.source.len() - self.position;
+        let advance = count.min(remaining);
+
+        // Count newlines in the advanced portion for line tracking
+        let start = self.position;
+        let end = self.position + advance;
+        for i in start..end {
+            if self.source.as_bytes()[i] == b'\n' {
+                self.line += 1;
+                self.column = 1;
+            } else {
+                self.column += 1;
+            }
+        }
+
+        self.position += advance;
     }
 
     /// Returns true if the cursor is at the end of the source.

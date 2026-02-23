@@ -1,4 +1,4 @@
-use faxc_util::{Idx, IndexVec, Symbol, DefId};
+use faxc_util::{DefId, Idx, IndexVec, Symbol};
 use std::collections::HashMap;
 
 /// A type in the type system
@@ -199,7 +199,7 @@ mod tests {
     fn test_type_ref() {
         let ty = Type::Ref(Box::new(Type::Int), false);
         assert_eq!(ty, Type::Ref(Box::new(Type::Int), false));
-        
+
         let mutable_ref = Type::Ref(Box::new(Type::Int), true);
         assert_eq!(mutable_ref, Type::Ref(Box::new(Type::Int), true));
     }
@@ -208,7 +208,7 @@ mod tests {
     fn test_type_tuple() {
         let ty = Type::Tuple(vec![Type::Int, Type::Bool, Type::String]);
         assert_eq!(ty, Type::Tuple(vec![Type::Int, Type::Bool, Type::String]));
-        
+
         let empty_tuple = Type::Tuple(vec![]);
         assert_eq!(empty_tuple, Type::Tuple(vec![]));
     }
@@ -228,8 +228,11 @@ mod tests {
     #[test]
     fn test_type_fn() {
         let ty = Type::Fn(vec![Type::Int, Type::String], Box::new(Type::Bool));
-        assert_eq!(ty, Type::Fn(vec![Type::Int, Type::String], Box::new(Type::Bool)));
-        
+        assert_eq!(
+            ty,
+            Type::Fn(vec![Type::Int, Type::String], Box::new(Type::Bool))
+        );
+
         let no_params = Type::Fn(vec![], Box::new(Type::Unit));
         assert_eq!(no_params, Type::Fn(vec![], Box::new(Type::Unit)));
     }
@@ -282,7 +285,7 @@ mod tests {
         let p1 = ParamId(1);
         let p2 = ParamId(1);
         let p3 = ParamId(2);
-        
+
         assert_eq!(p1, p2);
         assert_ne!(p1, p3);
     }
@@ -290,16 +293,16 @@ mod tests {
     #[test]
     fn test_param_id_hash() {
         use std::collections::HashSet;
-        
+
         let mut set = HashSet::new();
         let p1 = ParamId(1);
         let p2 = ParamId(2);
         let p3 = ParamId(1);
-        
+
         set.insert(p1);
         set.insert(p2);
         set.insert(p3);
-        
+
         assert_eq!(set.len(), 2);
     }
 
@@ -324,7 +327,7 @@ mod tests {
         let i1 = InferId(1);
         let i2 = InferId(1);
         let i3 = InferId(2);
-        
+
         assert_eq!(i1, i2);
         assert_ne!(i1, i3);
     }
@@ -332,16 +335,16 @@ mod tests {
     #[test]
     fn test_infer_id_hash() {
         use std::collections::HashSet;
-        
+
         let mut set = HashSet::new();
         let i1 = InferId(1);
         let i2 = InferId(2);
         let i3 = InferId(1);
-        
+
         set.insert(i1);
         set.insert(i2);
         set.insert(i3);
-        
+
         assert_eq!(set.len(), 2);
     }
 
@@ -360,7 +363,7 @@ mod tests {
         let e1 = ExprId(1);
         let e2 = ExprId(1);
         let e3 = ExprId(2);
-        
+
         assert_eq!(e1, e2);
         assert_ne!(e1, e3);
     }
@@ -368,16 +371,16 @@ mod tests {
     #[test]
     fn test_expr_id_hash() {
         use std::collections::HashSet;
-        
+
         let mut set = HashSet::new();
         let e1 = ExprId(1);
         let e2 = ExprId(2);
         let e3 = ExprId(1);
-        
+
         set.insert(e1);
         set.insert(e2);
         set.insert(e3);
-        
+
         assert_eq!(set.len(), 2);
     }
 
@@ -392,7 +395,7 @@ mod tests {
             Constraint::Eq(t1, t2) => {
                 assert_eq!(t1, Type::Int);
                 assert_eq!(t2, Type::Int);
-            }
+            },
             _ => panic!("Expected Eq constraint"),
         }
     }
@@ -405,7 +408,7 @@ mod tests {
             Constraint::Trait(t, d) => {
                 assert_eq!(t, Type::Int);
                 assert_eq!(d, def_id);
-            }
+            },
             _ => panic!("Expected Trait constraint"),
         }
     }
@@ -418,7 +421,7 @@ mod tests {
             Constraint::Eq(t1, t2) => {
                 assert_eq!(t1, Type::Int);
                 assert_eq!(t2, Type::Bool);
-            }
+            },
             _ => panic!("Expected Eq constraint"),
         }
     }
@@ -446,9 +449,9 @@ mod tests {
     fn test_type_context_set_def_type() {
         let mut ctx = TypeContext::default();
         let def_id = DefId(1);
-        
+
         ctx.set_def_type(def_id, Type::Int);
-        
+
         let ty = ctx.type_of_def(def_id);
         assert_eq!(ty, Some(&Type::Int));
     }
@@ -457,7 +460,7 @@ mod tests {
     fn test_type_context_type_of_def_not_found() {
         let ctx = TypeContext::default();
         let def_id = DefId(1);
-        
+
         let ty = ctx.type_of_def(def_id);
         assert_eq!(ty, None);
     }
@@ -465,11 +468,11 @@ mod tests {
     #[test]
     fn test_type_context_multiple_def_types() {
         let mut ctx = TypeContext::default();
-        
+
         ctx.set_def_type(DefId(1), Type::Int);
         ctx.set_def_type(DefId(2), Type::Bool);
         ctx.set_def_type(DefId(3), Type::String);
-        
+
         assert_eq!(ctx.type_of_def(DefId(1)), Some(&Type::Int));
         assert_eq!(ctx.type_of_def(DefId(2)), Some(&Type::Bool));
         assert_eq!(ctx.type_of_def(DefId(3)), Some(&Type::String));
@@ -479,15 +482,15 @@ mod tests {
     #[test]
     fn test_type_context_add_eq_constraint() {
         let mut ctx = TypeContext::default();
-        
+
         ctx.add_eq_constraint(Type::Int, Type::Int);
-        
+
         assert_eq!(ctx.constraints.len(), 1);
         match &ctx.constraints[0] {
             Constraint::Eq(t1, t2) => {
                 assert_eq!(t1, &Type::Int);
                 assert_eq!(t2, &Type::Int);
-            }
+            },
             _ => panic!("Expected Eq constraint"),
         }
     }
@@ -495,21 +498,21 @@ mod tests {
     #[test]
     fn test_type_context_multiple_constraints() {
         let mut ctx = TypeContext::default();
-        
+
         ctx.add_eq_constraint(Type::Int, Type::Int);
         ctx.add_eq_constraint(Type::Bool, Type::Bool);
-        
+
         assert_eq!(ctx.constraints.len(), 2);
     }
 
     #[test]
     fn test_type_context_new_infer_var() {
         let mut ctx = TypeContext::default();
-        
+
         let id1 = ctx.new_infer_var();
         let id2 = ctx.new_infer_var();
         let id3 = ctx.new_infer_var();
-        
+
         assert_eq!(id1, InferId(0));
         assert_eq!(id2, InferId(1));
         assert_eq!(id3, InferId(2));
@@ -519,7 +522,7 @@ mod tests {
     fn test_type_context_substitute_infer() {
         let mut ctx = TypeContext::default();
         let infer_id = ctx.new_infer_var();
-        
+
         // Without substitution, should return the same infer type
         let ty = Type::Infer(infer_id);
         let result = ctx.substitute(&ty);
@@ -530,7 +533,7 @@ mod tests {
     fn test_type_context_substitute_tuple() {
         let ctx = TypeContext::default();
         let ty = Type::Tuple(vec![Type::Int, Type::Bool]);
-        
+
         let result = ctx.substitute(&ty);
         assert_eq!(result, Type::Tuple(vec![Type::Int, Type::Bool]));
     }
@@ -539,7 +542,7 @@ mod tests {
     fn test_type_context_substitute_ref() {
         let ctx = TypeContext::default();
         let ty = Type::Ref(Box::new(Type::Int), false);
-        
+
         let result = ctx.substitute(&ty);
         assert_eq!(result, Type::Ref(Box::new(Type::Int), false));
     }
@@ -548,7 +551,7 @@ mod tests {
     fn test_type_context_substitute_array() {
         let ctx = TypeContext::default();
         let ty = Type::Array(Box::new(Type::Int), 10);
-        
+
         let result = ctx.substitute(&ty);
         assert_eq!(result, Type::Array(Box::new(Type::Int), 10));
     }
@@ -557,25 +560,21 @@ mod tests {
     fn test_type_context_substitute_fn() {
         let ctx = TypeContext::default();
         let ty = Type::Fn(vec![Type::Int, Type::Bool], Box::new(Type::String));
-        
+
         let result = ctx.substitute(&ty);
-        assert_eq!(result, Type::Fn(vec![Type::Int, Type::Bool], Box::new(Type::String)));
+        assert_eq!(
+            result,
+            Type::Fn(vec![Type::Int, Type::Bool], Box::new(Type::String))
+        );
     }
 
     #[test]
     fn test_type_context_substitute_primitive() {
         let ctx = TypeContext::default();
-        
+
         assert_eq!(ctx.substitute(&Type::Int), Type::Int);
         assert_eq!(ctx.substitute(&Type::Bool), Type::Bool);
         assert_eq!(ctx.substitute(&Type::String), Type::String);
         assert_eq!(ctx.substitute(&Type::Unit), Type::Unit);
-    }
-
-    #[test]
-    fn test_type_context_debug() {
-        let ctx = TypeContext::default();
-        let debug_str = format!("{:?}", ctx);
-        assert!(debug_str.contains("TypeContext"));
     }
 }

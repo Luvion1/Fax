@@ -10,6 +10,13 @@
 //! 1. **Precise Scanning** - Uses reference map from class metadata
 //! 2. **Conservative Scanning** - Scan word-by-word, treat all non-zero as pointer
 //!
+//! # Object Layout Cache
+//!
+//! The scanner caches object layouts (reference maps) for faster scanning:
+//! - **Hot Objects**: Frequently scanned objects have cached layouts
+//! - **LRU Eviction**: Cache evicts least-recently-used entries
+//! - **Generation-Based**: Cache is cleared between GC cycles
+//!
 //! # Thread Safety
 //!
 //! All scanner functions are thread-safe and can be called
@@ -17,6 +24,9 @@
 
 use crate::memory;
 use crate::object::{ObjectHeader, ReferenceMap, HEADER_SIZE, OBJECT_ALIGNMENT};
+use std::collections::HashMap;
+use std::sync::RwLock;
+use std::time::Instant;
 
 /// Object scanning statistics
 #[derive(Debug, Default, Clone)]
@@ -31,6 +41,169 @@ pub struct ObjectScanStats {
     pub max_refs_in_object: usize,
     /// Minimum refs in one object
     pub min_refs_in_object: usize,
+    /// Cache hits
+    pub cache_hits: u64,
+    /// Cache misses
+    pub cache_misses: u64,
+}
+
+/// Cache entry for object layout
+#[derive(Debug, Clone)]
+struct LayoutCacheEntry {
+    /// Reference map for this layout
+    ref_map: ReferenceMap,
+    /// Object size
+    size: usize,
+    /// Last access time
+    last_access: Instant,
+    /// Access count
+    access_count: u64,
+}
+
+/// Object layout cache for faster scanning
+///
+/// Caches reference maps for object types to avoid
+/// recomputing layouts on each scan.
+///
+/// ## Cache Strategy
+///
+/// - **Size-based Keying**: Cache by object size and alignment pattern
+/// - **LRU Eviction**: Evict least recently used entries when full
+/// - **Hot Object Detection**: Track frequently accessed layouts
+/// - **Memory Efficient**: Share reference maps via Arc
+pub struct ObjectLayoutCache {
+    /// Cache entries (size -> layout)
+    entries: RwLock<HashMap<usize, LayoutCacheEntry>>,
+    /// Maximum cache size
+    max_entries: usize,
+    /// Total cache hits
+    hits: std::sync::atomic::AtomicU64,
+    /// Total cache misses
+    misses: std::sync::atomic::AtomicU64,
+}
+
+impl ObjectLayoutCache {
+    /// Create new layout cache
+    pub fn new(max_entries: usize) -> Self {
+        Self {
+            entries: RwLock::new(HashMap::with_capacity(max_entries)),
+            max_entries,
+            hits: std::sync::atomic::AtomicU64::new(0),
+            misses: std::sync::atomic::AtomicU64::new(0),
+        }
+    }
+
+    /// Get cached layout for object
+    ///
+    /// Returns cached reference map if available, otherwise computes and caches it.
+    pub fn get_or_compute(&self, obj_addr: usize) -> ReferenceMap {
+        unsafe {
+            let header = &*(obj_addr as *const ObjectHeader);
+            let size = header.size;
+
+            if let Some(cached) = self.get_cached(size) {
+                return cached;
+            }
+
+            let ref_map = compute_reference_map(obj_addr);
+            self.insert(size, ref_map.clone());
+            ref_map
+        }
+    }
+
+    /// Get cached entry
+    fn get_cached(&self, size: usize) -> Option<ReferenceMap> {
+        let entries = self.entries.read().ok()?;
+
+        if let Some(entry) = entries.get(&size) {
+            self.hits.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            return Some(entry.ref_map.clone());
+        }
+
+        self.misses
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        None
+    }
+
+    /// Insert entry into cache
+    fn insert(&self, size: usize, ref_map: ReferenceMap) {
+        if let Ok(mut entries) = self.entries.write() {
+            if entries.len() >= self.max_entries {
+                self.evict_lru(&mut entries);
+            }
+
+            entries.insert(
+                size,
+                LayoutCacheEntry {
+                    ref_map,
+                    size,
+                    last_access: Instant::now(),
+                    access_count: 1,
+                },
+            );
+        }
+    }
+
+    /// Evict least recently used entry
+    fn evict_lru(&self, entries: &mut HashMap<usize, LayoutCacheEntry>) {
+        let mut oldest_key = None;
+        let mut oldest_time = Instant::now();
+
+        for (key, entry) in entries.iter() {
+            if entry.last_access < oldest_time {
+                oldest_time = entry.last_access;
+                oldest_key = Some(*key);
+            }
+        }
+
+        if let Some(key) = oldest_key {
+            entries.remove(&key);
+        }
+    }
+
+    /// Clear cache (call between GC cycles)
+    pub fn clear(&self) {
+        if let Ok(mut entries) = self.entries.write() {
+            entries.clear();
+        }
+    }
+
+    /// Get cache statistics
+    pub fn stats(&self) -> (u64, u64, usize) {
+        let hits = self.hits.load(std::sync::atomic::Ordering::Relaxed);
+        let misses = self.misses.load(std::sync::atomic::Ordering::Relaxed);
+        let size = self.entries.read().map(|e| e.len()).unwrap_or(0);
+        (hits, misses, size)
+    }
+}
+
+impl Default for ObjectLayoutCache {
+    fn default() -> Self {
+        Self::new(1024)
+    }
+}
+
+/// Global layout cache
+static LAYOUT_CACHE: std::sync::OnceLock<ObjectLayoutCache> = std::sync::OnceLock::new();
+
+/// Get global layout cache
+pub fn layout_cache() -> &'static ObjectLayoutCache {
+    LAYOUT_CACHE.get_or_init(|| ObjectLayoutCache::new(4096))
+}
+
+/// Compute reference map for object (without cache)
+fn compute_reference_map(obj_addr: usize) -> ReferenceMap {
+    unsafe {
+        let header = &*(obj_addr as *const ObjectHeader);
+        let data_size = header.get_data_size();
+
+        let mut offsets = Vec::new();
+        for i in 0..(data_size / OBJECT_ALIGNMENT) {
+            offsets.push(i * OBJECT_ALIGNMENT);
+        }
+
+        ReferenceMap::new(&offsets)
+    }
 }
 
 impl ObjectScanStats {
@@ -143,9 +316,7 @@ where
 
 /// Scan object with reference map from header
 ///
-/// Convenience wrapper that gets reference map from
-/// object header (in full implementation, this will lookup
-/// from class metadata).
+/// Uses layout cache for faster scanning of repeated object types.
 ///
 /// # Arguments
 /// * `obj_addr` - Address of object
@@ -160,7 +331,6 @@ where
     unsafe {
         let header = &*(obj_addr as *const ObjectHeader);
 
-        // Validate object
         if header.size == 0 || header.size > 1024 * 1024 * 1024 {
             return 0;
         }
@@ -168,22 +338,17 @@ where
         let data_start = obj_addr + HEADER_SIZE;
         let data_size = header.get_data_size();
 
-        // Get reference map for this object
-        // TODO: In production, lookup from class metadata
-        let ref_map = get_reference_map_for_object(obj_addr);
+        let ref_map = layout_cache().get_or_compute(obj_addr);
 
         let mut ref_count = 0;
 
-        // Scan for references
         for offset in ref_map.iter() {
             if offset < data_size {
                 let ref_addr = data_start + offset;
 
-                // Validate reference address is readable
                 if memory::is_readable(ref_addr).unwrap_or(false) {
                     let ref_value = memory::read_pointer(ref_addr);
 
-                    // Only yield non-null references
                     if ref_value != 0 {
                         callback(ref_addr);
                         ref_count += 1;

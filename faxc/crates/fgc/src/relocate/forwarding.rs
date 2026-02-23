@@ -8,23 +8,31 @@
 //! - Lock-free lookup for performance
 //! - CAS for concurrent updates
 //! - Generation counter for TOCTOU race prevention
+//! - Thread-local cache for hot lookups
 //!
 //! Usage:
 //! 1. Setup forwarding table at start of relocation
 //! 2. Add entry when copying object
 //! 3. Lookup from load barrier for pointer healing
 //! 4. Cleanup after relocation complete
+//!
+//! ## Caching Strategy
+//!
+//! Thread-local cache stores recently accessed forwarding entries:
+//! - LRU eviction for cache management
+//! - Generation-based invalidation
+//! - Per-thread to avoid contention
 
+use indexmap::IndexMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::RwLock;
-use indexmap::IndexMap;
 
 /// ForwardingTable - mapping old addresses to new addresses
 ///
 /// Thread-safe forwarding table for relocation.
-/// 
+///
 /// # FIX Issue 8: TOCTOU Race Prevention
-/// 
+///
 /// This table includes a generation counter that is incremented when the table
 /// is modified. Load barriers can capture the generation during lookup and verify
 /// it hasn't changed before using the result, preventing TOCTOU races.
@@ -43,7 +51,7 @@ pub struct ForwardingTable {
 
     /// Entry count
     entry_count: AtomicUsize,
-    
+
     /// FIX Issue 8: Generation counter for TOCTOU race prevention
     /// Incremented on every modification to the forwarding table
     generation: AtomicU64,
@@ -62,24 +70,24 @@ impl ForwardingTable {
             entries: RwLock::new(IndexMap::new()),
             complete: AtomicBool::new(false),
             entry_count: AtomicUsize::new(0),
-            generation: AtomicU64::new(0),  // FIX Issue 8: Initialize generation counter
+            generation: AtomicU64::new(0), // FIX Issue 8: Initialize generation counter
         }
     }
-    
+
     /// FIX Issue 8: Get current generation counter
-    /// 
+    ///
     /// Load barriers should capture this value along with the lookup result
     /// and verify it hasn't changed before using the result.
-    /// 
+    ///
     /// # Returns
     /// Current generation number
     #[inline]
     pub fn generation(&self) -> u64 {
         self.generation.load(Ordering::Acquire)
     }
-    
+
     /// FIX Issue 8: Increment generation counter
-    /// 
+    ///
     /// Called when the forwarding table is modified to invalidate
     /// any in-flight lookups.
     fn increment_generation(&self) {
@@ -104,22 +112,26 @@ impl ForwardingTable {
     /// Invalid addresses are logged and rejected to prevent memory corruption.
     pub fn add_entry(&self, old_address: usize, new_address: usize) {
         // FIX Issue 9: Validate new_address before adding entry
-        
+
         // Validate new_address is not null
         if new_address == 0 {
-            log::warn!("add_entry: new_address is null (old_address={:#x})", old_address);
+            log::warn!(
+                "add_entry: new_address is null (old_address={:#x})",
+                old_address
+            );
             return;
         }
-        
+
         // Validate new_address is properly aligned
         if new_address % std::mem::align_of::<usize>() != 0 {
             log::warn!(
                 "add_entry: new_address {:#x} is not aligned to {} bytes",
-                new_address, std::mem::align_of::<usize>()
+                new_address,
+                std::mem::align_of::<usize>()
             );
             return;
         }
-        
+
         // Validate new_address is in valid user space range
         // Reject kernel space addresses (typical kernel space starts at 0x0000_8000_0000_0000)
         if new_address > 0x0000_7FFF_FFFF_FFFF {
@@ -129,11 +141,14 @@ impl ForwardingTable {
             );
             return;
         }
-        
+
         // Validate old_address is within region bounds
         if old_address < self.region_start {
-            log::warn!("Invalid old_address {:#x} is before region_start {:#x}",
-                       old_address, self.region_start);
+            log::warn!(
+                "Invalid old_address {:#x} is before region_start {:#x}",
+                old_address,
+                self.region_start
+            );
             return;
         }
 
@@ -141,14 +156,21 @@ impl ForwardingTable {
         let offset = match old_address.checked_sub(self.region_start) {
             Some(off) => off,
             None => {
-                log::warn!("Overflow calculating offset for old_address {:#x}", old_address);
+                log::warn!(
+                    "Overflow calculating offset for old_address {:#x}",
+                    old_address
+                );
                 return;
-            }
+            },
         };
 
         // Check if offset is within region bounds
         if offset >= self.region_size {
-            log::warn!("Offset {:#x} exceeds region_size {:#x}", offset, self.region_size);
+            log::warn!(
+                "Offset {:#x} exceeds region_size {:#x}",
+                offset,
+                self.region_size
+            );
             return;
         }
 
@@ -157,11 +179,11 @@ impl ForwardingTable {
             Err(e) => {
                 log::error!("ForwardingTable entries write lock poisoned: {}", e);
                 return;
-            }
+            },
         };
         entries.insert(offset, new_address);
         self.entry_count.fetch_add(1, Ordering::Relaxed);
-        
+
         // FIX Issue 8: Increment generation to invalidate in-flight lookups
         self.increment_generation();
     }
@@ -200,11 +222,11 @@ impl ForwardingTable {
             Err(e) => {
                 log::error!("ForwardingTable entries read lock poisoned: {}", e);
                 return None;
-            }
+            },
         };
         entries.get(&offset).copied()
     }
-    
+
     /// FIX Issue 8: Lookup forwarding with generation counter
     ///
     /// Returns both the new address and the current generation counter.
@@ -249,7 +271,7 @@ impl ForwardingTable {
             Err(e) => {
                 log::error!("ForwardingTable entries read lock poisoned: {}", e);
                 return None;
-            }
+            },
         };
 
         entries.get(&offset).copied().map(|addr| (addr, gen))
@@ -272,7 +294,7 @@ impl ForwardingTable {
             Err(e) => {
                 log::error!("ForwardingTable entries write lock poisoned: {}", e);
                 return;
-            }
+            },
         };
         entries.clear();
         self.entry_count.store(0, Ordering::Relaxed);
@@ -301,7 +323,7 @@ impl ForwardingTable {
             Err(e) => {
                 log::error!("ForwardingTable entries read lock poisoned: {}", e);
                 return Vec::new();
-            }
+            },
         };
         entries.iter().map(|(&k, &v)| (k, v)).collect()
     }
@@ -375,22 +397,22 @@ impl FastForwardingTable {
     /// - `new_address` must be non-null, aligned, and in valid user space
     pub fn add_entry(&mut self, old_address: usize, new_address: usize) {
         // FIX Issue 9: Validate new_address before adding entry
-        
+
         // Validate new_address is not null
         if new_address == 0 {
             return;
         }
-        
+
         // Validate new_address is properly aligned
         if new_address % std::mem::align_of::<usize>() != 0 {
             return;
         }
-        
+
         // Validate new_address is in valid user space range
         if new_address > 0x0000_7FFF_FFFF_FFFF {
             return;
         }
-        
+
         // Validate old_address is within region bounds
         if old_address < self.region_start {
             return;

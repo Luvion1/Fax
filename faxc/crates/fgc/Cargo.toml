@@ -19,6 +19,7 @@ parking_lot.workspace = true
 crossbeam.workspace = true
 crossbeam-deque = "0.8"
 indexmap = "2.1"
+rand = "0.8"
 
 # Lazy static initialization
 lazy_static = "1.4"

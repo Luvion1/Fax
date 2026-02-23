@@ -14,11 +14,11 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.1.0"
+version = "0.0.3"
 edition = "2021"
 authors = ["Fax Team"]
 license = "MIT OR Apache-2.0"
-license-file = ["LICENSE", "LICENSE-APACHE"]
+license-files = ["LICENSE", "LICENSE-APACHE"]
 repository = "https://github.com/fax-lang/faxc"
 rust-version = "1.75"
 

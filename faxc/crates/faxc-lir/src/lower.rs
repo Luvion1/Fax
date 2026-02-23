@@ -13,7 +13,12 @@ use faxc_util::Idx;
 /// Condition type for MIR compatibility
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MirCondition {
-    Eq, Ne, Lt, Gt, Le, Ge,
+    Eq,
+    Ne,
+    Lt,
+    Gt,
+    Le,
+    Ge,
 }
 
 pub fn lower_mir_to_lir(mir_fn: &mir::Function) -> Function {
@@ -59,7 +64,9 @@ impl LirLowerer {
 
     pub fn lower_block(&mut self, block: &mir::BasicBlock) {
         let label = format!(".Lbb{}", block.id.0);
-        self.function.instructions.push(Instruction::Label { name: label });
+        self.function
+            .instructions
+            .push(Instruction::Label { name: label });
 
         for stmt in &block.statements {
             if let mir::Statement::Assign(place, rvalue) = stmt {
@@ -74,53 +81,92 @@ impl LirLowerer {
         match rvalue {
             mir::Rvalue::Use(operand) => {
                 let src = self.lower_operand(operand);
-                self.function.instructions.push(Instruction::Mov { dest: Operand::Reg(dest), src });
-            }
+                self.function.instructions.push(Instruction::Mov {
+                    dest: Operand::Reg(dest),
+                    src,
+                });
+            },
             mir::Rvalue::BinaryOp(op, left, right) => {
                 let src1_reg = self.lower_operand_to_reg(left);
                 let src2 = self.lower_operand(right);
                 let bin_op = convert_binop(*op);
                 // First move src1 to dest
-                self.function.instructions.push(Instruction::Mov { dest: Operand::Reg(dest), src: Operand::Reg(src1_reg) });
+                self.function.instructions.push(Instruction::Mov {
+                    dest: Operand::Reg(dest),
+                    src: Operand::Reg(src1_reg),
+                });
                 // Then apply the operation
                 match bin_op {
                     BinOp::Add => {
-                        self.function.instructions.push(Instruction::Add { dest: Operand::Reg(dest), src: src2 });
-                    }
+                        self.function.instructions.push(Instruction::Add {
+                            dest: Operand::Reg(dest),
+                            src: src2,
+                        });
+                    },
                     BinOp::Sub => {
-                        self.function.instructions.push(Instruction::Sub { dest: Operand::Reg(dest), src: src2 });
-                    }
+                        self.function.instructions.push(Instruction::Sub {
+                            dest: Operand::Reg(dest),
+                            src: src2,
+                        });
+                    },
                     BinOp::Mul => {
-                        self.function.instructions.push(Instruction::Mul { dest: Operand::Reg(dest), src: src2, signed: true });
-                    }
+                        self.function.instructions.push(Instruction::Mul {
+                            dest: Operand::Reg(dest),
+                            src: src2,
+                            signed: true,
+                        });
+                    },
                     BinOp::Div => {
-                        self.function.instructions.push(Instruction::Idiv { dest: Operand::Reg(dest), src: src2 });
-                    }
+                        self.function.instructions.push(Instruction::Idiv {
+                            dest: Operand::Reg(dest),
+                            src: src2,
+                        });
+                    },
                     BinOp::Rem => {
                         // Rem requires special handling with div
-                        self.function.instructions.push(Instruction::IdivSigned { divisor: src2 });
-                    }
+                        self.function
+                            .instructions
+                            .push(Instruction::IdivSigned { divisor: src2 });
+                    },
                     BinOp::And => {
-                        self.function.instructions.push(Instruction::And { dest: Operand::Reg(dest), src: src2 });
-                    }
+                        self.function.instructions.push(Instruction::And {
+                            dest: Operand::Reg(dest),
+                            src: src2,
+                        });
+                    },
                     BinOp::Or => {
-                        self.function.instructions.push(Instruction::Or { dest: Operand::Reg(dest), src: src2 });
-                    }
+                        self.function.instructions.push(Instruction::Or {
+                            dest: Operand::Reg(dest),
+                            src: src2,
+                        });
+                    },
                     BinOp::Xor => {
-                        self.function.instructions.push(Instruction::Xor { dest: Operand::Reg(dest), src: src2 });
-                    }
+                        self.function.instructions.push(Instruction::Xor {
+                            dest: Operand::Reg(dest),
+                            src: src2,
+                        });
+                    },
                     BinOp::Shl => {
-                        self.function.instructions.push(Instruction::Shl { dest: Operand::Reg(dest), count: src2 });
-                    }
+                        self.function.instructions.push(Instruction::Shl {
+                            dest: Operand::Reg(dest),
+                            count: src2,
+                        });
+                    },
                     BinOp::Shr => {
-                        self.function.instructions.push(Instruction::Shr { dest: Operand::Reg(dest), count: src2 });
-                    }
+                        self.function.instructions.push(Instruction::Shr {
+                            dest: Operand::Reg(dest),
+                            count: src2,
+                        });
+                    },
                     BinOp::Sar => {
-                        self.function.instructions.push(Instruction::Sar { dest: Operand::Reg(dest), count: src2 });
-                    }
+                        self.function.instructions.push(Instruction::Sar {
+                            dest: Operand::Reg(dest),
+                            count: src2,
+                        });
+                    },
                 }
-            }
-            _ => {}
+            },
+            _ => {},
         }
     }
 
@@ -139,9 +185,12 @@ impl LirLowerer {
             Operand::Reg(r) => r,
             Operand::Imm(i) => {
                 let reg = self.new_reg();
-                self.function.instructions.push(Instruction::Mov { dest: Operand::Reg(reg), src: Operand::Imm(i) });
+                self.function.instructions.push(Instruction::Mov {
+                    dest: Operand::Reg(reg),
+                    src: Operand::Imm(i),
+                });
                 reg
-            }
+            },
             _ => self.new_reg(),
         }
     }
@@ -156,7 +205,7 @@ impl LirLowerer {
                     self.mir_to_lir_reg.insert(*id, reg);
                     reg
                 }
-            }
+            },
             _ => self.new_reg(),
         }
     }
@@ -164,30 +213,55 @@ impl LirLowerer {
     fn lower_terminator(&mut self, terminator: &mir::Terminator) {
         match terminator {
             mir::Terminator::Return => {
-                self.function.instructions.push(Instruction::Ret { value: None });
-            }
+                self.function
+                    .instructions
+                    .push(Instruction::Ret { value: None });
+            },
             mir::Terminator::Goto { target } => {
-                self.function.instructions.push(Instruction::Jmp { target: format!(".Lbb{}", target.0) });
-            }
-            mir::Terminator::If { cond, then_block, else_block } => {
+                self.function.instructions.push(Instruction::Jmp {
+                    target: format!(".Lbb{}", target.0),
+                });
+            },
+            mir::Terminator::If {
+                cond,
+                then_block,
+                else_block,
+            } => {
                 let cond_reg = match cond {
                     mir::Operand::Copy(p) | mir::Operand::Move(p) => self.get_place_reg(p),
                     mir::Operand::Constant(c) => {
                         let reg = self.new_reg();
                         let imm = match c.kind {
-                            mir::ConstantKind::Bool(b) => if b { 1 } else { 0 },
+                            mir::ConstantKind::Bool(b) => {
+                                if b {
+                                    1
+                                } else {
+                                    0
+                                }
+                            },
                             mir::ConstantKind::Int(i) => i,
                             _ => 0,
                         };
-                        self.function.instructions.push(Instruction::Mov { dest: Operand::Reg(reg), src: Operand::Imm(imm) });
+                        self.function.instructions.push(Instruction::Mov {
+                            dest: Operand::Reg(reg),
+                            src: Operand::Imm(imm),
+                        });
                         reg
-                    }
+                    },
                 };
-                self.function.instructions.push(Instruction::Cmp { src1: Operand::Reg(cond_reg), src2: Operand::Imm(0) });
-                self.function.instructions.push(Instruction::Jcc { cond: Condition::Ne, target: format!(".Lbb{}", then_block.0) });
-                self.function.instructions.push(Instruction::Jmp { target: format!(".Lbb{}", else_block.0) });
-            }
-            _ => {}
+                self.function.instructions.push(Instruction::Cmp {
+                    src1: Operand::Reg(cond_reg),
+                    src2: Operand::Imm(0),
+                });
+                self.function.instructions.push(Instruction::Jcc {
+                    cond: Condition::Ne,
+                    target: format!(".Lbb{}", then_block.0),
+                });
+                self.function.instructions.push(Instruction::Jmp {
+                    target: format!(".Lbb{}", else_block.0),
+                });
+            },
+            _ => {},
         }
     }
 
@@ -215,7 +289,7 @@ fn convert_binop(op: mir::BinOp) -> BinOp {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use faxc_mir::{Builder, BlockId};
+    use faxc_mir::{BlockId, Builder};
     use faxc_sem::Type;
     use faxc_util::DefId;
     use faxc_util::Symbol;
@@ -224,24 +298,27 @@ mod tests {
     fn test_mir_to_lir_basic() {
         let name = Symbol::intern("test_fn");
         let mut builder = Builder::new(name, Type::Int);
-        
+
         let entry = builder.new_block();
         builder.set_current_block(entry);
-        
+
         // let x = 5;
         let x_local = builder.add_local(Type::Int, None);
         let x_place = mir::Place::Local(x_local);
-        builder.assign(x_place.clone(), mir::Rvalue::Use(mir::Operand::Constant(mir::Constant {
-            ty: Type::Int,
-            kind: mir::ConstantKind::Int(5),
-        })));
-        
+        builder.assign(
+            x_place.clone(),
+            mir::Rvalue::Use(mir::Operand::Constant(mir::Constant {
+                ty: Type::Int,
+                kind: mir::ConstantKind::Int(5),
+            })),
+        );
+
         // return x;
         builder.terminator(mir::Terminator::Return);
-        
+
         let mir_fn = builder.build();
         let lir_fn = lower_mir_to_lir(&mir_fn);
-        
+
         assert_eq!(lir_fn.name.as_str(), "test_fn");
         // Should have at least one instruction (Mov or Ret)
         assert!(!lir_fn.instructions.is_empty());

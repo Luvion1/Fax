@@ -1041,7 +1041,11 @@ impl<'a> Parser<'a> {
     /// let mut parser = Parser::from_tokens(tokens, &mut handler, source);
     /// let ast = parser.parse();
     /// ```
-    pub fn from_tokens(tokens: Vec<TokenWithSpan>, handler: &'a mut Handler, source: &'a str) -> Self {
+    pub fn from_tokens(
+        tokens: Vec<TokenWithSpan>,
+        handler: &'a mut Handler,
+        source: &'a str,
+    ) -> Self {
         Self {
             tokens,
             position: 0,
@@ -1102,7 +1106,7 @@ impl<'a> Parser<'a> {
                 None => {
                     // Error recovery: skip to sync point
                     self.recover_to_sync_point();
-                }
+                },
             }
         }
 
@@ -1131,9 +1135,11 @@ impl<'a> Parser<'a> {
             Token::Const => self.parse_const_item(visibility),
             Token::Static => self.parse_static_item(visibility),
             _ => {
-                self.error("expected item: fn, struct, enum, trait, impl, use, mod, const, or static");
+                self.error(
+                    "expected item: fn, struct, enum, trait, impl, use, mod, const, or static",
+                );
                 None
-            }
+            },
         }
     }
 
@@ -1149,20 +1155,20 @@ impl<'a> Parser<'a> {
                 Token::Crate => {
                     self.advance();
                     Visibility::Crate
-                }
+                },
                 Token::Super => {
                     self.advance();
                     Visibility::Super
-                }
+                },
                 Token::Ident(sym) if sym.as_str() == "in" => {
                     self.advance();
                     let path = self.parse_path();
                     Visibility::Restricted(path)
-                }
+                },
                 _ => {
                     self.error("expected 'crate', 'super', or 'in' in visibility");
                     Visibility::Public
-                }
+                },
             };
             self.expect(Token::RParen);
             vis
@@ -1686,7 +1692,7 @@ impl<'a> Parser<'a> {
                 // Block statement
                 let block = self.parse_block()?;
                 Some(Stmt::Expr(Expr::Block(block)))
-            }
+            },
             _ => {
                 // Try expression statement
                 let expr = self.parse_expr()?;
@@ -1722,7 +1728,7 @@ impl<'a> Parser<'a> {
                     self.expect(Token::Semicolon);
                     Some(Stmt::Expr(expr))
                 }
-            }
+            },
         }
     }
 
@@ -1732,43 +1738,43 @@ impl<'a> Parser<'a> {
             Token::PlusEq => {
                 self.advance();
                 Some(BinOp::Add)
-            }
+            },
             Token::MinusEq => {
                 self.advance();
                 Some(BinOp::Sub)
-            }
+            },
             Token::StarEq => {
                 self.advance();
                 Some(BinOp::Mul)
-            }
+            },
             Token::SlashEq => {
                 self.advance();
                 Some(BinOp::Div)
-            }
+            },
             Token::PercentEq => {
                 self.advance();
                 Some(BinOp::Mod)
-            }
+            },
             Token::AmpersandEq => {
                 self.advance();
                 Some(BinOp::BitAnd)
-            }
+            },
             Token::PipeEq => {
                 self.advance();
                 Some(BinOp::BitOr)
-            }
+            },
             Token::CaretEq => {
                 self.advance();
                 Some(BinOp::BitXor)
-            }
+            },
             Token::ShlEq => {
                 self.advance();
                 Some(BinOp::Shl)
-            }
+            },
             Token::ShrEq => {
                 self.advance();
                 Some(BinOp::Shr)
-            }
+            },
             _ => None,
         }
     }
@@ -2061,7 +2067,7 @@ impl<'a> Parser<'a> {
                     expr: Box::new(expr),
                     span,
                 }))
-            }
+            },
             Token::Bang => {
                 self.advance();
                 let expr = self.parse_prefix()?;
@@ -2071,7 +2077,7 @@ impl<'a> Parser<'a> {
                     expr: Box::new(expr),
                     span,
                 }))
-            }
+            },
             Token::Tilde => {
                 self.advance();
                 let expr = self.parse_prefix()?;
@@ -2081,7 +2087,7 @@ impl<'a> Parser<'a> {
                     expr: Box::new(expr),
                     span,
                 }))
-            }
+            },
             Token::Star => {
                 // Prefix * is dereference
                 self.advance();
@@ -2092,7 +2098,7 @@ impl<'a> Parser<'a> {
                     expr: Box::new(expr),
                     span,
                 }))
-            }
+            },
             Token::Ampersand => {
                 self.advance();
                 let mutable = self.match_token(Token::Mut);
@@ -2103,38 +2109,38 @@ impl<'a> Parser<'a> {
                     expr: Box::new(expr),
                     span,
                 }))
-            }
+            },
 
             // Literals
             Token::Number(n) => {
                 self.advance();
                 Some(Expr::Literal(Literal::Int(n as i64)))
-            }
+            },
             Token::Float(n) => {
                 self.advance();
                 Some(Expr::Literal(Literal::Float(n)))
-            }
+            },
             Token::String(s) => {
                 self.advance();
                 Some(Expr::Literal(Literal::String(s)))
-            }
+            },
             Token::Char(c) => {
                 self.advance();
                 Some(Expr::Literal(Literal::Char(c)))
-            }
+            },
             Token::True => {
                 self.advance();
                 Some(Expr::Literal(Literal::Bool(true)))
-            }
+            },
             Token::False => {
                 self.advance();
                 Some(Expr::Literal(Literal::Bool(false)))
-            }
+            },
 
             // Identifiers and paths
             Token::Ident(_) | Token::Self_ | Token::SelfUpper | Token::Super | Token::Crate => {
                 self.parse_path_expr()
-            }
+            },
 
             // Parenthesized expressions, tuples, closures
             Token::LParen => self.parse_paren_or_tuple_or_closure(),
@@ -2167,37 +2173,35 @@ impl<'a> Parser<'a> {
                     None
                 };
                 Some(Expr::Return(expr))
-            }
+            },
 
             // Break expression
             Token::Break => {
                 self.advance();
                 self.expect(Token::Semicolon);
                 Some(Expr::Break(None, None))
-            }
+            },
 
             // Continue expression
             Token::Continue => {
                 self.advance();
                 self.expect(Token::Semicolon);
                 Some(Expr::Continue(None))
-            }
+            },
 
             // Closure with `fn` syntax
             Token::Fn => {
                 self.advance();
                 self.parse_closure_body()
-            }
+            },
 
             // Closure with pipe syntax: |x| x + 1
-            Token::Pipe => {
-                self.parse_closure_pipe()
-            }
+            Token::Pipe => self.parse_closure_pipe(),
 
             _ => {
                 self.error("expected expression");
                 None
-            }
+            },
         }
     }
 
@@ -2314,7 +2318,7 @@ impl<'a> Parser<'a> {
             // Peek ahead to check if content has => (match arms) or looks like block
             if !self.looks_like_match_arms() && !self.looks_like_block() {
                 self.advance(); // consume LBrace
-                // Use generics from path (turbofish already parsed by parse_path)
+                                // Use generics from path (turbofish already parsed by parse_path)
                 let generics = path_generics.clone();
 
                 let fields = self.parse_struct_fields()?;
@@ -2787,32 +2791,32 @@ impl<'a> Parser<'a> {
             Token::Underscore => {
                 self.advance();
                 Some(Pattern::Wildcard)
-            }
+            },
             Token::Ident(name) => {
                 self.advance();
                 let _mutable = false; // Could check for 'mut' prefix
                 Some(Pattern::Ident(name, Mutability::Immutable))
-            }
+            },
             Token::Number(n) => {
                 self.advance();
                 Some(Pattern::Literal(Literal::Int(n as i64)))
-            }
+            },
             Token::True => {
                 self.advance();
                 Some(Pattern::Literal(Literal::Bool(true)))
-            }
+            },
             Token::False => {
                 self.advance();
                 Some(Pattern::Literal(Literal::Bool(false)))
-            }
+            },
             Token::String(s) => {
                 self.advance();
                 Some(Pattern::Literal(Literal::String(s)))
-            }
+            },
             Token::Char(c) => {
                 self.advance();
                 Some(Pattern::Literal(Literal::Char(c)))
-            }
+            },
             Token::LParen => {
                 self.advance();
 
@@ -2831,7 +2835,7 @@ impl<'a> Parser<'a> {
                 }
                 self.expect(Token::RParen)?;
                 Some(Pattern::Tuple(patterns))
-            }
+            },
             Token::Self_ | Token::SelfUpper => {
                 // Path pattern (could be enum variant)
                 let path = self.parse_path();
@@ -2852,11 +2856,11 @@ impl<'a> Parser<'a> {
                 } else {
                     Some(Pattern::Path(path))
                 }
-            }
+            },
             _ => {
                 self.error("expected pattern");
                 None
-            }
+            },
         }
     }
 
@@ -2892,7 +2896,7 @@ impl<'a> Parser<'a> {
                 }
 
                 Some(Type::Path(path))
-            }
+            },
             Token::LParen => {
                 self.advance();
 
@@ -2916,17 +2920,20 @@ impl<'a> Parser<'a> {
                 } else {
                     Some(Type::Tuple(types))
                 }
-            }
+            },
             Token::Ampersand => {
                 self.advance();
                 let mutable = self.match_token(Token::Mut);
                 let ty = self.parse_type()?;
-                Some(Type::Reference(Box::new(ty), if mutable {
-                    Mutability::Mutable
-                } else {
-                    Mutability::Immutable
-                }))
-            }
+                Some(Type::Reference(
+                    Box::new(ty),
+                    if mutable {
+                        Mutability::Mutable
+                    } else {
+                        Mutability::Immutable
+                    },
+                ))
+            },
             Token::LBracket => {
                 self.advance();
                 let ty = self.parse_type()?;
@@ -2941,17 +2948,20 @@ impl<'a> Parser<'a> {
                     self.expect(Token::RBracket)?;
                     Some(Type::Slice(Box::new(ty)))
                 }
-            }
+            },
             Token::Star => {
                 self.advance();
                 let mutable = self.match_token(Token::Mut);
                 let ty = self.parse_type()?;
-                Some(Type::Pointer(Box::new(ty), if mutable {
-                    Mutability::Mutable
-                } else {
-                    Mutability::Immutable
-                }))
-            }
+                Some(Type::Pointer(
+                    Box::new(ty),
+                    if mutable {
+                        Mutability::Mutable
+                    } else {
+                        Mutability::Immutable
+                    },
+                ))
+            },
             Token::Fn => {
                 self.advance();
                 self.expect(Token::LParen)?;
@@ -2974,7 +2984,7 @@ impl<'a> Parser<'a> {
                 };
 
                 Some(Type::Fn(param_types, Box::new(ret_type)))
-            }
+            },
             Token::Dyn => {
                 self.advance();
                 let mut traits = Vec::new();
@@ -2987,15 +2997,15 @@ impl<'a> Parser<'a> {
                     }
                 }
                 Some(Type::TraitObject(traits))
-            }
+            },
             Token::Underscore => {
                 self.advance();
                 Some(Type::Inferred)
-            }
+            },
             _ => {
                 self.error("expected type");
                 None
-            }
+            },
         }
     }
 
@@ -3012,46 +3022,45 @@ impl<'a> Parser<'a> {
                 Token::Ident(sym) => {
                     self.advance();
                     sym
-                }
+                },
                 Token::Self_ => {
                     self.advance();
                     Symbol::intern("self")
-                }
+                },
                 Token::SelfUpper => {
                     self.advance();
                     Symbol::intern("Self")
-                }
+                },
                 Token::Super => {
                     self.advance();
                     Symbol::intern("super")
-                }
+                },
                 Token::Crate => {
                     self.advance();
                     Symbol::intern("crate")
-                }
+                },
                 _ => break,
             };
 
             // Check for generic arguments (turbofish: ::<T>)
-            let args = if self.current_token() == Token::ColonColon
-                && self.peek_token() == Token::Lt
-            {
-                self.advance(); // consume ::
-                self.advance(); // consume <
-                let mut types = Vec::new();
-                while !self.is_at_end() && self.current_token() != Token::Gt {
-                    if let Some(ty) = self.parse_type() {
-                        types.push(ty);
+            let args =
+                if self.current_token() == Token::ColonColon && self.peek_token() == Token::Lt {
+                    self.advance(); // consume ::
+                    self.advance(); // consume <
+                    let mut types = Vec::new();
+                    while !self.is_at_end() && self.current_token() != Token::Gt {
+                        if let Some(ty) = self.parse_type() {
+                            types.push(ty);
+                        }
+                        if !self.match_token(Token::Comma) {
+                            break;
+                        }
                     }
-                    if !self.match_token(Token::Comma) {
-                        break;
-                    }
-                }
-                self.expect(Token::Gt);
-                Some(types)
-            } else {
-                None
-            };
+                    self.expect(Token::Gt);
+                    Some(types)
+                } else {
+                    None
+                };
 
             segments.push(PathSegment { ident, args });
 
@@ -3059,9 +3068,12 @@ impl<'a> Parser<'a> {
             if !self.match_token(Token::ColonColon) {
                 break;
             }
-            
+
             // After ::, we expect another identifier. If not, break.
-            if !matches!(self.current_token(), Token::Ident(_) | Token::Self_ | Token::SelfUpper | Token::Super | Token::Crate) {
+            if !matches!(
+                self.current_token(),
+                Token::Ident(_) | Token::Self_ | Token::SelfUpper | Token::Super | Token::Crate
+            ) {
                 break;
             }
         }
@@ -3075,27 +3087,27 @@ impl<'a> Parser<'a> {
             Token::Ident(s) => {
                 self.advance();
                 s
-            }
+            },
             Token::Self_ => {
                 self.advance();
                 Symbol::intern("self")
-            }
+            },
             Token::SelfUpper => {
                 self.advance();
                 Symbol::intern("Self")
-            }
+            },
             Token::Super => {
                 self.advance();
                 Symbol::intern("super")
-            }
+            },
             Token::Crate => {
                 self.advance();
                 Symbol::intern("crate")
-            }
+            },
             _ => {
                 self.error("expected identifier");
                 return None;
-            }
+            },
         };
         Some(sym)
     }
@@ -3181,7 +3193,11 @@ impl<'a> Parser<'a> {
             self.advance();
             Some(())
         } else {
-            self.error(format!("expected '{}', found '{}'", expected, self.current_token()));
+            self.error(format!(
+                "expected '{}', found '{}'",
+                expected,
+                self.current_token()
+            ));
             None
         }
     }
@@ -3301,13 +3317,13 @@ impl<'a> Parser<'a> {
                         return false;
                     }
                     depth -= 1;
-                }
+                },
                 Token::Comma => {
                     if depth == 0 {
                         return false;
                     }
-                }
-                _ => {}
+                },
+                _ => {},
             }
             pos += 1;
         }
@@ -3319,12 +3335,12 @@ impl<'a> Parser<'a> {
     fn looks_like_block(&self) -> bool {
         // Peek at the next non-whitespace token after {
         let mut pos = self.position;
-        
+
         // Skip LBrace
         if pos < self.tokens.len() && self.tokens[pos].token == Token::LBrace {
             pos += 1;
         }
-        
+
         // Check first token inside braces
         if pos < self.tokens.len() {
             let token = &self.tokens[pos];
@@ -3336,23 +3352,88 @@ impl<'a> Parser<'a> {
                         return self.tokens[pos + 1].token != Token::Colon;
                     }
                     return true;
-                }
+                },
                 // If starts with other expression tokens, it's a block
-                Token::Number(_) | Token::Float(_) | Token::String(_) 
-                | Token::True | Token::False | Token::Minus | Token::Bang 
-                | Token::Tilde | Token::Ampersand | Token::Star
-                | Token::LParen | Token::LBrace | Token::If | Token::Match
-                | Token::While | Token::For | Token::Loop | Token::Return
-                | Token::Break | Token::Continue => return true,
-                _ => {}
+                Token::Number(_)
+                | Token::Float(_)
+                | Token::String(_)
+                | Token::True
+                | Token::False
+                | Token::Minus
+                | Token::Bang
+                | Token::Tilde
+                | Token::Ampersand
+                | Token::Star
+                | Token::LParen
+                | Token::LBrace
+                | Token::If
+                | Token::Match
+                | Token::While
+                | Token::For
+                | Token::Loop
+                | Token::Return
+                | Token::Break
+                | Token::Continue => return true,
+                _ => {},
             }
         }
         false
     }
 
+    /// Check if current position is at a likely item start
+    /// This helps with error recovery by identifying valid item beginnings
+    pub fn is_at_item_start(&self) -> bool {
+        match self.current_token() {
+            Token::Fn
+            | Token::Struct
+            | Token::Enum
+            | Token::Trait
+            | Token::Impl
+            | Token::Use
+            | Token::Mod
+            | Token::Const
+            | Token::Pub
+            | Token::MacroRules => true,
+            _ => false,
+        }
+    }
+
+    /// Check if current position is at a statement start
+    pub fn is_at_stmt_start(&self) -> bool {
+        match self.current_token() {
+            Token::Let
+            | Token::If
+            | Token::While
+            | Token::For
+            | Token::Loop
+            | Token::Match
+            | Token::Return
+            | Token::Break
+            | Token::Continue
+            | Token::LBrace
+            | Token::Semicolon => true,
+            Token::Ident(_) => {
+                // Could be a function call or other expression
+                !self.is_at_item_start()
+            },
+            _ => false,
+        }
+    }
+
     /// Report an error
     fn error(&mut self, message: impl Into<String>) {
         let span = self.current_span();
+        self.handler.error(message, span);
+    }
+
+    /// Report an error with expected token info
+    fn error_expected(&mut self, expected: &str) {
+        let found = self.current_token().to_string();
+        self.error(format!("expected {}, found {}", expected, found));
+    }
+
+    /// Report an error with context
+    fn error_at(&mut self, message: impl Into<String>, span: Span) {
         self.handler.error(message, span);
     }
 
@@ -3379,10 +3460,10 @@ impl<'a> Parser<'a> {
                 Token::Semicolon => {
                     self.advance();
                     break;
-                }
+                },
                 _ => {
                     self.advance();
-                }
+                },
             }
         }
     }
@@ -3395,7 +3476,7 @@ impl<'a> Parser<'a> {
                 Token::Semicolon => {
                     self.advance();
                     break;
-                }
+                },
                 Token::Let
                 | Token::If
                 | Token::While
@@ -3405,7 +3486,7 @@ impl<'a> Parser<'a> {
                 | Token::Continue => break,
                 _ => {
                     self.advance();
-                }
+                },
             }
         }
     }
@@ -3694,7 +3775,8 @@ mod tests {
 
     #[test]
     fn test_parse_if_else_statement() {
-        let (ast, handler) = parse_source("fn foo() { if x > 0 { println(x); } else { println(0); } }");
+        let (ast, handler) =
+            parse_source("fn foo() { if x > 0 { println(x); } else { println(0); } }");
         assert!(!handler.has_errors());
     }
 
@@ -3780,7 +3862,10 @@ mod tests {
     fn test_parse_use_statement() {
         let (ast, handler) = parse_source("use std::io::Read;");
         if handler.has_errors() {
-            eprintln!("Errors in test_parse_use_statement: {} errors", handler.error_count());
+            eprintln!(
+                "Errors in test_parse_use_statement: {} errors",
+                handler.error_count()
+            );
             for diag in handler.diagnostics() {
                 eprintln!("  - {} at {:?}", diag.message, diag.span);
             }
@@ -3875,7 +3960,10 @@ mod tests {
         let source = "if a > b && c < d || e == f { x + y * z } else { -w }";
         let (expr, handler) = parse_expr_source(source);
         if handler.has_errors() {
-            eprintln!("Errors in test_complex_expression: {}", handler.error_count());
+            eprintln!(
+                "Errors in test_complex_expression: {}",
+                handler.error_count()
+            );
             for diag in handler.diagnostics() {
                 eprintln!("  - {}", diag.message);
             }

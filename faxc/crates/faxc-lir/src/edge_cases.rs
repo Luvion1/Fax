@@ -2,20 +2,16 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::{Function, Register, Instruction, Value, Address, BinOp, UnOp, Condition};
+    use crate::{
+        Address, Function, Instruction, Operand, PhysicalRegister, RegisterWidth, VirtualRegister,
+    };
 
     // ==================== FUNCTION TESTS ====================
 
     /// EDGE CASE: Empty function
     #[test]
     fn test_edge_empty_function() {
-        let func = Function {
-            name: faxc_util::Symbol::intern("empty"),
-            registers: vec![],
-            instructions: vec![],
-            labels: vec![],
-            frame_size: 0,
-        };
+        let func = Function::new(faxc_util::Symbol::intern("empty"));
         assert_eq!(func.instructions.len(), 0);
         assert_eq!(func.frame_size, 0);
     }
@@ -23,13 +19,9 @@ mod tests {
     /// EDGE CASE: Function with single instruction
     #[test]
     fn test_edge_single_instruction() {
-        let func = Function {
-            name: faxc_util::Symbol::intern("one"),
-            registers: vec![Register(0)],
-            instructions: vec![Instruction::Nop],
-            labels: vec![],
-            frame_size: 0,
-        };
+        let mut func = Function::new(faxc_util::Symbol::intern("one"));
+        func.registers.push(VirtualRegister::new(0));
+        func.instructions.push(Instruction::Nop);
         assert_eq!(func.instructions.len(), 1);
     }
 
@@ -37,26 +29,16 @@ mod tests {
     #[test]
     fn test_edge_many_instructions() {
         let instrs: Vec<_> = (0..100).map(|_| Instruction::Nop).collect();
-        let func = Function {
-            name: faxc_util::Symbol::intern("many"),
-            registers: vec![],
-            instructions: instrs,
-            labels: vec![],
-            frame_size: 0,
-        };
+        let mut func = Function::new(faxc_util::Symbol::intern("many"));
+        func.instructions = instrs;
         assert_eq!(func.instructions.len(), 100);
     }
 
     /// EDGE CASE: Large frame size
     #[test]
     fn test_edge_large_frame() {
-        let func = Function {
-            name: faxc_util::Symbol::intern("big_frame"),
-            registers: vec![],
-            instructions: vec![],
-            labels: vec![],
-            frame_size: u32::MAX,
-        };
+        let mut func = Function::new(faxc_util::Symbol::intern("big_frame"));
+        func.frame_size = u32::MAX;
         assert_eq!(func.frame_size, u32::MAX);
     }
 
@@ -73,8 +55,8 @@ mod tests {
     #[test]
     fn test_edge_mov_imm() {
         let instr = Instruction::Mov {
-            dest: Register(0),
-            src: Value::Imm(42),
+            dest: Operand::Reg(VirtualRegister::new(0)),
+            src: Operand::Imm(42),
         };
         assert!(matches!(instr, Instruction::Mov { .. }));
     }
@@ -83,8 +65,8 @@ mod tests {
     #[test]
     fn test_edge_mov_reg() {
         let instr = Instruction::Mov {
-            dest: Register(0),
-            src: Value::Reg(Register(1)),
+            dest: Operand::Reg(VirtualRegister::new(0)),
+            src: Operand::Reg(VirtualRegister::new(1)),
         };
         assert!(matches!(instr, Instruction::Mov { .. }));
     }
@@ -93,8 +75,12 @@ mod tests {
     #[test]
     fn test_edge_load() {
         let instr = Instruction::Load {
-            dest: Register(0),
-            addr: Address::Stack(0),
+            dest: Operand::Reg(VirtualRegister::new(0)),
+            addr: Address::BaseOffset {
+                base: PhysicalRegister::RBP,
+                offset: 0,
+            },
+            width: RegisterWidth::W64,
         };
         assert!(matches!(instr, Instruction::Load { .. }));
     }
@@ -103,8 +89,12 @@ mod tests {
     #[test]
     fn test_edge_store() {
         let instr = Instruction::Store {
-            addr: Address::Stack(0),
-            src: Register(0),
+            addr: Address::BaseOffset {
+                base: PhysicalRegister::RBP,
+                offset: 0,
+            },
+            src: Operand::Reg(VirtualRegister::new(0)),
+            width: RegisterWidth::W64,
         };
         assert!(matches!(instr, Instruction::Store { .. }));
     }
@@ -113,41 +103,40 @@ mod tests {
     #[test]
     fn test_edge_lea() {
         let instr = Instruction::Lea {
-            dest: Register(0),
-            addr: Address::Base { base: Register(1), offset: 8 },
+            dest: Operand::Reg(VirtualRegister::new(0)),
+            addr: Address::BaseOffset {
+                base: PhysicalRegister::RBX,
+                offset: 8,
+            },
         };
         assert!(matches!(instr, Instruction::Lea { .. }));
     }
 
-    /// EDGE CASE: BinOp instruction
+    /// EDGE CASE: BinOp instruction (using Add)
     #[test]
     fn test_edge_binop() {
-        let instr = Instruction::BinOp {
-            op: BinOp::Add,
-            dest: Register(0),
-            src1: Register(1),
-            src2: Value::Imm(42),
+        let instr = Instruction::Add {
+            dest: Operand::Reg(VirtualRegister::new(0)),
+            src: Operand::Reg(VirtualRegister::new(1)),
         };
-        assert!(matches!(instr, Instruction::BinOp { .. }));
+        assert!(matches!(instr, Instruction::Add { .. }));
     }
 
-    /// EDGE CASE: UnOp instruction
+    /// EDGE CASE: UnOp instruction (using Neg)
     #[test]
     fn test_edge_unop() {
-        let instr = Instruction::UnOp {
-            op: UnOp::Neg,
-            dest: Register(0),
-            src: Register(1),
+        let instr = Instruction::Neg {
+            dest: Operand::Reg(VirtualRegister::new(0)),
         };
-        assert!(matches!(instr, Instruction::UnOp { .. }));
+        assert!(matches!(instr, Instruction::Neg { .. }));
     }
 
     /// EDGE CASE: Cmp instruction
     #[test]
     fn test_edge_cmp() {
         let instr = Instruction::Cmp {
-            src1: Register(0),
-            src2: Value::Imm(0),
+            src1: Operand::Reg(VirtualRegister::new(0)),
+            src2: Operand::Imm(0),
         };
         assert!(matches!(instr, Instruction::Cmp { .. }));
     }
@@ -164,6 +153,7 @@ mod tests {
     /// EDGE CASE: Jcc instruction
     #[test]
     fn test_edge_jcc() {
+        use crate::lir::Condition;
         let instr = Instruction::Jcc {
             cond: Condition::Eq,
             target: ".Lbb1".to_string(),
@@ -174,8 +164,9 @@ mod tests {
     /// EDGE CASE: Call instruction
     #[test]
     fn test_edge_call() {
+        use crate::lir::CallTarget;
         let instr = Instruction::Call {
-            func: Value::Label("foo".to_string()),
+            target: CallTarget::Direct(faxc_util::Symbol::intern("foo")),
         };
         assert!(matches!(instr, Instruction::Call { .. }));
     }
@@ -183,66 +174,72 @@ mod tests {
     /// EDGE CASE: Ret instruction
     #[test]
     fn test_edge_ret() {
-        let instr = Instruction::Ret;
-        assert!(matches!(instr, Instruction::Ret));
+        let instr = Instruction::Ret { value: None };
+        assert!(matches!(instr, Instruction::Ret { .. }));
     }
 
     /// EDGE CASE: Push instruction
     #[test]
     fn test_edge_push() {
-        let instr = Instruction::Push { src: Register(0) };
+        let instr = Instruction::Push {
+            src: Operand::Reg(VirtualRegister::new(0)),
+        };
         assert!(matches!(instr, Instruction::Push { .. }));
     }
 
     /// EDGE CASE: Pop instruction
     #[test]
     fn test_edge_pop() {
-        let instr = Instruction::Pop { dest: Register(0) };
+        let instr = Instruction::Pop {
+            dest: Operand::Reg(VirtualRegister::new(0)),
+        };
         assert!(matches!(instr, Instruction::Pop { .. }));
     }
 
     /// EDGE CASE: Label instruction
     #[test]
     fn test_edge_label() {
-        let instr = Instruction::Label { name: ".Lbb0".to_string() };
+        let instr = Instruction::Label {
+            name: ".Lbb0".to_string(),
+        };
         assert!(matches!(instr, Instruction::Label { .. }));
     }
 
-    // ==================== VALUE TESTS ====================
+    // ==================== OPERAND TESTS ====================
 
-    /// EDGE CASE: Register value
+    /// EDGE CASE: Register operand
     #[test]
-    fn test_edge_value_reg() {
-        let v = Value::Reg(Register(0));
-        assert!(matches!(v, Value::Reg(_)));
+    fn test_edge_operand_reg() {
+        let v = Operand::Reg(VirtualRegister::new(0));
+        assert!(matches!(v, Operand::Reg(_)));
     }
 
-    /// EDGE CASE: Immediate value - zero
+    /// EDGE CASE: Immediate operand - zero
     #[test]
-    fn test_edge_value_imm_zero() {
-        let v = Value::Imm(0);
-        assert!(matches!(v, Value::Imm(0)));
+    fn test_edge_operand_imm_zero() {
+        let v = Operand::Imm(0);
+        assert!(matches!(v, Operand::Imm(0)));
     }
 
-    /// EDGE CASE: Immediate value - max
+    /// EDGE CASE: Immediate operand - max
     #[test]
-    fn test_edge_value_imm_max() {
-        let v = Value::Imm(i64::MAX);
-        assert!(matches!(v, Value::Imm(i64::MAX)));
+    fn test_edge_operand_imm_max() {
+        let v = Operand::Imm(i64::MAX);
+        assert!(matches!(v, Operand::Imm(i64::MAX)));
     }
 
-    /// EDGE CASE: Immediate value - min
+    /// EDGE CASE: Immediate operand - min
     #[test]
-    fn test_edge_value_imm_min() {
-        let v = Value::Imm(i64::MIN);
-        assert!(matches!(v, Value::Imm(i64::MIN)));
+    fn test_edge_operand_imm_min() {
+        let v = Operand::Imm(i64::MIN);
+        assert!(matches!(v, Operand::Imm(i64::MIN)));
     }
 
-    /// EDGE CASE: Label value
+    /// EDGE CASE: Label operand
     #[test]
-    fn test_edge_value_label() {
-        let v = Value::Label("foo".to_string());
-        assert!(matches!(v, Value::Label(_)));
+    fn test_edge_operand_label() {
+        let v = Operand::Label("foo".to_string());
+        assert!(matches!(v, Operand::Label(_)));
     }
 
     // ==================== ADDRESS TESTS ====================
@@ -250,41 +247,53 @@ mod tests {
     /// EDGE CASE: Base address with zero offset
     #[test]
     fn test_edge_addr_base_zero() {
-        let addr = Address::Base { base: Register(0), offset: 0 };
-        assert!(matches!(addr, Address::Base { .. }));
+        let addr = Address::BaseOffset {
+            base: PhysicalRegister::RBP,
+            offset: 0,
+        };
+        assert!(matches!(addr, Address::BaseOffset { .. }));
     }
 
     /// EDGE CASE: Base address with large offset
     #[test]
     fn test_edge_addr_base_large() {
-        let addr = Address::Base { base: Register(0), offset: i32::MAX };
-        assert!(matches!(addr, Address::Base { .. }));
+        let addr = Address::BaseOffset {
+            base: PhysicalRegister::RBP,
+            offset: i32::MAX,
+        };
+        assert!(matches!(addr, Address::BaseOffset { .. }));
     }
 
     /// EDGE CASE: Indexed address
     #[test]
     fn test_edge_addr_indexed() {
         let addr = Address::Indexed {
-            base: Register(0),
-            index: Register(1),
+            base: PhysicalRegister::RBP,
+            index: PhysicalRegister::RAX,
             scale: 8,
             offset: 0,
         };
         assert!(matches!(addr, Address::Indexed { .. }));
     }
 
-    /// EDGE CASE: Stack address - zero
+    /// EDGE CASE: Stack address - zero (using BaseOffset with RBP)
     #[test]
     fn test_edge_addr_stack_zero() {
-        let addr = Address::Stack(0);
-        assert!(matches!(addr, Address::Stack(0)));
+        let addr = Address::BaseOffset {
+            base: PhysicalRegister::RBP,
+            offset: 0,
+        };
+        assert!(matches!(addr, Address::BaseOffset { .. }));
     }
 
-    /// EDGE CASE: Stack address - negative
+    /// EDGE CASE: Stack address - negative (using BaseOffset with RBP)
     #[test]
     fn test_edge_addr_stack_neg() {
-        let addr = Address::Stack(-100);
-        assert!(matches!(addr, Address::Stack(-100)));
+        let addr = Address::BaseOffset {
+            base: PhysicalRegister::RBP,
+            offset: -100,
+        };
+        assert!(matches!(addr, Address::BaseOffset { .. }));
     }
 
     /// EDGE CASE: Global address
@@ -357,14 +366,18 @@ mod tests {
     /// ERROR CASE: Empty label name
     #[test]
     fn test_edge_empty_label() {
-        let instr = Instruction::Label { name: "".to_string() };
+        let instr = Instruction::Label {
+            name: "".to_string(),
+        };
         assert!(matches!(instr, Instruction::Label { .. }));
     }
 
     /// ERROR CASE: Empty target name
     #[test]
     fn test_edge_empty_target() {
-        let instr = Instruction::Jmp { target: "".to_string() };
+        let instr = Instruction::Jmp {
+            target: "".to_string(),
+        };
         assert!(matches!(instr, Instruction::Jmp { .. }));
     }
 

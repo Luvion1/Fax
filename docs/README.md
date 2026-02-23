@@ -133,7 +133,7 @@ See [LICENSE](../../LICENSE) for details.
 
 <div align="center">
 
-**Fax Compiler Documentation** v0.0.2 pre-alpha
+**Fax Compiler Documentation** v0.0.3 pre-alpha
 
 Made with ❤️ by the Fax Team
 

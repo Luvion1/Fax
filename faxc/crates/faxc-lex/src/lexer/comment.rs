@@ -29,6 +29,9 @@ impl<'a> Lexer<'a> {
                 self.cursor.advance();
                 self.cursor.advance();
                 depth -= 1;
+                if depth == 1 {
+                    return;
+                }
             } else {
                 self.cursor.advance();
             }

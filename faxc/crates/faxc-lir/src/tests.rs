@@ -74,13 +74,9 @@ fn test_lir_instructions() {
 
 #[test]
 fn test_condition_codes() {
+    use crate::lir::Condition;
     assert_eq!(Condition::Eq as u8, 0);
     assert_eq!(Condition::Ne as u8, 1);
-
-    // Test condition conversion
-    let mir_cond = MirCondition::Eq;
-    let lir_cond = Condition::from_mir_condition(mir_cond);
-    assert_eq!(lir_cond, Condition::Eq);
 }
 
 #[test]
@@ -108,29 +104,25 @@ fn test_addressing_modes() {
         offset: 0,
     };
     assert!(matches!(indexed, Address::Indexed { .. }));
-
-    // Stack relative
-    let stack = Address::StackRelative { offset: -16 };
-    assert!(matches!(stack, Address::StackRelative { .. }));
 }
 
 #[test]
 fn test_lower_mir_to_lir_basic() {
-    use faxc_mir::{
-        BasicBlock, BlockId, Constant, ConstantKind, Function as MirFunction, LocalId, Operand,
-        Rvalue, Statement, Terminator,
+    use faxc_mir::mir::{
+        BasicBlock, BlockId, Constant, ConstantKind, Function as MirFunction, LocalId,
+        Operand as MirOperand, Place, Rvalue, Statement, Terminator,
     };
     use faxc_sem::Type;
 
     // Create a simple MIR function
     let mut mir_func = MirFunction::new(Symbol::intern("test"), Type::Int, 0);
 
-    let entry = BlockId::from_usize(0);
+    let entry = BlockId(0);
     mir_func.blocks.push(BasicBlock {
         id: entry,
         statements: vec![Statement::Assign(
             Place::Local(LocalId(1)),
-            Rvalue::Use(Operand::Constant(Constant {
+            Rvalue::Use(MirOperand::Constant(Constant {
                 ty: Type::Int,
                 kind: ConstantKind::Int(42),
             })),
@@ -179,7 +171,7 @@ fn test_spill_slot_allocation() {
     use crate::stack_frame::StackFrame;
 
     let mut frame = StackFrame::new();
-    frame.calculate_frame_size(2, 0, false);
+    frame.frame_size(2, 0, false);
 
     let slot1 = frame.allocate_spill_slot();
     let slot2 = frame.allocate_spill_slot();

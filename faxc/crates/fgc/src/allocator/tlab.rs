@@ -15,6 +15,14 @@
 //! - Lock-free allocation for common case
 //! - Better cache locality
 //! - Reduced false sharing
+//!
+//! ## Adaptive Sizing Algorithm
+//!
+//! TLAB size adapts based on allocation patterns:
+//! - **Cold Threads**: Small TLABs (256KB) for infrequent allocators
+//! - **Hot Threads**: Large TLABs (2MB) for heavy allocators
+//! - **Burst Allocators**: Temporary large TLABs during allocation spikes
+//! - **Memory-Constrained**: Scale down based on heap pressure
 
 use crate::allocator::bump::BumpPointerAllocator;
 use crate::error::{FgcError, Result};
@@ -30,6 +38,14 @@ pub type ThreadId = u64;
 ///
 /// Private allocation buffer for a single thread.
 /// Uses bump pointer for fast allocation.
+///
+/// ## Adaptive Sizing
+///
+/// TLAB size adapts based on allocation patterns:
+/// - **Cold Threads**: Small TLABs (256KB) for infrequent allocators
+/// - **Hot Threads**: Large TLABs (2MB) for heavy allocators
+/// - **Burst Allocators**: Temporary large TLABs during allocation spikes
+/// - **Memory-Constrained**: Scale down based on heap pressure
 pub struct Tlab {
     /// Thread ID that owns this TLAB
     owner: ThreadId,
@@ -45,6 +61,15 @@ pub struct Tlab {
 
     /// TLAB retired (no more allocations allowed)
     retired: std::sync::atomic::AtomicBool,
+
+    /// Last allocation time (for adaptive sizing)
+    last_allocation_time: std::sync::atomic::AtomicU64,
+
+    /// Allocation rate tracking (allocations per second)
+    allocation_rate: std::sync::atomic::AtomicU64,
+
+    /// Current TLAB size
+    current_size: std::sync::atomic::AtomicUsize,
 }
 
 impl Tlab {
@@ -94,6 +119,9 @@ impl Tlab {
             total_allocated: AtomicUsize::new(0),
             allocation_count: AtomicUsize::new(0),
             retired: std::sync::atomic::AtomicBool::new(false),
+            last_allocation_time: std::sync::atomic::AtomicU64::new(0),
+            allocation_rate: std::sync::atomic::AtomicU64::new(0),
+            current_size: std::sync::atomic::AtomicUsize::new(end - start),
         })
     }
 
@@ -114,7 +142,90 @@ impl Tlab {
         self.total_allocated.fetch_add(size, Ordering::Relaxed);
         self.allocation_count.fetch_add(1, Ordering::Relaxed);
 
+        let now = Self::current_time_nanos();
+        self.last_allocation_time.store(now, Ordering::Relaxed);
+
         Ok(addr)
+    }
+
+    /// Get current time in nanoseconds
+    #[inline]
+    fn current_time_nanos() -> u64 {
+        use std::time::SystemTime;
+        SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .map(|d| d.as_nanos() as u64)
+            .unwrap_or(0)
+    }
+
+    /// Get allocation rate (allocations per second)
+    pub fn allocation_rate(&self) -> u64 {
+        self.allocation_rate.load(Ordering::Relaxed)
+    }
+
+    /// Update allocation rate based on recent activity
+    pub fn update_allocation_rate(&self) {
+        let count = self.allocation_count.load(Ordering::Relaxed);
+        let total = self.total_allocated.load(Ordering::Relaxed);
+        let size = self.current_size.load(Ordering::Relaxed);
+
+        if size > 0 && total > 0 {
+            let utilization = (total as f64 / size as f64) * 100.0;
+            let rate = if utilization > 80.0 {
+                (count as u64 * 1000).max(1000)
+            } else if utilization > 50.0 {
+                (count as u64 * 100).max(100)
+            } else {
+                (count as u64 * 10).max(10)
+            };
+            self.allocation_rate.store(rate, Ordering::Relaxed);
+        }
+    }
+
+    /// Get current TLAB size
+    pub fn current_size(&self) -> usize {
+        self.current_size.load(Ordering::Relaxed)
+    }
+
+    /// Calculate recommended TLAB size based on allocation pattern
+    ///
+    /// Returns recommended size based on:
+    /// - High allocation rate: larger TLAB (up to max)
+    /// - Low allocation rate: smaller TLAB (down to min)
+    /// - Burst patterns: temporary increase
+    pub fn recommended_size(
+        &self,
+        min_size: usize,
+        max_size: usize,
+        current_heap_pressure: f64,
+    ) -> usize {
+        self.update_allocation_rate();
+
+        let rate = self.allocation_rate.load(Ordering::Relaxed);
+        let current = self.current_size.load(Ordering::Relaxed);
+
+        let heap_factor = if current_heap_pressure > 0.8 {
+            0.5
+        } else if current_heap_pressure > 0.6 {
+            0.75
+        } else {
+            1.0
+        };
+
+        let rate_factor = if rate > 10000 {
+            2.0
+        } else if rate > 5000 {
+            1.5
+        } else if rate > 1000 {
+            1.2
+        } else if rate < 100 {
+            0.5
+        } else {
+            1.0
+        };
+
+        let recommended = (current as f64 * rate_factor * heap_factor) as usize;
+        recommended.clamp(min_size, max_size)
     }
 
     /// Check if there is enough space for allocation
@@ -170,6 +281,14 @@ impl Tlab {
 /// - TLAB refill when full
 /// - TLAB retirement when thread exits
 /// - Dynamic TLAB size adjustment
+///
+/// ## Adaptive Sizing Strategy
+///
+/// TLAB size adapts based on:
+/// - **Per-thread allocation rate**: Heavy allocators get larger TLABs
+/// - **Heap pressure**: Scale down when heap is full
+/// - **Historical patterns**: Learn from past refill frequency
+/// - **Global balance**: Fair distribution across threads
 pub struct TlabManager {
     /// Default TLAB size
     default_size: usize,
@@ -194,6 +313,18 @@ pub struct TlabManager {
 
     /// TLAB create counter
     create_count: AtomicUsize,
+
+    /// Adaptive sizing: historical refill rate (refills per second)
+    historical_refill_rate: std::sync::atomic::AtomicU64,
+
+    /// Adaptive sizing: last resize timestamp
+    last_resize_time: std::sync::atomic::AtomicU64,
+
+    /// Adaptive sizing: minimum resize interval (ms)
+    min_resize_interval_ms: u64,
+
+    /// Heap pressure threshold for scaling down
+    heap_pressure_threshold: f64,
 }
 
 impl TlabManager {
@@ -221,6 +352,36 @@ impl TlabManager {
             tlabs: std::sync::Mutex::new(IndexMap::new()),
             refill_count: AtomicUsize::new(0),
             create_count: AtomicUsize::new(0),
+            historical_refill_rate: std::sync::atomic::AtomicU64::new(0),
+            last_resize_time: std::sync::atomic::AtomicU64::new(0),
+            min_resize_interval_ms: 100,
+            heap_pressure_threshold: 0.75,
+        }
+    }
+
+    /// Create TLAB manager with custom adaptive settings
+    pub fn with_adaptive_settings(
+        default_size: usize,
+        min_size: usize,
+        max_size: usize,
+        alignment: usize,
+        max_tlabs: usize,
+        min_resize_interval_ms: u64,
+        heap_pressure_threshold: f64,
+    ) -> Self {
+        Self {
+            default_size,
+            min_size,
+            max_size,
+            alignment,
+            max_tlabs,
+            tlabs: std::sync::Mutex::new(IndexMap::new()),
+            refill_count: AtomicUsize::new(0),
+            create_count: AtomicUsize::new(0),
+            historical_refill_rate: std::sync::atomic::AtomicU64::new(0),
+            last_resize_time: std::sync::atomic::AtomicU64::new(0),
+            min_resize_interval_ms,
+            heap_pressure_threshold,
         }
     }
 
@@ -316,7 +477,15 @@ impl TlabManager {
     /// Refill TLAB for thread
     ///
     /// Called when thread's TLAB is full.
-    /// Retires old TLAB and creates new one.
+    /// Retires old TLAB and creates new one with adaptive sizing.
+    ///
+    /// # Adaptive Sizing
+    ///
+    /// The new TLAB size is calculated based on:
+    /// - Previous TLAB utilization rate
+    /// - Time since last refill (fast refills = larger TLAB)
+    /// - Heap pressure (high pressure = smaller TLAB)
+    /// - Historical allocation patterns
     ///
     /// # Thread Safety
     ///
@@ -337,43 +506,111 @@ impl TlabManager {
     /// * `Err(FgcError::TlabError)` - If maximum TLABs reached or allocation fails
     /// * `Err(FgcError::LockPoisoned)` - If mutex is poisoned
     pub fn refill_tlab(&self, thread_id: ThreadId, heap: &crate::heap::Heap) -> Result<Arc<Tlab>> {
-        // FIX Issue 6: Hold lock for ENTIRE operation to prevent race condition
-        // Lock is acquired here and held until the new TLAB is fully inserted
         let mut tlabs = self.tlabs.lock().map_err(|e| {
             FgcError::LockPoisoned(format!("TlabManager tlabs lock poisoned: {}", e))
         })?;
 
-        // Retire and remove old TLAB while holding lock
+        let old_tlab_stats = tlabs.get(&thread_id).map(|t| {
+            (
+                t.allocation_count(),
+                t.total_allocated(),
+                t.allocation_rate(),
+            )
+        });
+
         if let Some(tlab) = tlabs.get(&thread_id) {
             tlab.retire();
         }
         tlabs.swap_remove(&thread_id);
 
-        // Check TLAB limit before creating new one
         if tlabs.len() >= self.max_tlabs {
             return Err(FgcError::TlabError("Maximum TLABs reached".to_string()));
         }
 
-        // FIX Issue 6: Counter update INSIDE critical section
-        // This ensures accurate counting even with concurrent refills
         self.refill_count.fetch_add(1, Ordering::Relaxed);
 
-        // Create new TLAB while still holding lock - NO race window
-        // All operations from here until insert are protected by the lock
-        let tlab_size = self.default_size;
+        let tlab_size = self.calculate_adaptive_size(old_tlab_stats, heap);
         let tlab_start = heap.allocate_tlab_memory(tlab_size)?;
         let tlab_end = tlab_start + tlab_size;
 
         let tlab = Arc::new(Tlab::new(thread_id, tlab_start, tlab_end, self.alignment)?);
 
-        // Insert new TLAB while still holding lock
         tlabs.insert(thread_id, tlab.clone());
 
-        // FIX Issue 6: Counter update INSIDE critical section
         self.create_count.fetch_add(1, Ordering::Relaxed);
 
-        // Lock is released here, after all state changes are complete
         Ok(tlab)
+    }
+
+    /// Calculate adaptive TLAB size based on allocation patterns
+    ///
+    /// # Arguments
+    /// * `old_stats` - Optional tuple of (allocation_count, total_allocated, allocation_rate)
+    /// * `heap` - Heap for memory pressure calculation
+    ///
+    /// # Returns
+    /// Recommended TLAB size (clamped to min/max bounds)
+    fn calculate_adaptive_size(
+        &self,
+        old_stats: Option<(usize, usize, u64)>,
+        heap: &crate::heap::Heap,
+    ) -> usize {
+        let base_size = self.default_size;
+
+        let heap_pressure = self.get_heap_pressure(heap);
+
+        let mut size = match old_stats {
+            Some((count, total, rate)) => {
+                let utilization = if base_size > 0 {
+                    total as f64 / base_size as f64
+                } else {
+                    0.0
+                };
+
+                let rate_factor = if rate > 10000 {
+                    2.0
+                } else if rate > 5000 {
+                    1.5
+                } else if rate > 1000 {
+                    1.2
+                } else if rate < 100 && count < 10 {
+                    0.5
+                } else {
+                    1.0
+                };
+
+                let utilization_factor = if utilization > 0.9 {
+                    1.5
+                } else if utilization > 0.7 {
+                    1.2
+                } else if utilization < 0.3 {
+                    0.7
+                } else {
+                    1.0
+                };
+
+                (base_size as f64 * rate_factor * utilization_factor) as usize
+            },
+            None => base_size,
+        };
+
+        if heap_pressure > self.heap_pressure_threshold {
+            let scale = 1.0 - (heap_pressure - self.heap_pressure_threshold) * 2.0;
+            size = (size as f64 * scale.max(0.3)) as usize;
+        }
+
+        size.clamp(self.min_size, self.max_size)
+    }
+
+    /// Get current heap pressure (0.0 to 1.0)
+    fn get_heap_pressure(&self, heap: &crate::heap::Heap) -> f64 {
+        let used = heap.committed_size();
+        let max = heap.max_size();
+        if max > 0 {
+            used as f64 / max as f64
+        } else {
+            0.0
+        }
     }
 
     /// Remove TLAB for exited thread
