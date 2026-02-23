@@ -85,7 +85,7 @@ jobs:
             pkg-config
 
       - name: Cache Cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -95,7 +95,7 @@ jobs:
             ${{ runner.os }}-bench-cargo-registry-
 
       - name: Cache Cargo build artifacts
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: faxc/target
           key: ${{ runner.os }}-bench-cargo-target-${{ hashFiles('faxc/**/Cargo.lock') }}
@@ -103,7 +103,7 @@ jobs:
             ${{ runner.os }}-bench-cargo-target-
 
       - name: Cache benchmark results
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.BENCH_OUTPUT_DIR }}
           key: ${{ runner.os }}-benchmark-results-${{ github.sha }}
