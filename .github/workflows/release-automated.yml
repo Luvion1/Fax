@@ -148,7 +148,7 @@ jobs:
 
       - name: Upload release plan artifact
         if: steps.release-plz.outputs.releases_created == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: release-plan
           path: faxc/release-plan.json
@@ -347,7 +347,7 @@ jobs:
         run: Compress-Archive -Path * -DestinationPath ../${{ matrix.artifact_name }}.${{ matrix.archive_ext }}
 
       - name: Upload release artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_name }}.${{ matrix.archive_ext }}
