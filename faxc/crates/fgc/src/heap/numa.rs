@@ -199,10 +199,7 @@ impl NumaNodePool {
     fn free(&self, address: usize, size: usize) {
         let mut free_regions = self.free_regions.lock().unwrap();
 
-        free_regions
-            .entry(size)
-            .or_insert_with(Vec::new)
-            .push(address);
+        free_regions.entry(size).or_default().push(address);
 
         self.allocated_bytes.fetch_sub(size, Ordering::Relaxed);
         self.allocation_count.fetch_sub(1, Ordering::Relaxed);

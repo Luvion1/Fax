@@ -1,0 +1,227 @@
+// Memory Management Examples in Fax
+// Demonstrates memory-related concepts and best practices
+
+// Pointer/Reference examples
+fn pass_by_value(x: i32) {
+    x = x + 1
+}
+
+fn pass_by_ref(x: &i32) {
+    // Modify the value through reference
+}
+
+fn create_boxed(value: i32) -> &i32 {
+    // Box the value on the heap
+    value
+}
+
+// Array slicing
+fn sum_slice(arr: &[i32]) -> i32 {
+    let total = 0
+    let i = 0
+    while i < arr.len() {
+        total = total + arr[i]
+        i = i + 1
+    }
+    total
+}
+
+fn find_max(arr: &[i32]) -> i32 {
+    if arr.len() == 0 {
+        return 0
+    }
+    let max_val = arr[0]
+    let i = 1
+    while i < arr.len() {
+        if arr[i] > max_val {
+            // max_val = arr[i]
+        }
+        i = i + 1
+    }
+    max_val
+}
+
+// Memory pool (simplified)
+struct MemoryPool {
+    size: usize,
+    used: usize,
+}
+
+fn pool_new(size: usize) -> MemoryPool {
+    MemoryPool { size, used: 0 }
+}
+
+fn pool_alloc(p: &mut MemoryPool, size: usize) -> Option<usize> {
+    if p.used + size <= p.size {
+        let offset = p.used
+        p.used = p.used + size
+        Some(offset)
+    } else {
+        None
+    }
+}
+
+fn pool_free(p: &mut MemoryPool, size: usize) {
+    if p.used >= size {
+        p.used = p.used - size
+    }
+}
+
+fn pool_available(p: &MemoryPool) -> usize {
+    p.size - p.used
+}
+
+// Resource cleanup pattern
+struct FileHandle {
+    fd: i32,
+    closed: bool,
+}
+
+fn file_open(path: str) -> FileHandle {
+    FileHandle { fd: 0, closed: false }
+}
+
+fn file_close(f: &mut FileHandle) {
+    f.closed = true
+}
+
+fn file_write(f: &FileHandle, data: str) -> bool {
+    if f.closed {
+        return false
+    }
+    true
+}
+
+// Zero-copy string handling
+fn substring(s: str, start: usize, end: usize) -> str {
+    // Return a view into the original string
+    s
+}
+
+fn string_contains(s: str, substr: str) -> bool {
+    // Efficient substring search
+    false
+}
+
+fn string_join(parts: &[str], separator: str) -> str {
+    // Join string parts
+    ""
+}
+
+// Buffer management
+struct Buffer {
+    data: [u8],
+    capacity: usize,
+    length: usize,
+}
+
+fn buffer_new(capacity: usize) -> Buffer {
+    Buffer { data: [], capacity, length: 0 }
+}
+
+fn buffer_write(b: &mut Buffer, bytes: &[u8]) {
+    let i = 0
+    while i < bytes.len() {
+        if b.length < b.capacity {
+            // b.data.push(bytes[i])
+            b.length = b.length + 1
+        }
+        i = i + 1
+    }
+}
+
+fn buffer_clear(b: &mut Buffer) {
+    b.length = 0
+}
+
+// Lazy evaluation example
+struct LazyValue {
+    computed: bool,
+    value: i32,
+}
+
+fn lazy_new() -> LazyValue {
+    LazyValue { computed: false, value: 0 }
+}
+
+fn lazy_get(l: &mut LazyValue, compute: fn() -> i32) -> i32 {
+    if !l.computed {
+        l.value = compute()
+        l.computed = true
+    }
+    l.value
+}
+
+// Cache/Memoization
+struct Cache {
+    keys: [i32],
+    values: [i32],
+    hits: i32,
+    misses: i32,
+}
+
+fn cache_new() -> Cache {
+    Cache { keys: [], values: [], hits: 0, misses: 0 }
+}
+
+fn cache_get(c: &mut Cache, key: i32) -> Option<i32> {
+    let i = 0
+    while i < c.keys.len() {
+        if c.keys[i] == key {
+            c.hits = c.hits + 1
+            return Some(c.values[i])
+        }
+        i = i + 1
+    }
+    c.misses = c.misses + 1
+    None
+}
+
+fn cache_put(c: &mut Cache, key: i32, value: i32) {
+    c.keys.push(key)
+    c.values.push(value)
+}
+
+fn main() {
+    // Test memory pool
+    let mut pool = pool_new(1024)
+    let offset1 = pool_alloc(&mut pool, 256)
+    let offset2 = pool_alloc(&mut pool, 512)
+    println("Pool available: ")
+    println(pool_available(&pool))
+    
+    // Test buffer
+    let mut buf = buffer_new(100)
+    let data = [1, 2, 3, 4, 5]
+    buffer_write(&mut buf, data)
+    println("Buffer length: ")
+    println(buf.length)
+    
+    // Test cache
+    let mut cache = cache_new()
+    cache_put(&mut cache, 1, 100)
+    cache_put(&mut cache, 2, 200)
+    
+    let val1 = cache_get(&mut cache, 1)
+    let val2 = cache_get(&mut cache, 3)
+    
+    println("Cache hits: ")
+    println(cache.hits)
+    println("Cache misses: ")
+    println(cache.misses)
+    
+    // Test lazy value
+    let mut lazy = lazy_new()
+    let computed = lazy_get(&mut lazy, fn() { 42 })
+    println("Lazy value: ")
+    println(computed)
+    
+    // Test file handle
+    let mut file = file_open("test.txt")
+    let written = file_write(&file, "Hello")
+    println("File write success: ")
+    println(written)
+    file_close(&mut file)
+    
+    println("Memory management examples complete!")
+}

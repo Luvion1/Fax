@@ -5,19 +5,20 @@
 
 use crate::error::{FgcError, Result};
 use indexmap::IndexMap;
+use std::sync::Mutex;
 
 /// GcMetrics - metrics exporter
 ///
 /// Export GC metrics in various formats.
 pub struct GcMetrics {
     /// Metrics data
-    metrics: std::sync::Mutex<IndexMap<String, MetricValue>>,
+    metrics: Mutex<IndexMap<String, MetricValue>>,
 }
 
 impl GcMetrics {
     pub fn new() -> Self {
         Self {
-            metrics: std::sync::Mutex::new(IndexMap::new()),
+            metrics: Mutex::new(IndexMap::new()),
         }
     }
 

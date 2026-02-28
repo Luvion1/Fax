@@ -152,15 +152,25 @@ pub struct GcLogger {
     config: GcLoggerConfig,
     events: Mutex<Vec<(Instant, GcEvent)>>,
     enabled: AtomicBool,
+    file: Mutex<Option<std::fs::File>>,
 }
 
 impl GcLogger {
     /// Create new GC logger
     pub fn new(config: GcLoggerConfig) -> Self {
+        let file = config.file.as_ref().and_then(|path| {
+            std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(path)
+                .ok()
+        });
+
         Self {
             config,
             events: Mutex::new(Vec::new()),
             enabled: AtomicBool::new(true),
+            file: Mutex::new(file),
         }
     }
 
@@ -203,8 +213,17 @@ impl GcLogger {
         }
 
         // Output to file
-        if let Some(ref _path) = self.config.file {
-            // TODO: Implement file output
+        if let Ok(mut file_guard) = self.file.lock() {
+            if let Some(ref mut file) = *file_guard {
+                use std::io::Write;
+                let output = if self.config.json {
+                    self.format_json(&event, timestamp)
+                } else {
+                    self.format_human(&event, timestamp)
+                };
+                let _ = writeln!(file, "{}", output);
+                let _ = file.flush();
+            }
         }
     }
 
@@ -455,6 +474,242 @@ impl GcLogger {
         if let Ok(json_str) = serde_json::to_string(&json) {
             println!("{}", json_str);
         }
+    }
+
+    /// Format event for file output (human readable)
+    fn format_human(&self, event: &GcEvent, timestamp: Instant) -> String {
+        let elapsed = timestamp.elapsed().as_secs_f64();
+
+        let msg = match event {
+            GcEvent::CycleStart {
+                generation,
+                reason,
+                cycle,
+            } => {
+                format!(
+                    "[{:+.3}] Cycle {} started ({} generation, reason: {})",
+                    elapsed, cycle, generation, reason
+                )
+            },
+            GcEvent::PhaseStart { phase, cycle } => {
+                format!("[{:+.3}] Cycle {}: {} phase started", elapsed, cycle, phase)
+            },
+            GcEvent::PhaseEnd {
+                phase,
+                duration_ms,
+                cycle,
+            } => {
+                format!(
+                    "[{:+.3}] Cycle {}: {} phase ended ({} ms)",
+                    elapsed, cycle, phase, duration_ms
+                )
+            },
+            GcEvent::CycleEnd {
+                cycle,
+                duration_ms,
+                reclaimed_bytes,
+            } => {
+                format!(
+                    "[{:+.3}] Cycle {} completed ({} ms, reclaimed {} bytes)",
+                    elapsed, cycle, duration_ms, reclaimed_bytes
+                )
+            },
+            GcEvent::HeapStats {
+                used_bytes,
+                total_bytes,
+                utilization,
+            } => {
+                format!(
+                    "[{:+.3}] Heap: {}/{} bytes ({:.1}%)",
+                    elapsed,
+                    used_bytes,
+                    total_bytes,
+                    utilization * 100.0
+                )
+            },
+            GcEvent::Pause { phase, duration_us } => {
+                format!("[{:+.3}] Pause {}: {} us", elapsed, phase, duration_us)
+            },
+            GcEvent::AllocationFailure { size, heap_used } => {
+                format!(
+                    "[{:+.3}] Allocation failed: requested {} bytes, heap used {} bytes",
+                    elapsed, size, heap_used
+                )
+            },
+            GcEvent::TlabStats {
+                active_count,
+                total_allocated,
+            } => {
+                format!(
+                    "[{:+.3}] TLAB: {} active, {} bytes allocated",
+                    elapsed, active_count, total_allocated
+                )
+            },
+            GcEvent::MarkStats {
+                marked_count,
+                scanned_count,
+            } => {
+                format!(
+                    "[{:+.3}] Mark: {} marked, {} scanned",
+                    elapsed, marked_count, scanned_count
+                )
+            },
+            GcEvent::RelocateStats {
+                relocated_count,
+                bytes_moved,
+            } => {
+                format!(
+                    "[{:+.3}] Relocate: {} objects, {} bytes moved",
+                    elapsed, relocated_count, bytes_moved
+                )
+            },
+            GcEvent::ReferenceStats {
+                weak_cleared,
+                soft_cleared,
+                phantom_cleared,
+                finalizers_processed,
+            } => {
+                format!(
+                    "[{:+.3}] References: weak={}, soft={}, phantom={}, finalizers={}",
+                    elapsed, weak_cleared, soft_cleared, phantom_cleared, finalizers_processed
+                )
+            },
+            GcEvent::GcThreadStats {
+                thread_id,
+                work_items_processed,
+                cpu_time_ns,
+            } => {
+                format!(
+                    "[{:+.3}] GC Thread {}: {} items, {} ns CPU",
+                    elapsed, thread_id, work_items_processed, cpu_time_ns
+                )
+            },
+        };
+
+        msg
+    }
+
+    /// Format event for file output (JSON)
+    fn format_json(&self, event: &GcEvent, timestamp: Instant) -> String {
+        let elapsed = timestamp.elapsed().as_secs_f64();
+
+        let json = match event {
+            GcEvent::CycleStart {
+                generation,
+                reason,
+                cycle,
+            } => serde_json::json!({
+                "timestamp": elapsed,
+                "type": "cycle_start",
+                "cycle": cycle,
+                "generation": generation,
+                "reason": reason
+            }),
+            GcEvent::PhaseStart { phase, cycle } => serde_json::json!({
+                "timestamp": elapsed,
+                "type": "phase_start",
+                "cycle": cycle,
+                "phase": phase
+            }),
+            GcEvent::PhaseEnd {
+                phase,
+                duration_ms,
+                cycle,
+            } => serde_json::json!({
+                "timestamp": elapsed,
+                "type": "phase_end",
+                "cycle": cycle,
+                "phase": phase,
+                "duration_ms": duration_ms
+            }),
+            GcEvent::CycleEnd {
+                cycle,
+                duration_ms,
+                reclaimed_bytes,
+            } => serde_json::json!({
+                "timestamp": elapsed,
+                "type": "cycle_end",
+                "cycle": cycle,
+                "duration_ms": duration_ms,
+                "reclaimed_bytes": reclaimed_bytes
+            }),
+            GcEvent::HeapStats {
+                used_bytes,
+                total_bytes,
+                utilization,
+            } => serde_json::json!({
+                "timestamp": elapsed,
+                "type": "heap_stats",
+                "used_bytes": used_bytes,
+                "total_bytes": total_bytes,
+                "utilization": utilization
+            }),
+            GcEvent::Pause { phase, duration_us } => serde_json::json!({
+                "timestamp": elapsed,
+                "type": "pause",
+                "phase": phase,
+                "duration_us": duration_us
+            }),
+            GcEvent::AllocationFailure { size, heap_used } => serde_json::json!({
+                "timestamp": elapsed,
+                "type": "allocation_failure",
+                "size": size,
+                "heap_used": heap_used
+            }),
+            GcEvent::TlabStats {
+                active_count,
+                total_allocated,
+            } => serde_json::json!({
+                "timestamp": elapsed,
+                "type": "tlab_stats",
+                "active_count": active_count,
+                "total_allocated": total_allocated
+            }),
+            GcEvent::MarkStats {
+                marked_count,
+                scanned_count,
+            } => serde_json::json!({
+                "timestamp": elapsed,
+                "type": "mark_stats",
+                "marked_count": marked_count,
+                "scanned_count": scanned_count
+            }),
+            GcEvent::RelocateStats {
+                relocated_count,
+                bytes_moved,
+            } => serde_json::json!({
+                "timestamp": elapsed,
+                "type": "relocate_stats",
+                "relocated_count": relocated_count,
+                "bytes_moved": bytes_moved
+            }),
+            GcEvent::ReferenceStats {
+                weak_cleared,
+                soft_cleared,
+                phantom_cleared,
+                finalizers_processed,
+            } => serde_json::json!({
+                "timestamp": elapsed,
+                "type": "reference_stats",
+                "weak_cleared": weak_cleared,
+                "soft_cleared": soft_cleared,
+                "phantom_cleared": phantom_cleared,
+                "finalizers_processed": finalizers_processed
+            }),
+            GcEvent::GcThreadStats {
+                thread_id,
+                work_items_processed,
+                cpu_time_ns,
+            } => serde_json::json!({
+                "timestamp": elapsed,
+                "type": "gc_thread_stats",
+                "thread_id": thread_id,
+                "work_items_processed": work_items_processed,
+                "cpu_time_ns": cpu_time_ns
+            }),
+        };
+
+        json.to_string()
     }
 
     /// Get all events

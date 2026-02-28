@@ -13,14 +13,14 @@
 mod common;
 
 use common::{
-    GcFixture,
-    assert_all_addresses_unique,
-    assert_gc_completed,
-    assert_gc_cycle_increased,
+    assert_all_addresses_unique, assert_gc_completed, assert_gc_cycle_increased, GcFixture,
     TEST_TIMEOUT,
 };
 use fgc::{GcGeneration, GcReason};
-use std::sync::{Arc, Barrier, atomic::{AtomicUsize, AtomicBool, Ordering}};
+use std::sync::{
+    atomic::{AtomicBool, AtomicUsize, Ordering},
+    Arc, Barrier,
+};
 use std::thread;
 use std::time::Duration;
 
@@ -36,49 +36,49 @@ use std::time::Duration;
 fn test_concurrent_mark_operations() {
     use fgc::barrier::colored_ptr::ColoredPointer;
     use std::sync::atomic::AtomicUsize;
-    
+
     // Arrange - shared pointer accessed by multiple threads
     let shared_ptr = Arc::new(AtomicUsize::new(0x1000)); // Raw pointer value
     let thread_count = 8;
     let operations_per_thread = 100;
-    
+
     let mut handles = Vec::new();
     let barrier = Arc::new(Barrier::new(thread_count));
-    
+
     // Act - concurrent mark operations
     for _ in 0..thread_count {
         let ptr_clone = Arc::clone(&shared_ptr);
         let barrier_clone = Arc::clone(&barrier);
-        
+
         let handle = thread::spawn(move || {
             // Wait for all threads to be ready
             barrier_clone.wait();
-            
+
             for _ in 0..operations_per_thread {
                 // Read, modify, write pattern (simulating what GC does)
                 let mut current = ptr_clone.load(Ordering::Relaxed);
                 let mut colored = ColoredPointer::from_raw(current);
-                
+
                 // Set mark bit
                 colored.set_marked0();
-                
+
                 // Write back
                 ptr_clone.store(colored.raw(), Ordering::Relaxed);
             }
         });
-        
+
         handles.push(handle);
     }
-    
+
     // Wait for all threads
     for handle in handles {
         handle.join().expect("Thread should not panic");
     }
-    
+
     // Assert - pointer should be in valid state
     let final_raw = shared_ptr.load(Ordering::Relaxed);
     let final_ptr = ColoredPointer::from_raw(final_raw);
-    
+
     // Address should be preserved
     assert_eq!(
         final_ptr.address(),
@@ -86,7 +86,7 @@ fn test_concurrent_mark_operations() {
         "Address corrupted during concurrent mark operations: expected 0x1000, got {:#x}",
         final_ptr.address()
     );
-    
+
     // Marked0 should be set (at least one thread set it)
     assert!(
         final_ptr.is_marked0(),
@@ -101,41 +101,41 @@ fn test_concurrent_mark_operations() {
 #[test]
 fn test_concurrent_flip_mark_bit() {
     use fgc::barrier::colored_ptr::ColoredPointer;
-    
+
     // Arrange
     let mut ptr = ColoredPointer::new(0x1000);
-    
+
     // Set initial state: Marked0 = true, Marked1 = false
     ptr.set_marked0();
     assert!(ptr.is_marked0());
     assert!(!ptr.is_marked1());
-    
+
     // Act - flip mark bit
     ptr.flip_mark_bit();
-    
+
     // Assert - should swap, not flip both
     // CORRECT behavior: Marked0=false, Marked1=true
     // BUG behavior: Marked0=false, Marked1=false (both flipped)
-    
+
     assert!(
         !ptr.is_marked0(),
         "flip_mark_bit bug: Marked0 should be cleared after flip"
     );
-    
+
     assert!(
         ptr.is_marked1(),
         "flip_mark_bit BUG: Marked1 should be SET after flip (swap), but it's clear. \
          Current implementation XORs both bits which is WRONG - should swap."
     );
-    
+
     // Flip again - should return to original state
     ptr.flip_mark_bit();
-    
+
     assert!(
         ptr.is_marked0(),
         "flip_mark_bit bug: Second flip should restore Marked0"
     );
-    
+
     assert!(
         !ptr.is_marked1(),
         "flip_mark_bit bug: Second flip should clear Marked1"
@@ -149,13 +149,13 @@ fn test_concurrent_flip_mark_bit() {
 #[test]
 fn test_mark_bit_exclusivity() {
     use fgc::barrier::colored_ptr::ColoredPointer;
-    
+
     // Arrange
     let mut ptr = ColoredPointer::new(0x1000);
-    
+
     // Act - various mark operations
     ptr.set_marked0();
-    
+
     // Assert - only Marked0 should be set
     assert!(
         ptr.is_marked0() && !ptr.is_marked1(),
@@ -163,9 +163,9 @@ fn test_mark_bit_exclusivity() {
         ptr.is_marked0(),
         ptr.is_marked1()
     );
-    
+
     ptr.set_marked1();
-    
+
     // Note: Current implementation allows both to be set
     // This test documents the expected invariant
     // In a correct implementation, set_marked1 might clear Marked0 first
@@ -185,17 +185,17 @@ fn test_concurrent_state_reads() {
     let fixture = GcFixture::with_defaults();
     let thread_count = 8;
     let reads_per_thread = 1000;
-    
+
     let mut handles = Vec::new();
     let mut states_read: Vec<_> = (0..thread_count)
         .map(|_| Arc::new(std::sync::Mutex::new(Vec::new())))
         .collect();
-    
+
     // Act - concurrent state reads
     for i in 0..thread_count {
         let gc: Arc<fgc::GarbageCollector> = Arc::clone(&fixture.gc);
         let states = Arc::clone(&states_read[i]);
-        
+
         let handle = thread::spawn(move || {
             let mut local_states = states.lock().expect("Lock should not be poisoned");
             for _ in 0..reads_per_thread {
@@ -203,15 +203,15 @@ fn test_concurrent_state_reads() {
                 local_states.push(state);
             }
         });
-        
+
         handles.push(handle);
     }
-    
+
     // Wait for all threads
     for handle in handles {
         handle.join().expect("Thread should not panic");
     }
-    
+
     // Assert - all state reads should be valid
     for (i, states) in states_read.iter().enumerate() {
         let states = states.lock().expect("Lock should not be poisoned");
@@ -221,7 +221,7 @@ fn test_concurrent_state_reads() {
             "Thread {} did not complete all reads",
             i
         );
-        
+
         // All states should be valid enum values (Rust guarantees this)
         // The test verifies no panics occurred during concurrent reads
     }
@@ -237,34 +237,34 @@ fn test_concurrent_gc_requests() {
     let fixture = GcFixture::with_defaults();
     let thread_count = 4;
     let before_cycles = fixture.cycle_count();
-    
+
     let mut handles = Vec::new();
     let barrier = Arc::new(Barrier::new(thread_count));
-    
+
     // Act - concurrent GC requests
     for _ in 0..thread_count {
         let gc: Arc<fgc::GarbageCollector> = Arc::clone(&fixture.gc);
         let barrier_clone = Arc::clone(&barrier);
-        
+
         let handle = thread::spawn(move || {
             barrier_clone.wait();
             gc.request_gc(GcGeneration::Young, GcReason::Explicit);
         });
-        
+
         handles.push(handle);
     }
-    
+
     // Wait for requests
     for handle in handles {
         handle.join().expect("Thread should not panic");
     }
-    
+
     // Wait for GC to complete
     thread::sleep(Duration::from_millis(100));
-    
+
     // Assert - GC should have run at least once
     let after_cycles = fixture.cycle_count();
-    
+
     // Note: Multiple requests might coalesce into single GC
     // The important thing is no crashes or deadlocks
     assert!(
@@ -327,18 +327,18 @@ fn test_concurrent_alloc_free_pattern() {
     let fixture = GcFixture::with_defaults();
     let thread_count = 4;
     let operations_per_thread = 100;
-    
+
     let allocated_count = Arc::new(AtomicUsize::new(0));
     let mut handles = Vec::new();
-    
+
     // Act - concurrent alloc/free pattern
     for _ in 0..thread_count {
         let gc: Arc<fgc::GarbageCollector> = Arc::clone(&fixture.gc);
         let count = Arc::clone(&allocated_count);
-        
+
         let handle = thread::spawn(move || {
             let mut local_addrs = Vec::new();
-            
+
             for _ in 0..operations_per_thread {
                 // Allocate
                 if let Ok(addr) = gc.heap().allocate_tlab_memory(64) {
@@ -346,24 +346,23 @@ fn test_concurrent_alloc_free_pattern() {
                     count.fetch_add(1, Ordering::Relaxed);
                 }
             }
-            
+
             local_addrs
         });
-        
+
         handles.push(handle);
     }
-    
+
     // Collect all allocations
     let mut all_addresses = Vec::new();
     for handle in handles {
         let addrs = handle.join().expect("Thread should not panic");
         all_addresses.extend(addrs);
     }
-    
+
     // Assert - all allocations should be unique
-    assert_all_addresses_unique(&all_addresses,
-        "Concurrent alloc/free pattern");
-    
+    assert_all_addresses_unique(&all_addresses, "Concurrent alloc/free pattern");
+
     // Verify count matches
     let total_allocated = allocated_count.load(Ordering::Relaxed);
     assert_eq!(
@@ -385,29 +384,29 @@ fn test_concurrent_alloc_free_pattern() {
 fn test_concurrent_mark_same_object() {
     use fgc::barrier::colored_ptr::ColoredPointer;
     use std::sync::atomic::AtomicUsize;
-    
+
     // Arrange - multiple threads marking same object
     let shared_ptr = Arc::new(AtomicUsize::new(0x1000));
     let thread_count = 8;
     let marks_per_thread = 100;
-    
+
     let marked_count = Arc::new(AtomicUsize::new(0));
     let mut handles = Vec::new();
     let barrier = Arc::new(Barrier::new(thread_count));
-    
+
     // Act - concurrent marking
     for _ in 0..thread_count {
         let ptr = Arc::clone(&shared_ptr);
         let count = Arc::clone(&marked_count);
         let barrier_clone = Arc::clone(&barrier);
-        
+
         let handle = thread::spawn(move || {
             barrier_clone.wait();
-            
+
             for _ in 0..marks_per_thread {
                 let raw = ptr.load(Ordering::Relaxed);
                 let mut colored = ColoredPointer::from_raw(raw);
-                
+
                 if !colored.is_marked() {
                     colored.set_marked0();
                     ptr.store(colored.raw(), Ordering::Relaxed);
@@ -415,24 +414,24 @@ fn test_concurrent_mark_same_object() {
                 }
             }
         });
-        
+
         handles.push(handle);
     }
-    
+
     // Wait for all threads
     for handle in handles {
         handle.join().expect("Thread should not panic");
     }
-    
+
     // Assert - object should be marked
     let final_raw = shared_ptr.load(Ordering::Relaxed);
     let final_ptr = ColoredPointer::from_raw(final_raw);
-    
+
     assert!(
         final_ptr.is_marked(),
         "Object not marked after concurrent mark attempts - race condition bug"
     );
-    
+
     // Address should be preserved
     assert_eq!(
         final_ptr.address(),
@@ -459,7 +458,7 @@ fn test_no_deadlock_concurrent_gc_alloc() {
     let gc_barrier = Arc::clone(&barrier);
     let alloc1_barrier = Arc::clone(&barrier);
     let alloc2_barrier = Arc::clone(&barrier);
-    
+
     let gc_fixture = Arc::clone(&fixture);
     let alloc1_fixture = Arc::clone(&fixture);
     let alloc2_fixture = Arc::clone(&fixture);
@@ -485,7 +484,8 @@ fn test_no_deadlock_concurrent_gc_alloc() {
         gc_handle.join().expect("GC thread panicked");
         alloc1_handle.join().expect("Alloc1 thread panicked");
         alloc2_handle.join().expect("Alloc2 thread panicked");
-    }).join();
+    })
+    .join();
 
     assert!(
         result.is_ok(),
@@ -501,19 +501,19 @@ fn test_no_deadlock_concurrent_gc_alloc() {
 fn test_gc_shutdown_no_deadlock() {
     // Arrange
     let fixture = GcFixture::with_defaults();
-    
+
     // Do some allocations first
     for _ in 0..10 {
         let _ = fixture.allocate(64);
     }
-    
+
     // Act & Assert - shutdown should complete
     common::assert_completed_within_timeout(
         || {
             drop(fixture); // Drop triggers shutdown in Drop impl
         },
         TEST_TIMEOUT,
-        "GC shutdown"
+        "GC shutdown",
     );
 }
 
@@ -528,25 +528,25 @@ fn test_gc_shutdown_no_deadlock() {
 #[test]
 fn test_memory_ordering_visibility() {
     use std::sync::atomic::AtomicUsize;
-    
+
     // Arrange - classic message passing pattern
     let data = Arc::new(AtomicUsize::new(0));
     let ready = Arc::new(AtomicBool::new(false));
-    
+
     let data_clone = Arc::clone(&data);
     let ready_clone = Arc::clone(&ready);
-    
+
     // Act - writer thread
     let writer = thread::spawn(move || {
         data_clone.store(42, Ordering::Relaxed);
         // BUG: Should use Release ordering here
         ready_clone.store(true, Ordering::Relaxed);
     });
-    
+
     // Reader thread
     let data_clone2 = Arc::clone(&data);
     let ready_clone2 = Arc::clone(&ready);
-    
+
     let reader = thread::spawn(move || {
         while !ready_clone2.load(Ordering::Relaxed) {
             thread::sleep(Duration::from_micros(1));
@@ -554,15 +554,14 @@ fn test_memory_ordering_visibility() {
         // BUG: Should use Acquire ordering here
         data_clone2.load(Ordering::Relaxed)
     });
-    
+
     writer.join().expect("Writer should not panic");
     let value = reader.join().expect("Reader should not panic");
-    
+
     // Note: With Relaxed ordering, this COULD fail on weak memory models
     // On x86 it will likely pass, but the test documents the expected behavior
     assert_eq!(
-        value,
-        42,
+        value, 42,
         "Memory ordering bug: value not visible across threads"
     );
 }

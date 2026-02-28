@@ -55,7 +55,10 @@ fn test_stress_high_allocation_rate() {
         total_allocations as f64 / start.elapsed().as_secs_f64()
     );
 
-    assert!(total_allocations > 0, "Should have at least some successful allocations");
+    assert!(
+        total_allocations > 0,
+        "Should have at least some successful allocations"
+    );
 }
 
 /// Stress test with many concurrent allocating threads
@@ -125,7 +128,10 @@ fn test_stress_concurrent_allocations() {
         total_allocs as f64 / elapsed.as_secs_f64()
     );
 
-    assert!(total_allocs > 0, "Should have at least some successful allocations");
+    assert!(
+        total_allocs > 0,
+        "Should have at least some successful allocations"
+    );
 }
 
 /// ============================================================================
@@ -154,12 +160,12 @@ fn test_stress_many_small_objects() {
                 if i % 100 == 0 {
                     addresses.push(addr);
                 }
-            }
+            },
             Err(_) => {
                 oom_count += 1;
                 // Trigger GC and continue
                 fixture.trigger_gc(GcGeneration::Young);
-            }
+            },
         }
 
         // Periodic GC
@@ -179,7 +185,11 @@ fn test_stress_many_small_objects() {
     // Verify all tracked addresses are unique
     use std::collections::HashSet;
     let unique: HashSet<_> = addresses.iter().collect();
-    assert_eq!(unique.len(), addresses.len(), "Should have unique addresses");
+    assert_eq!(
+        unique.len(),
+        addresses.len(),
+        "Should have unique addresses"
+    );
 }
 
 /// Stress test with varying object sizes
@@ -214,12 +224,19 @@ fn test_stress_varying_object_sizes() {
     let elapsed = start.elapsed();
     println!("Varying sizes test completed in {:?}:", elapsed);
     for (i, &size) in sizes.iter().enumerate() {
-        println!("  {} bytes: {} allocations, {} OOMs", size, allocation_counts[i], oom_counts[i]);
+        println!(
+            "  {} bytes: {} allocations, {} OOMs",
+            size, allocation_counts[i], oom_counts[i]
+        );
     }
 
     // Verify all sizes had at least some successful allocations
     for (i, &count) in allocation_counts.iter().enumerate() {
-        assert!(count > 0, "Size {} should have at least some allocations", sizes[i]);
+        assert!(
+            count > 0,
+            "Size {} should have at least some allocations",
+            sizes[i]
+        );
     }
 }
 
@@ -274,9 +291,7 @@ fn test_stress_long_running() {
 
     println!(
         "Long-running test: {} allocations, {} GCs in {} seconds",
-        total_allocs,
-        total_collections,
-        duration_secs
+        total_allocs, total_collections, duration_secs
     );
 
     assert!(total_allocs > 0, "Should have allocations");
@@ -311,20 +326,20 @@ fn test_stress_memory_pressure() {
                 // Trigger GC on OOM
                 fixture.trigger_gc(GcGeneration::Full);
                 gc_count += 1;
-            }
+            },
         }
     }
 
     let elapsed = start.elapsed();
     println!(
         "Memory pressure test: {} allocs, {} OOMs, {} GCs in {:?}",
-        successful_allocs,
-        ooms,
-        gc_count,
-        elapsed
+        successful_allocs, ooms, gc_count, elapsed
     );
 
-    assert!(successful_allocs > 0, "Should have some successful allocations");
+    assert!(
+        successful_allocs > 0,
+        "Should have some successful allocations"
+    );
     assert!(gc_count > 0, "Should have triggered some GCs");
 }
 

@@ -1,0 +1,78 @@
+// Pattern Matching Examples
+// Demonstrates match expressions and pattern types
+
+enum Option {
+    Some(i32),
+    None,
+}
+
+enum Result {
+    Ok(i32),
+    Err(str),
+}
+
+enum Color {
+    Red,
+    Green,
+    Blue,
+    RGB(u8, u8, u8),
+}
+
+fn main() {
+    // Basic option matching
+    let opt = Option::Some(42)
+    let value = match opt {
+        Option::Some(n) => n,
+        Option::None => 0,
+    }
+    println("Option value: ")
+    println(value)
+    
+    // Result matching
+    let res = Result::Ok(100)
+    let msg = match res {
+        Result::Ok(n) => "Success: ",
+        Result::Err(e) => "Error: ",
+    }
+    println(msg)
+    
+    // Enum with data
+    let color = Color::RGB(255, 128, 0)
+    match color {
+        Color::Red => println("Red"),
+        Color::Green => println("Green"),
+        Color::Blue => println("Blue"),
+        Color::RGB(r, g, b) => println("RGB"),
+    }
+    
+    // Match with guards
+    let num = 15
+    let desc = match num {
+        n if n < 0 => "negative",
+        0 => "zero",
+        n if n % 2 == 0 => "even positive",
+        _ => "odd positive",
+    }
+    println(desc)
+    
+    // Match ranges
+    let grade = 85
+    let letter = match grade {
+        90..=100 => "A",
+        80..=89 => "B",
+        70..=79 => "C",
+        60..=69 => "D",
+        _ => "F",
+    }
+    println(letter)
+    
+    // Match multiple values
+    let pair = (1, 2)
+    let sum = match pair {
+        (a, b) => a + b,
+    }
+    println("Sum: ")
+    println(sum)
+    
+    println("Pattern matching tests complete!")
+}

@@ -15,7 +15,7 @@
 mod common;
 
 use fgc::allocator::bump::BumpPointerAllocator;
-use fgc::allocator::tlab::{TlabManager, ThreadId};
+use fgc::allocator::tlab::{ThreadId, TlabManager};
 use fgc::config::GcConfig;
 use fgc::error::FgcError;
 use fgc::heap::region::{Generation, Region, RegionType};
@@ -35,11 +35,11 @@ fn test_tlab_refill_no_race() {
     let config = Arc::new(GcConfig::default());
     let heap = Heap::new(config).expect("Failed to create heap");
     let tlab_manager = TlabManager::new(
-        1024 * 1024, // 1MB default
-        64 * 1024,   // 64KB min
+        1024 * 1024,     // 1MB default
+        64 * 1024,       // 64KB min
         4 * 1024 * 1024, // 4MB max
-        8,           // alignment
-        100,         // max TLABs
+        8,               // alignment
+        100,             // max TLABs
     );
 
     let thread_id: ThreadId = 42;
@@ -55,7 +55,10 @@ fn test_tlab_refill_no_race() {
         .expect("Failed to refill TLAB");
 
     // Old TLAB should be retired
-    assert!(tlab1.is_retired(), "Old TLAB should be retired after refill");
+    assert!(
+        tlab1.is_retired(),
+        "Old TLAB should be retired after refill"
+    );
 
     // New TLAB should not be retired
     assert!(!tlab2.is_retired(), "New TLAB should not be retired");
@@ -78,11 +81,11 @@ fn test_tlab_refill_concurrent() {
     let config = Arc::new(GcConfig::default());
     let heap = Arc::new(Heap::new(config).expect("Failed to create heap"));
     let tlab_manager = Arc::new(TlabManager::new(
-        1024 * 1024, // 1MB default
-        64 * 1024,   // 64KB min
+        1024 * 1024,     // 1MB default
+        64 * 1024,       // 64KB min
         4 * 1024 * 1024, // 4MB max
-        8,           // alignment
-        100,         // max TLABs
+        8,               // alignment
+        100,             // max TLABs
     ));
 
     let thread_id: ThreadId = 100;
@@ -157,7 +160,7 @@ fn test_region_reset_rejects_live_objects() {
                 actual.contains("live objects"),
                 "Error should mention live objects"
             );
-        }
+        },
         _ => panic!("Expected InvalidState error"),
     }
 }
@@ -218,7 +221,7 @@ fn test_region_reset_multiple_live_objects() {
                 "Error should mention 10 live objects, got: {}",
                 actual
             );
-        }
+        },
         _ => panic!("Expected InvalidState error"),
     }
 }
@@ -253,14 +256,8 @@ fn test_stack_scan_returns_pointer_values() {
     let pointers = scan_stack_range(start, end, heap_range);
 
     // Should only return valid heap pointers, not addresses
-    assert!(
-        pointers.contains(&heap_ptr1),
-        "Should find heap_ptr1 value"
-    );
-    assert!(
-        pointers.contains(&heap_ptr2),
-        "Should find heap_ptr2 value"
-    );
+    assert!(pointers.contains(&heap_ptr1), "Should find heap_ptr1 value");
+    assert!(pointers.contains(&heap_ptr2), "Should find heap_ptr2 value");
     assert!(
         !pointers.contains(&invalid_ptr),
         "Should not include invalid pointers"
@@ -274,7 +271,7 @@ fn test_stack_scan_returns_pointer_values() {
 /// Test CRIT-02: StackScanner - Heap Range Filtering
 ///
 /// Tests that StackScanner properly filters pointers based on heap range.
-/// 
+///
 /// Note: This test verifies the API accepts heap_range parameter.
 /// Actual stack scanning requires real stack addresses which vary by platform.
 #[test]
@@ -295,7 +292,7 @@ fn test_stack_scanner_heap_range_filtering() {
         "Scan should return empty result for missing watermark, got: {:?}",
         result
     );
-    
+
     // Verify empty result
     assert!(
         result.expect("Scan should succeed").is_empty(),
@@ -337,7 +334,7 @@ fn test_address_space_region_mapping() {
 
     let addr_space = AddressSpace::new(16 * 1024 * 1024).expect("Failed to create address space");
 
-    let physical_addr = 0x1000usize;  // Small offset within the mapping
+    let physical_addr = 0x1000usize; // Small offset within the mapping
     let size = 4096; // 4KB - one page
 
     // Map region - this now verifies multi-mapping works
@@ -356,17 +353,11 @@ fn test_address_space_invalid_mapping_rejected() {
 
     // Zero address should be rejected
     let result = addr_space.map_region(0, 1024);
-    assert!(
-        result.is_err(),
-        "Zero address mapping should be rejected"
-    );
+    assert!(result.is_err(), "Zero address mapping should be rejected");
 
     // Zero size should be rejected
     let result = addr_space.map_region(0x1000, 0);
-    assert!(
-        result.is_err(),
-        "Zero size mapping should be rejected"
-    );
+    assert!(result.is_err(), "Zero size mapping should be rejected");
 }
 
 // Note: test_tlab_max_limit removed - pre-existing issue with TLAB manager
@@ -438,10 +429,7 @@ fn test_root_descriptor_read_validation() {
 
     // Read should fail with InvalidArgument error
     let result = descriptor.read_reference();
-    assert!(
-        result.is_err(),
-        "Reading from kernel address should fail"
-    );
+    assert!(result.is_err(), "Reading from kernel address should fail");
 
     // Verify error type
     match result {
@@ -451,7 +439,7 @@ fn test_root_descriptor_read_validation() {
                 "Error should mention GC-managed heap, got: {}",
                 msg
             );
-        }
+        },
         _ => panic!("Expected InvalidArgument error"),
     }
 }
@@ -487,7 +475,7 @@ fn test_root_descriptor_write_validation() {
                 msg.contains("GC-managed heap"),
                 "Error should mention GC-managed heap"
             );
-        }
+        },
         _ => panic!("Expected InvalidArgument error"),
     }
 }
@@ -503,15 +491,12 @@ fn test_root_descriptor_write_validation() {
 #[test]
 fn test_allocation_size_limit() {
     // Create bump allocator
-    let allocator = BumpPointerAllocator::new(0x1000, 0x1000_0000, 8)
-        .expect("Failed to create allocator");
+    let allocator =
+        BumpPointerAllocator::new(0x1000, 0x1000_0000, 8).expect("Failed to create allocator");
 
     // Try to allocate > 1GB - should fail
     let result = allocator.allocate(2 * 1024 * 1024 * 1024);
-    assert!(
-        result.is_err(),
-        "2GB allocation should be rejected"
-    );
+    assert!(result.is_err(), "2GB allocation should be rejected");
 
     // Verify it's OutOfMemory error (not overflow)
     match result {
@@ -521,10 +506,7 @@ fn test_allocation_size_limit() {
 
     // Try usize::MAX - should fail
     let result = allocator.allocate(usize::MAX - 100);
-    assert!(
-        result.is_err(),
-        "Near-max allocation should be rejected"
-    );
+    assert!(result.is_err(), "Near-max allocation should be rejected");
 }
 
 /// Test CRIT-03: Alignment overflow detection
@@ -532,8 +514,8 @@ fn test_allocation_size_limit() {
 /// Verifies that alignment calculation overflow is detected.
 #[test]
 fn test_alignment_overflow_detection() {
-    let allocator = BumpPointerAllocator::new(0x1000, 0x1000_0000, 8)
-        .expect("Failed to create allocator");
+    let allocator =
+        BumpPointerAllocator::new(0x1000, 0x1000_0000, 8).expect("Failed to create allocator");
 
     // Allocate normal size - should succeed
     let result = allocator.allocate(64);
@@ -542,10 +524,7 @@ fn test_alignment_overflow_detection() {
     // Allocate size near overflow boundary - should fail
     let large_size = usize::MAX / 2;
     let result = allocator.allocate(large_size);
-    assert!(
-        result.is_err(),
-        "Very large allocation should be rejected"
-    );
+    assert!(result.is_err(), "Very large allocation should be rejected");
 }
 
 // ============================================================================
@@ -571,7 +550,7 @@ fn test_frame_pointer_alignment_validation() {
         !StackScanner::is_valid_heap_pointer_public(0x1000_1004, heap_range),
         "4-byte aligned address should be rejected"
     );
-    
+
     // Odd address should fail
     assert!(
         !StackScanner::is_valid_heap_pointer_public(0x1000_1001, heap_range),

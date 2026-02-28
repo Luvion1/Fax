@@ -12,7 +12,7 @@ disallowed-types = [
 ]
 
 # Allow these lints in clippy.toml (use msrv format)
-msrv = "1.75"
+msrv = "1.87"
 
 cognitive-complexity-threshold = 25
 too-many-arguments-threshold = 7

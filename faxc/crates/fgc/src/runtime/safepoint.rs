@@ -208,6 +208,111 @@ impl Safepoint {
             std::hint::spin_loop();
         }
     }
+
+    /// Wait for all threads to reach safepoint with timeout
+    ///
+    /// # Arguments
+    /// * `timeout_ms` - Maximum milliseconds to wait
+    ///
+    /// # Returns
+    /// * `Ok(())` - All threads arrived within timeout
+    /// * `Err(FgcError::Timeout)` - Timeout expired before all threads arrived
+    pub fn wait_for_safepoint_with_timeout(&self, timeout_ms: u64) -> crate::error::Result<()> {
+        let total = self.total_threads.load(Ordering::Acquire);
+        let start = std::time::Instant::now();
+        let timeout = std::time::Duration::from_millis(timeout_ms);
+
+        while self.paused_threads.load(Ordering::Acquire) < total {
+            if start.elapsed() > timeout {
+                return Err(crate::error::FgcError::Timeout(format!(
+                    "Safepoint wait timeout: {} threads not arrived within {}ms",
+                    total - self.paused_threads.load(Ordering::Acquire),
+                    timeout_ms
+                )));
+            }
+            std::hint::spin_loop();
+        }
+
+        Ok(())
+    }
+
+    /// Wait for all threads to reach safepoint with callback
+    ///
+    /// Allows caller to perform work while waiting, useful for GC phases.
+    ///
+    /// # Arguments
+    /// * `timeout_ms` - Maximum milliseconds to wait
+    /// * `callback` - Function to call while waiting
+    ///
+    /// # Returns
+    /// * `Ok(())` - All threads arrived within timeout
+    /// * `Err(FgcError::Timeout)` - Timeout expired before all threads arrived
+    pub fn wait_for_safepoint_with_callback<F>(
+        &self,
+        timeout_ms: u64,
+        mut callback: F,
+    ) -> crate::error::Result<()>
+    where
+        F: FnMut(),
+    {
+        let total = self.total_threads.load(Ordering::Acquire);
+        let start = std::time::Instant::now();
+        let timeout = std::time::Duration::from_millis(timeout_ms);
+
+        while self.paused_threads.load(Ordering::Acquire) < total {
+            if start.elapsed() > timeout {
+                return Err(crate::error::FgcError::Timeout(format!(
+                    "Safepoint wait timeout: {} threads not arrived within {}ms",
+                    total - self.paused_threads.load(Ordering::Acquire),
+                    timeout_ms
+                )));
+            }
+
+            // Call callback to allow GC progress while waiting
+            callback();
+            std::hint::spin_loop();
+        }
+
+        Ok(())
+    }
+
+    /// Try to arrive at safepoint without blocking
+    ///
+    /// # Returns
+    /// * `Ok(())` - Successfully arrived
+    /// * `Err(FgcError::InvalidState)` - Not in REQUESTED state
+    pub fn try_arrive(&self) -> crate::error::Result<()> {
+        let current_state = self.state.load(Ordering::Acquire);
+
+        if current_state != SAFEPOINT_REQUESTED {
+            return Err(crate::error::FgcError::InvalidState {
+                expected: "SAFEPOINT_REQUESTED".to_string(),
+                actual: format!("SAFEPOINT_{}", current_state),
+            });
+        }
+
+        self.arrive();
+        Ok(())
+    }
+
+    /// Reset safepoint to initial state
+    ///
+    /// Useful for recovery after error or timeout.
+    pub fn reset(&self) {
+        self.paused_threads.store(0, Ordering::Release);
+        self.state.store(SAFEPOINT_NONE, Ordering::Release);
+    }
+
+    /// Check if safepoint is in a valid state
+    ///
+    /// # Returns
+    /// * `true` if state is valid (NONE, REQUESTED, or REACHED)
+    pub fn is_valid_state(&self) -> bool {
+        matches!(
+            self.state.load(Ordering::Acquire),
+            SAFEPOINT_NONE | SAFEPOINT_REQUESTED | SAFEPOINT_REACHED
+        )
+    }
 }
 
 impl Default for Safepoint {

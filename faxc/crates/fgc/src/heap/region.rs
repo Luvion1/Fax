@@ -102,6 +102,7 @@ impl Region {
             .expect("Failed to create test region")
     }
 
+    #[inline]
     pub fn allocate(&self, size: usize, alignment: usize) -> Result<usize> {
         {
             let state = self.state.lock().map_err(|e| {
@@ -119,13 +120,12 @@ impl Region {
         let mut current_top = self.top.load(Ordering::Relaxed);
 
         loop {
-            let new_top =
-                current_top
-                    .checked_add(aligned_size)
-                    .ok_or_else(|| FgcError::OutOfMemory {
-                        requested: size,
-                        available: 0,
-                    })?;
+            let new_top = current_top
+                .checked_add(aligned_size)
+                .ok_or(FgcError::OutOfMemory {
+                    requested: size,
+                    available: 0,
+                })?;
 
             if new_top > self.end {
                 return Err(FgcError::OutOfMemory {

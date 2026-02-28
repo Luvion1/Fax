@@ -2,10 +2,17 @@
 //!
 //! Automatically adjusts heap size based on allocation patterns and GC behavior.
 //! Similar to ZGC's adaptive heap sizing.
+//!
+//! ## Adaptive Region Sizing
+//!
+//! This module also provides adaptive region sizing based on:
+//! - Object size distribution
+//! - Allocation rate
+//! - GC pause time targets
+//! - Memory fragmentation levels
 
 use parking_lot::RwLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 
 /// Adaptive Heap Controller - ZGC-like dynamic heap sizing
 pub struct AdaptiveHeapController {
@@ -96,7 +103,7 @@ struct GcStatsForSizing {
 
 #[derive(Debug, Clone, PartialEq)]
 #[allow(dead_code)]
-enum AdaptiveState {
+pub enum AdaptiveState {
     Warmup,
     Stable,
     Growing,
@@ -264,6 +271,194 @@ impl AllocationRateTracker {
         self.samples.clear();
         self.current_index = 0;
     }
+}
+
+/// Adaptive Region Sizing Controller
+///
+/// Dynamically adjusts region sizes based on workload characteristics:
+/// - Object size distribution
+/// - Allocation patterns
+/// - GC performance metrics
+pub struct AdaptiveRegionSizer {
+    /// Current small region size
+    small_region_size: AtomicUsize,
+    /// Current medium region size
+    medium_region_size: AtomicUsize,
+    /// Small object threshold
+    small_threshold: AtomicUsize,
+    /// Medium object threshold
+    medium_threshold: AtomicUsize,
+
+    /// Object size histogram for distribution analysis
+    size_histogram: RwLock<SizeHistogram>,
+
+    /// Configuration
+    config: RegionSizerConfig,
+}
+
+#[derive(Debug, Clone)]
+pub struct RegionSizerConfig {
+    /// Minimum small region size
+    pub min_small_region: usize,
+    /// Maximum small region size
+    pub max_small_region: usize,
+    /// Minimum medium region size
+    pub min_medium_region: usize,
+    /// Maximum medium region size
+    pub max_medium_region: usize,
+    /// Target small object percentage
+    pub target_small_pct: f64,
+    /// Histogram bucket count
+    pub histogram_buckets: usize,
+}
+
+impl Default for RegionSizerConfig {
+    fn default() -> Self {
+        Self {
+            min_small_region: 1024 * 1024,       // 1MB
+            max_small_region: 4 * 1024 * 1024,   // 4MB
+            min_medium_region: 16 * 1024 * 1024, // 16MB
+            max_medium_region: 64 * 1024 * 1024, // 64MB
+            target_small_pct: 0.80,              // 80% objects should be small
+            histogram_buckets: 32,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct SizeHistogram {
+    buckets: Vec<usize>,
+    bucket_size: usize,
+    total_samples: usize,
+}
+
+impl SizeHistogram {
+    fn new(bucket_count: usize, max_size: usize) -> Self {
+        Self {
+            buckets: vec![0; bucket_count],
+            bucket_size: max_size / bucket_count,
+            total_samples: 0,
+        }
+    }
+
+    fn record(&mut self, size: usize) {
+        let bucket = (size / self.bucket_size).min(self.buckets.len() - 1);
+        self.buckets[bucket] += 1;
+        self.total_samples += 1;
+    }
+
+    fn percentile(&self, pct: f64) -> usize {
+        if self.total_samples == 0 {
+            return 0;
+        }
+
+        let target_count = (self.total_samples as f64 * pct) as usize;
+        let mut cumulative = 0;
+
+        for (i, &count) in self.buckets.iter().enumerate() {
+            cumulative += count;
+            if cumulative >= target_count {
+                return (i + 1) * self.bucket_size;
+            }
+        }
+
+        self.buckets.len() * self.bucket_size
+    }
+}
+
+impl AdaptiveRegionSizer {
+    pub fn new(initial_small: usize, initial_medium: usize) -> Self {
+        Self {
+            small_region_size: AtomicUsize::new(initial_small),
+            medium_region_size: AtomicUsize::new(initial_medium),
+            small_threshold: AtomicUsize::new(256),
+            medium_threshold: AtomicUsize::new(4 * 1024),
+            size_histogram: RwLock::new(SizeHistogram::new(32, 16 * 1024)),
+            config: RegionSizerConfig::default(),
+        }
+    }
+
+    /// Record allocation size for histogram
+    pub fn record_allocation(&self, size: usize) {
+        let mut histogram = self.size_histogram.write();
+        histogram.record(size);
+    }
+
+    /// Calculate optimal region sizes based on workload
+    pub fn calculate_optimal_sizes(&self) -> (usize, usize, usize, usize) {
+        let histogram = self.size_histogram.read();
+
+        if histogram.total_samples < 100 {
+            return (
+                self.small_region_size.load(Ordering::Relaxed),
+                self.medium_region_size.load(Ordering::Relaxed),
+                self.small_threshold.load(Ordering::Relaxed),
+                self.medium_threshold.load(Ordering::Relaxed),
+            );
+        }
+
+        let p50 = histogram.percentile(0.50);
+        let p80 = histogram.percentile(0.80);
+        let p95 = histogram.percentile(0.95);
+        let _p99 = histogram.percentile(0.99);
+
+        // Adjust thresholds based on distribution
+        // p99 is available for future use in extreme case handling
+        let new_small_threshold = p50.clamp(64, 512);
+        let new_medium_threshold = p80.clamp(1024, 8 * 1024);
+
+        // Calculate region sizes based on object distribution
+        // Small regions should fit ~1000 small objects
+        let target_small_objects = 1000;
+        let new_small_region = ((p80 as f64 * target_small_objects as f64) as usize)
+            .clamp(self.config.min_small_region, self.config.max_small_region);
+
+        // Medium regions should fit ~100 medium objects
+        let target_medium_objects = 100;
+        let new_medium_region = ((p95 as f64 * target_medium_objects as f64) as usize)
+            .clamp(self.config.min_medium_region, self.config.max_medium_region);
+
+        // Update stored values
+        self.small_region_size
+            .store(new_small_region, Ordering::Relaxed);
+        self.medium_region_size
+            .store(new_medium_region, Ordering::Relaxed);
+        self.small_threshold
+            .store(new_small_threshold, Ordering::Relaxed);
+        self.medium_threshold
+            .store(new_medium_threshold, Ordering::Relaxed);
+
+        (
+            new_small_region,
+            new_medium_region,
+            new_small_threshold,
+            new_medium_threshold,
+        )
+    }
+
+    /// Get current sizes
+    pub fn get_current_sizes(&self) -> RegionSizes {
+        RegionSizes {
+            small_region: self.small_region_size.load(Ordering::Relaxed),
+            medium_region: self.medium_region_size.load(Ordering::Relaxed),
+            small_threshold: self.small_threshold.load(Ordering::Relaxed),
+            medium_threshold: self.medium_threshold.load(Ordering::Relaxed),
+        }
+    }
+
+    /// Reset histogram (call after GC)
+    pub fn reset_histogram(&self) {
+        let mut histogram = self.size_histogram.write();
+        *histogram = SizeHistogram::new(self.config.histogram_buckets, 16 * 1024);
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RegionSizes {
+    pub small_region: usize,
+    pub medium_region: usize,
+    pub small_threshold: usize,
+    pub medium_threshold: usize,
 }
 
 #[derive(Debug, Clone)]

@@ -3,7 +3,6 @@
 //! Provides control flow graph construction and analysis for optimizations
 
 use crate::mir::*;
-use faxc_util::Idx;
 use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Control Flow Graph

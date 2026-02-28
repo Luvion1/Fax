@@ -6,7 +6,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use crate::commands::common::{error_messages, output_messages, sanitize_path};
+use crate::commands::common::{error_messages, output_messages};
 use crate::commands::traits::{Command, CommandDescription};
 use crate::config::Config;
 use crate::error::{FaxtError, Result};
@@ -137,11 +137,7 @@ impl InitCommand {
             if !dir_path.exists() {
                 std::fs::create_dir(&dir_path)?;
                 if self.args.verbose {
-                    eprintln!(
-                        "{} {}",
-                        output_messages::CREATED_DIR,
-                        dir_path.display()
-                    );
+                    eprintln!("{} {}", output_messages::CREATED_DIR, dir_path.display());
                 }
             }
         }

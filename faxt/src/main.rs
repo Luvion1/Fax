@@ -234,7 +234,7 @@ fn execute_init(args: InitCommand, verbose: bool) -> Result<()> {
 }
 
 /// Execute the build command.
-fn execute_build(args: BuildCommand, verbose: bool, config: Config) -> Result<()> {
+fn execute_build(args: BuildCommand, verbose: bool, _config: Config) -> Result<()> {
     let build_args = BuildArgs {
         input: args.input,
         output: args.output,
@@ -248,7 +248,7 @@ fn execute_build(args: BuildCommand, verbose: bool, config: Config) -> Result<()
 }
 
 /// Execute the convert command.
-fn execute_convert(args: ConvertCommand, verbose: bool, config: Config) -> Result<()> {
+fn execute_convert(args: ConvertCommand, verbose: bool, _config: Config) -> Result<()> {
     let convert_args = ConvertArgs {
         input: args.input,
         output: args.output,

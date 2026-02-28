@@ -2,15 +2,17 @@
 //!
 //! Driver utama yang mengkoordinasikan seluruh tahapan kompilasi.
 
-use std::path::PathBuf;
-use std::env;
+use faxc_gen::{CodeGenError, LlvmBackend};
 use faxc_lex::Lexer;
-use faxc_par::Parser;
-use faxc_sem::{SemanticAnalyzer, TypeContext, Item as HirItem};
-use faxc_mir::lower_hir_function;
 use faxc_lir::lower_mir_to_lir;
-use faxc_gen::{LlvmBackend, CodeGenError};
-use faxc_util::{Handler, DefIdGenerator};
+use faxc_lir::opt::optimize_function as optimize_lir;
+use faxc_mir::lower_hir_function;
+use faxc_mir::opt::optimize_function as optimize_mir;
+use faxc_par::Parser;
+use faxc_sem::{Item as HirItem, SemanticAnalyzer, TypeContext};
+use faxc_util::{DefIdGenerator, Handler};
+use std::env;
+use std::path::PathBuf;
 
 /// Configuration untuk compiler
 #[derive(Debug, Clone)]
@@ -32,6 +34,7 @@ pub enum EmitType {
     Hir,
     Mir,
     Lir,
+    LlvmIr,
     Asm,
     Object,
     Exe,
@@ -92,8 +95,9 @@ pub fn parse_args() -> Result<Config, String> {
                 "hir" => EmitType::Hir,
                 "mir" => EmitType::Mir,
                 "lir" => EmitType::Lir,
+                "llvm-ir" => EmitType::LlvmIr,
                 "asm" => EmitType::Asm,
-                "llvm-ir" => EmitType::Object,
+                "object" => EmitType::Object,
                 "exe" => EmitType::Exe,
                 _ => return Err(format!("Unknown emit type: {}", args[i])),
             };
@@ -212,13 +216,16 @@ impl Session {
         let mut all_hirs = Vec::new();
         for (file_id, ast) in &all_asts {
             if self.config.verbose {
-                let source_name = self.sources.iter()
+                let source_name = self
+                    .sources
+                    .iter()
                     .find(|(fid, _)| *fid == *file_id)
                     .map(|(_, f)| f.path.display().to_string())
                     .unwrap_or_else(|| "<unknown>".to_string());
                 eprintln!("[verbose] Analyzing: {}", source_name);
             }
-            let mut analyzer = SemanticAnalyzer::new(&mut type_context, &self.def_id_gen, &mut self.diagnostics);
+            let mut analyzer =
+                SemanticAnalyzer::new(&mut type_context, &self.def_id_gen, &mut self.diagnostics);
             let hir = analyzer.analyze_items(ast.clone());
             all_hirs.push((*file_id, hir));
         }
@@ -229,7 +236,12 @@ impl Session {
 
         if self.config.emit == EmitType::Hir {
             return Ok(CompilationResults {
-                tokens: vec![], asts: vec![], hirs: all_hirs, mirs: vec![], lirs: vec![], objects: vec![]
+                tokens: vec![],
+                asts: vec![],
+                hirs: all_hirs,
+                mirs: vec![],
+                lirs: vec![],
+                objects: vec![],
             });
         }
 
@@ -243,9 +255,21 @@ impl Session {
             }
         }
 
+        if self.config.verbose {
+            eprintln!("[verbose] Phase: MIR Optimization");
+        }
+        for (_, mir) in &mut all_mirs {
+            optimize_mir(mir);
+        }
+
         if self.config.emit == EmitType::Mir {
             return Ok(CompilationResults {
-                tokens: vec![], asts: vec![], hirs: vec![], mirs: all_mirs, lirs: vec![], objects: vec![]
+                tokens: vec![],
+                asts: vec![],
+                hirs: vec![],
+                mirs: all_mirs,
+                lirs: vec![],
+                objects: vec![],
             });
         }
 
@@ -255,9 +279,21 @@ impl Session {
             all_lirs.push((*file_id, lir));
         }
 
+        if self.config.verbose {
+            eprintln!("[verbose] Phase: LIR Optimization");
+        }
+        for (_, lir) in &mut all_lirs {
+            optimize_lir(lir);
+        }
+
         if self.config.emit == EmitType::Lir {
             return Ok(CompilationResults {
-                tokens: vec![], asts: vec![], hirs: vec![], mirs: vec![], lirs: all_lirs, objects: vec![]
+                tokens: vec![],
+                asts: vec![],
+                hirs: vec![],
+                mirs: vec![],
+                lirs: all_lirs,
+                objects: vec![],
             });
         }
 
@@ -270,13 +306,117 @@ impl Session {
         );
 
         for (_, lir) in &all_lirs {
-            llvm_backend.compile_function(lir)
+            llvm_backend
+                .compile_function(lir)
                 .map_err(|e| CompileError::CodeGenError(e))?;
         }
 
         let llvm_ir = llvm_backend.emit_llvm_ir();
         let mut objects = Vec::new();
-        objects.push((FileId(0), llvm_ir));
+        objects.push((FileId(0), llvm_ir.clone()));
+
+        let output_path = self.config.output_file.clone();
+
+        if let Some(ref path) = output_path {
+            match self.config.emit {
+                EmitType::LlvmIr => {
+                    std::fs::write(path, &llvm_ir)
+                        .map_err(|e| CompileError::IoError(path.clone(), e))?;
+                    if self.config.verbose {
+                        eprintln!("[verbose] Wrote LLVM IR to {}", path.display());
+                    }
+                },
+                EmitType::Asm => {
+                    llvm_backend
+                        .write_asm_file(path)
+                        .map_err(|e| CompileError::CodeGenError(e))?;
+                    if self.config.verbose {
+                        eprintln!("[verbose] Wrote assembly to {}", path.display());
+                    }
+                },
+                EmitType::Object => {
+                    llvm_backend
+                        .write_object_file(path)
+                        .map_err(|e| CompileError::CodeGenError(e))?;
+                    if self.config.verbose {
+                        eprintln!("[verbose] Wrote object file to {}", path.display());
+                    }
+                },
+                EmitType::Exe => {
+                    let ir = llvm_backend.emit_llvm_ir();
+
+                    let ir_file = std::env::temp_dir().join("fax_compile.ll");
+
+                    // Inject GC initialization at the start of main
+                    let ir_with_gc_init = inject_gc_init(&ir);
+                    std::fs::write(&ir_file, &ir_with_gc_init)?;
+
+                    // Find runtime library path - check multiple locations
+                    let possible_paths = vec![
+                        std::env::current_exe()
+                            .ok()
+                            .and_then(|p| p.parent().map(|p| p.join("libfaxc_runtime.so"))),
+                        Some(std::path::PathBuf::from("target/debug/libfaxc_runtime.so")),
+                        Some(std::path::PathBuf::from(
+                            "faxc/target/debug/libfaxc_runtime.so",
+                        )),
+                        Some(std::path::PathBuf::from(
+                            "/root/Fax/target/debug/libfaxc_runtime.so",
+                        )),
+                    ];
+
+                    let runtime_lib = possible_paths.into_iter().flatten().find(|p| p.exists());
+
+                    let mut cmd = std::process::Command::new("clang");
+                    cmd.arg("-o").arg(path).arg("-x").arg("ir").arg(&ir_file);
+
+                    // Link runtime if exists
+                    if let Some(ref lib) = runtime_lib {
+                        if self.config.verbose {
+                            eprintln!("[verbose] Linking with FGC runtime: {}", lib.display());
+                        }
+                        // Use -L and -l for shared library
+                        if lib.extension().map_or(false, |e| e == "so") {
+                            if let Some(parent) = lib.parent() {
+                                cmd.arg("-L").arg(parent);
+                            }
+                            cmd.arg("-lfaxc_runtime");
+                            if let Some(parent) = lib.parent() {
+                                cmd.arg(&format!("-Wl,-rpath,{}", parent.display()));
+                            }
+                        } else {
+                            cmd.arg(lib);
+                        }
+                    } else {
+                        if self.config.verbose {
+                            eprintln!("[verbose] Runtime not found, using system malloc");
+                        }
+                    }
+
+                    let result = cmd.output();
+
+                    let _ = std::fs::remove_file(&ir_file);
+
+                    match result {
+                        Ok(output) if output.status.success() => {
+                            if self.config.verbose {
+                                eprintln!("[verbose] Linked executable to {}", path.display());
+                            }
+                        },
+                        Ok(output) => {
+                            let stderr = String::from_utf8_lossy(&output.stderr);
+                            eprintln!("Warning: Linking failed: {}", stderr);
+                            std::fs::write(path, &llvm_ir).ok();
+                        },
+                        Err(e) => {
+                            eprintln!("Warning: Could not invoke clang: {}", e);
+                            std::fs::write(path, &llvm_ir).ok();
+                        },
+                    }
+                },
+                _ => {},
+            }
+        }
 
         Ok(CompilationResults {
             tokens: vec![],
@@ -294,14 +434,19 @@ pub struct SourceMap {
 }
 
 impl SourceMap {
-    pub fn new() -> Self { Self { files: Vec::new() } }
+    pub fn new() -> Self {
+        Self { files: Vec::new() }
+    }
     pub fn add(&mut self, path: PathBuf, content: String) -> FileId {
         let id = FileId(self.files.len() as u32);
         self.files.push(SourceFile { path, content });
         id
     }
     pub fn iter(&self) -> impl Iterator<Item = (FileId, &SourceFile)> {
-        self.files.iter().enumerate().map(|(i, f)| (FileId(i as u32), f))
+        self.files
+            .iter()
+            .enumerate()
+            .map(|(i, f)| (FileId(i as u32), f))
     }
 }
 
@@ -374,5 +519,31 @@ pub fn main() -> Result<(), CompileError> {
 }
 
 fn default_target() -> String {
-    "x86_64-unknown-linux-gnu".to_string()
+    let config = inkwell::targets::InitializationConfig::default();
+    inkwell::targets::Target::initialize_native(&config).ok();
+    let triple = inkwell::targets::TargetMachine::get_default_triple();
+    triple.as_str().to_string_lossy().into_owned()
+}
+
+fn inject_gc_init(ir: &str) -> String {
+    if ir.contains("define i64 @main(") {
+        let gc_init = "; Fax GC initialization\n\
+define void @__fax_gc_init() {\n\
+entry:\n\
+    %0 = call i1 @fax_gc_init()\n\
+    ret void\n\
+}\n\
+\n";
+        let gc_init_call = "; Call GC initialization\n\
+    call void @__fax_gc_init()\n\
+";
+        let main_pattern = "define i64 @main(";
+        if let Some(pos) = ir.find(main_pattern) {
+            let before = &ir[..pos];
+            let after = &ir[pos..];
+            let with_call = after.replacen("entry:", &format!("entry:\n{}", gc_init_call), 1);
+            return format!("{}{}{}", before, gc_init, with_call);
+        }
+    }
+    ir.to_string()
 }

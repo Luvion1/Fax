@@ -83,6 +83,12 @@ pub struct ObjectCopier {
     copy_errors: AtomicUsize,
 }
 
+impl Default for ObjectCopier {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ObjectCopier {
     /// Create new object copier
     pub fn new() -> Self {
@@ -342,7 +348,7 @@ pub unsafe fn aligned_copy(src: usize, dst: usize, size: usize, alignment: usize
     }
 
     // Check alignment
-    if src % alignment != 0 || dst % alignment != 0 {
+    if !src.is_multiple_of(alignment) || !dst.is_multiple_of(alignment) {
         std::ptr::copy_nonoverlapping(src as *const u8, dst as *mut u8, size);
         return;
     }

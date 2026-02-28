@@ -114,7 +114,7 @@ impl RootDescriptor {
         }
 
         // Check alignment - usize must be properly aligned
-        if self.address % std::mem::align_of::<usize>() != 0 {
+        if !self.address.is_multiple_of(std::mem::align_of::<usize>()) {
             log::warn!("Unaligned root address: {:#x}", self.address);
             return Ok(0);
         }
@@ -160,7 +160,7 @@ impl RootDescriptor {
         }
 
         // Check alignment - usize must be properly aligned
-        if self.address % std::mem::align_of::<usize>() != 0 {
+        if !self.address.is_multiple_of(std::mem::align_of::<usize>()) {
             log::warn!("Unaligned root address for write: {:#x}", self.address);
             return Err(FgcError::InvalidArgument(
                 "Unaligned root address".to_string(),
@@ -438,7 +438,7 @@ impl RootScanner {
     fn validate_root_address(&self, address: usize) {
         if address == 0 {
             log::warn!("Registering root with null address");
-        } else if address % std::mem::align_of::<usize>() != 0 {
+        } else if !address.is_multiple_of(std::mem::align_of::<usize>()) {
             log::warn!("Registering root with unaligned address: {:#x}", address);
         }
     }

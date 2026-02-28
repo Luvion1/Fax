@@ -103,11 +103,20 @@ impl TypeInference {
             },
             // Both concrete types
             (Type::Int, Type::Int) => Ok(()),
+            (Type::UInt, Type::UInt) => Ok(()),
             (Type::Float, Type::Float) => Ok(()),
             (Type::Bool, Type::Bool) => Ok(()),
             (Type::Char, Type::Char) => Ok(()),
             (Type::String, Type::String) => Ok(()),
             (Type::Unit, Type::Unit) => Ok(()),
+            // Sized integer types
+            (Type::Int8, Type::Int8) => Ok(()),
+            (Type::UInt8, Type::UInt8) => Ok(()),
+            (Type::Int16, Type::Int16) => Ok(()),
+            (Type::UInt16, Type::UInt16) => Ok(()),
+            (Type::Int32, Type::Int32) => Ok(()),
+            (Type::UInt32, Type::UInt32) => Ok(()),
+            (Type::Float32, Type::Float32) => Ok(()),
             // Function types
             (Type::Fn(args1, ret1), Type::Fn(args2, ret2)) => {
                 if args1.len() != args2.len() {

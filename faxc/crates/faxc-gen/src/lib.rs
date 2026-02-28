@@ -8,21 +8,12 @@
 //! - Control flow constructs
 //! - Aggregate types
 
-pub mod asm;
 pub mod error;
 pub mod linker;
 pub mod llvm;
 pub mod types;
-// #[cfg(test)]
-// mod tests;
-// #[cfg(test)]
-// mod edge_cases;
 
-pub use asm::*;
 pub use error::{CodeGenError, Result};
 pub use linker::*;
-pub use linker::*;
 pub use llvm::*;
-pub use llvm::*;
-pub use types::*;
 pub use types::*;

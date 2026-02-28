@@ -54,7 +54,14 @@ impl Finalizer {
         let handle = std::thread::spawn(move || {
             while running_atomic.load(Ordering::Relaxed) {
                 // Process finalizers
-                let mut queue_guard = queue.lock().unwrap();
+                let mut queue_guard = match queue.lock() {
+                    Ok(guard) => guard,
+                    Err(e) => {
+                        eprintln!("[Finalizer] Failed to lock queue: {}", e);
+                        std::thread::sleep(std::time::Duration::from_millis(100));
+                        continue;
+                    },
+                };
 
                 while let Some(entry) = queue_guard.pop_front() {
                     // Execute finalizer
@@ -68,7 +75,9 @@ impl Finalizer {
             }
         });
 
-        *self.thread_handle.lock().unwrap() = Some(handle);
+        *self.thread_handle.lock().map_err(|e| {
+            crate::error::FgcError::LockPoisoned(format!("finalizer thread handle poisoned: {}", e))
+        })? = Some(handle);
 
         Ok(())
     }
@@ -77,7 +86,17 @@ impl Finalizer {
     pub fn stop(&self) -> crate::error::Result<()> {
         self.running.store(false, Ordering::Relaxed);
 
-        if let Some(handle) = self.thread_handle.lock().unwrap().take() {
+        if let Some(handle) = self
+            .thread_handle
+            .lock()
+            .map_err(|e| {
+                crate::error::FgcError::LockPoisoned(format!(
+                    "finalizer thread handle poisoned: {}",
+                    e
+                ))
+            })?
+            .take()
+        {
             let _ = handle.join();
         }
 

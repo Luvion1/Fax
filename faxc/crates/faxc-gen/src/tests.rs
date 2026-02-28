@@ -64,6 +64,32 @@ fn test_type_mapper_int_types() {
 }
 
 #[test]
+fn test_type_mapper_unsigned_types() {
+    let context = Context::create();
+    let mapper = TypeMapper::new(&context);
+
+    // Test UInt -> i64 (unsigned 64-bit)
+    let uint_ty = faxc_sem::Type::UInt;
+    let llvm_ty = mapper.map_to_basic(&uint_ty);
+    assert_eq!(llvm_ty.into_int_type().get_bit_width(), 64);
+
+    // Test UInt8 -> i8
+    let uint8_ty = faxc_sem::Type::UInt8;
+    let llvm_ty = mapper.map_to_basic(&uint8_ty);
+    assert_eq!(llvm_ty.into_int_type().get_bit_width(), 8);
+
+    // Test UInt16 -> i16
+    let uint16_ty = faxc_sem::Type::UInt16;
+    let llvm_ty = mapper.map_to_basic(&uint16_ty);
+    assert_eq!(llvm_ty.into_int_type().get_bit_width(), 16);
+
+    // Test UInt32 -> i32
+    let uint32_ty = faxc_sem::Type::UInt32;
+    let llvm_ty = mapper.map_to_basic(&uint32_ty);
+    assert_eq!(llvm_ty.into_int_type().get_bit_width(), 32);
+}
+
+#[test]
 fn test_type_mapper_float_types() {
     let context = Context::create();
     let mapper = TypeMapper::new(&context);
@@ -109,6 +135,33 @@ fn test_type_mapper_pointer_type() {
     let ptr_ty = faxc_sem::Type::Pointer(Box::new(faxc_sem::Type::Int));
     let llvm_ty = mapper.map_to_basic(&ptr_ty);
     assert!(llvm_ty.is_pointer_type());
+}
+
+#[test]
+fn test_type_mapper_reference_type() {
+    let context = Context::create();
+    let mapper = TypeMapper::new(&context);
+
+    // Test immutable reference
+    let ref_ty = faxc_sem::Type::Ref(Box::new(faxc_sem::Type::Int), false);
+    let llvm_ty = mapper.map_to_basic(&ref_ty);
+    assert!(llvm_ty.is_pointer_type());
+
+    // Test mutable reference
+    let mut_ref_ty = faxc_sem::Type::Ref(Box::new(faxc_sem::Type::Int), true);
+    let llvm_mut_ty = mapper.map_to_basic(&mut_ref_ty);
+    assert!(llvm_mut_ty.is_pointer_type());
+}
+
+#[test]
+fn test_type_mapper_function_type() {
+    let context = Context::create();
+    let mapper = TypeMapper::new(&context);
+
+    // Test fn(i32) -> i64
+    let fn_ty = faxc_sem::Type::Fn(vec![faxc_sem::Type::Int32], Box::new(faxc_sem::Type::Int));
+    let llvm_ty = mapper.map_to_basic(&fn_ty);
+    assert!(llvm_ty.is_function_type());
 }
 
 #[test]

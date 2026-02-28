@@ -57,7 +57,7 @@ impl StackFrame {
         // Callee-saved registers if needed
         if save_callee_regs {
             let callee_saved = SystemVAbi::get_callee_saved_regs();
-            for (i, reg) in callee_saved.iter().enumerate() {
+            for (_i, reg) in callee_saved.iter().enumerate() {
                 let offset = size;
                 self.saved_callee_regs.push((*reg, offset));
                 size += 8;
@@ -69,7 +69,7 @@ impl StackFrame {
         self.locals_base_offset = size;
 
         // Local variables (8 bytes each for simplicity)
-        for i in 0..local_count {
+        for _i in 0..local_count {
             self.local_offsets.push(size);
             size += 8;
         }

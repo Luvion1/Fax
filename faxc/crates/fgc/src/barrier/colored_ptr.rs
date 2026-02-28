@@ -24,79 +24,94 @@ impl ColoredPointer {
         }
     }
 
+    #[inline]
     pub fn address(&self) -> usize {
         self.raw & Self::ADDRESS_MASK
     }
 
+    #[inline]
     pub fn is_marked0(&self) -> bool {
         (self.raw & Self::MARKED0_MASK) != 0
     }
 
+    #[inline]
     pub fn is_marked1(&self) -> bool {
         (self.raw & Self::MARKED1_MASK) != 0
     }
 
+    #[inline]
     pub fn is_marked(&self) -> bool {
         self.is_marked0() || self.is_marked1()
     }
 
+    #[inline]
     pub fn is_remapped(&self) -> bool {
         (self.raw & Self::REMAPPED_MASK) != 0
     }
 
+    #[inline]
     pub fn is_finalizable(&self) -> bool {
         (self.raw & Self::FINALIZABLE_MASK) != 0
     }
 
+    #[inline]
     pub fn set_marked0(&mut self) {
         self.raw |= Self::MARKED0_MASK;
     }
 
+    #[inline]
     pub fn set_marked1(&mut self) {
         self.raw |= Self::MARKED1_MASK;
     }
 
+    #[inline]
     pub fn set_remapped(&mut self) {
         self.raw |= Self::REMAPPED_MASK;
     }
 
+    #[inline]
     pub fn set_finalizable(&mut self) {
         self.raw |= Self::FINALIZABLE_MASK;
     }
 
+    #[inline]
     pub fn clear_color(&mut self) {
         self.raw &= Self::ADDRESS_MASK;
     }
 
+    #[inline]
     pub fn set_marked0_atomic(ptr: &AtomicUsize) {
         ptr.fetch_or(Self::MARKED0_MASK, Ordering::Acquire);
     }
 
+    #[inline]
     pub fn set_marked1_atomic(ptr: &AtomicUsize) {
         ptr.fetch_or(Self::MARKED1_MASK, Ordering::Acquire);
     }
 
+    #[inline]
     pub fn set_remapped_atomic(ptr: &AtomicUsize) {
         ptr.fetch_or(Self::REMAPPED_MASK, Ordering::Acquire);
     }
 
+    #[inline]
     pub fn set_finalizable_atomic(ptr: &AtomicUsize) {
         ptr.fetch_or(Self::FINALIZABLE_MASK, Ordering::Acquire);
     }
 
+    #[inline]
     pub fn clear_color_atomic(ptr: &AtomicUsize) {
         ptr.fetch_and(Self::ADDRESS_MASK, Ordering::Release);
     }
 
+    #[inline]
     pub fn flip_mark_bit_atomic(ptr: &AtomicUsize) {
         ptr.fetch_update(Ordering::AcqRel, Ordering::Acquire, |current| {
             let marked0 = (current & Self::MARKED0_MASK) != 0;
-            let marked1 = (current & Self::MARKED1_MASK) != 0;
+            let _marked1 = (current & Self::MARKED1_MASK) != 0;
             let mut new_value = current & !(Self::MARKED0_MASK | Self::MARKED1_MASK);
             if marked0 {
                 new_value |= Self::MARKED1_MASK;
-            } else if marked1 {
-                new_value |= Self::MARKED0_MASK;
             } else {
                 new_value |= Self::MARKED0_MASK;
             }
@@ -136,12 +151,10 @@ impl ColoredPointer {
 
     pub fn flip_mark_bit(&mut self) {
         let marked0 = self.is_marked0();
-        let marked1 = self.is_marked1();
+        let _marked1 = self.is_marked1();
         self.raw &= !(Self::MARKED0_MASK | Self::MARKED1_MASK);
         if marked0 {
             self.raw |= Self::MARKED1_MASK;
-        } else if marked1 {
-            self.raw |= Self::MARKED0_MASK;
         } else {
             self.raw |= Self::MARKED0_MASK;
         }

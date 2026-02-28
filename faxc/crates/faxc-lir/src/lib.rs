@@ -7,6 +7,7 @@
 pub mod calling_convention;
 pub mod lir;
 pub mod lower;
+pub mod opt;
 pub mod stack_frame;
 #[cfg(test)]
 mod tests;
@@ -16,4 +17,5 @@ mod tests;
 pub use calling_convention::*;
 pub use lir::*;
 pub use lower::*;
+pub use opt::*;
 pub use stack_frame::*;

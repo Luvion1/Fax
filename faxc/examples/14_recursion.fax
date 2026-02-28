@@ -1,0 +1,109 @@
+// Recursion Examples in Fax
+// Demonstrates recursive functions and common patterns
+
+// Factorial using recursion
+fn factorial(n: i32) -> i32 {
+    if n <= 1 {
+        1
+    } else {
+        n * factorial(n - 1)
+    }
+}
+
+// Fibonacci using recursion (naive - O(2^n))
+fn fibonacci(n: i32) -> i32 {
+    if n <= 1 {
+        n
+    } else {
+        fibonacci(n - 1) + fibonacci(n - 2)
+    }
+}
+
+// Sum of array using recursion
+fn sum_array(arr: &[i32], index: i32) -> i32 {
+    if index < 0 {
+        0
+    } else {
+        arr[index] + sum_array(arr, index - 1)
+    }
+}
+
+// Binary search using recursion
+fn binary_search(arr: &[i32], target: i32, left: i32, right: i32) -> i32 {
+    if left > right {
+        -1
+    } else {
+        let mid = left + (right - left) / 2
+        if arr[mid] == target {
+            mid
+        } else if arr[mid] < target {
+            binary_search(arr, target, mid + 1, right)
+        } else {
+            binary_search(arr, target, left, mid - 1)
+        }
+    }
+}
+
+// Greatest common divisor using recursion (Euclidean algorithm)
+fn gcd(a: i32, b: i32) -> i32 {
+    if b == 0 {
+        a
+    } else {
+        gcd(b, a % b)
+    }
+}
+
+// Power function using recursion
+fn power(base: i32, exp: i32) -> i32 {
+    if exp == 0 {
+        1
+    } else {
+        base * power(base, exp - 1)
+    }
+}
+
+// Reverse a string using recursion
+fn reverse_string(s: str) -> str {
+    let len = string_len(s)
+    if len <= 1 {
+        s
+    } else {
+        let first = string_slice(s, 0, 1)
+        let rest = string_slice(s, 1, len)
+        let reversed_rest = reverse_string(rest)
+        string_concat(reversed_rest, first)
+    }
+}
+
+fn string_len(s: str) -> i32 {
+    0  // Simplified
+}
+
+fn main() {
+    // Test factorial
+    let fact5 = factorial(5)
+    println("5! = ")
+    println(fact5)
+    
+    // Test fibonacci
+    let fib7 = fibonacci(7)
+    println("Fibonacci(7) = ")
+    println(fib7)
+    
+    // Test gcd
+    let result_gcd = gcd(48, 18)
+    println("GCD(48, 18) = ")
+    println(result_gcd)
+    
+    // Test power
+    let pow2_10 = power(2, 10)
+    println("2^10 = ")
+    println(pow2_10)
+    
+    // Test reverse string
+    let reversed = reverse_string("hello")
+    println("Reverse of 'hello': ")
+    println(reversed)
+    
+    println("Recursion examples complete!")
+}

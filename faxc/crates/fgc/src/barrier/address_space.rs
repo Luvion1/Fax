@@ -204,9 +204,10 @@ impl AddressSpace {
 
         if remapped_ptr == libc::MAP_FAILED {
             unsafe { libc::close(fd) };
-            return Err(FgcError::VirtualMemoryError(
-                format!("Failed to map remapped view: {}", std::io::Error::last_os_error())
-            ));
+            return Err(FgcError::VirtualMemoryError(format!(
+                "Failed to map remapped view: {}",
+                std::io::Error::last_os_error()
+            )));
         }
 
         let remapped_base = remapped_ptr as usize;
@@ -228,9 +229,10 @@ impl AddressSpace {
                 libc::munmap(remapped_ptr, aligned_size);
                 libc::close(fd);
             }
-            return Err(FgcError::VirtualMemoryError(
-                format!("Failed to map marked0 view: {}", std::io::Error::last_os_error())
-            ));
+            return Err(FgcError::VirtualMemoryError(format!(
+                "Failed to map marked0 view: {}",
+                std::io::Error::last_os_error()
+            )));
         }
 
         let marked0_base = marked0_ptr as usize;
@@ -253,9 +255,10 @@ impl AddressSpace {
                 libc::munmap(marked0_ptr, aligned_size);
                 libc::close(fd);
             }
-            return Err(FgcError::VirtualMemoryError(
-                format!("Failed to map marked1 view: {}", std::io::Error::last_os_error())
-            ));
+            return Err(FgcError::VirtualMemoryError(format!(
+                "Failed to map marked1 view: {}",
+                std::io::Error::last_os_error()
+            )));
         }
 
         let marked1_base = marked1_ptr as usize;
@@ -314,9 +317,10 @@ impl AddressSpace {
             // Extend file to desired size
             if unsafe { libc::ftruncate(fd, size as libc::off_t) } != 0 {
                 unsafe { libc::close(fd) };
-                return Err(FgcError::VirtualMemoryError(
-                    format!("Failed to extend shared memory: {}", std::io::Error::last_os_error())
-                ));
+                return Err(FgcError::VirtualMemoryError(format!(
+                    "Failed to extend shared memory: {}",
+                    std::io::Error::last_os_error()
+                )));
             }
 
             Ok(fd)
@@ -362,9 +366,10 @@ impl AddressSpace {
         };
 
         if fd < 0 {
-            return Err(FgcError::VirtualMemoryError(
-                format!("Failed to create shared memory: {}", std::io::Error::last_os_error())
-            ));
+            return Err(FgcError::VirtualMemoryError(format!(
+                "Failed to create shared memory: {}",
+                std::io::Error::last_os_error()
+            )));
         }
 
         // Unlink immediately (file persists as long as fd is open)
@@ -373,9 +378,10 @@ impl AddressSpace {
         // Extend to desired size
         if unsafe { libc::ftruncate(fd, size as libc::off_t) } != 0 {
             unsafe { libc::close(fd) };
-            return Err(FgcError::VirtualMemoryError(
-                format!("Failed to extend shared memory: {}", std::io::Error::last_os_error())
-            ));
+            return Err(FgcError::VirtualMemoryError(format!(
+                "Failed to extend shared memory: {}",
+                std::io::Error::last_os_error()
+            )));
         }
 
         Ok(fd)
@@ -403,7 +409,7 @@ impl AddressSpace {
     #[cfg(windows)]
     fn new_windows(size: usize) -> Result<Self> {
         use std::ffi::c_void;
-        
+
         unsafe {
             // Create a file mapping object backed by system paging file
             // INVALID_HANDLE_VALUE means use paging file (not a real file)
@@ -415,68 +421,54 @@ impl AddressSpace {
                 size as u32,
                 null_mut(),
             );
-            
+
             if h_mapping == 0 {
-                return Err(FgcError::VirtualMemoryError(
-                    format!("Failed to create Windows file mapping: {}", std::io::Error::last_os_error())
-                ));
+                return Err(FgcError::VirtualMemoryError(format!(
+                    "Failed to create Windows file mapping: {}",
+                    std::io::Error::last_os_error()
+                )));
             }
-            
+
             // Map three views of the SAME physical pages at different virtual addresses
             // The OS chooses the virtual addresses automatically
-            let remapped = MapViewOfFile(
-                h_mapping,
-                FILE_MAP_WRITE,
-                0,
-                0,
-                size,
-            );
-            
+            let remapped = MapViewOfFile(h_mapping, FILE_MAP_WRITE, 0, 0, size);
+
             if remapped.is_null() {
                 CloseHandle(h_mapping);
-                return Err(FgcError::VirtualMemoryError(
-                    format!("Failed to map remapped view: {}", std::io::Error::last_os_error())
-                ));
+                return Err(FgcError::VirtualMemoryError(format!(
+                    "Failed to map remapped view: {}",
+                    std::io::Error::last_os_error()
+                )));
             }
-            
-            let marked0 = MapViewOfFile(
-                h_mapping,
-                FILE_MAP_WRITE,
-                0,
-                0,
-                size,
-            );
-            
+
+            let marked0 = MapViewOfFile(h_mapping, FILE_MAP_WRITE, 0, 0, size);
+
             if marked0.is_null() {
                 UnmapViewOfFile(remapped);
                 CloseHandle(h_mapping);
-                return Err(FgcError::VirtualMemoryError(
-                    format!("Failed to map marked0 view: {}", std::io::Error::last_os_error())
-                ));
+                return Err(FgcError::VirtualMemoryError(format!(
+                    "Failed to map marked0 view: {}",
+                    std::io::Error::last_os_error()
+                )));
             }
-            
-            let marked1 = MapViewOfFile(
-                h_mapping,
-                FILE_MAP_WRITE,
-                0,
-                0,
-                size,
-            );
-            
+
+            let marked1 = MapViewOfFile(h_mapping, FILE_MAP_WRITE, 0, 0, size);
+
             if marked1.is_null() {
                 UnmapViewOfFile(remapped);
                 UnmapViewOfFile(marked0);
                 CloseHandle(h_mapping);
-                return Err(FgcError::VirtualMemoryError(
-                    format!("Failed to map marked1 view: {}", std::io::Error::last_os_error())
-                ));
+                return Err(FgcError::VirtualMemoryError(format!(
+                    "Failed to map marked1 view: {}",
+                    std::io::Error::last_os_error()
+                )));
             }
-            
+
             log::info!(
                 "Created multi-mapped address space (Windows): remapped={:#x}, marked0={:#x}, marked1={:#x}, size={}",
                 remapped as usize, marked0 as usize, marked1 as usize, size
             );
-            
+
             // Store h_mapping to keep it alive (views hold references to it)
             Ok(Self {
                 remapped_base: remapped as usize,
@@ -517,22 +509,21 @@ impl AddressSpace {
         // FIX Issue 1: Validate inputs
         if physical_addr == 0 {
             return Err(FgcError::InvalidArgument(
-                "physical_addr must be non-zero".to_string()
+                "physical_addr must be non-zero".to_string(),
             ));
         }
-        
+
         if size == 0 {
             return Err(FgcError::InvalidArgument(
-                "size must be greater than 0".to_string()
+                "size must be greater than 0".to_string(),
             ));
         }
-        
+
         // Check for overflow
-        let _end_addr = physical_addr.checked_add(size)
-            .ok_or_else(|| FgcError::InvalidArgument(
-                "physical_addr + size would overflow".to_string()
-            ))?;
-        
+        let _end_addr = physical_addr.checked_add(size).ok_or_else(|| {
+            FgcError::InvalidArgument("physical_addr + size would overflow".to_string())
+        })?;
+
         // Ensure size is page-aligned
         let aligned_size = (size + PAGE_SIZE - 1) & !(PAGE_SIZE - 1);
 
@@ -567,7 +558,7 @@ impl AddressSpace {
             Ok(())
         }
     }
-    
+
     /// Verify multi-mapping on Unix platforms
     ///
     /// Writes test data to one view and verifies it's visible in all views.
@@ -581,85 +572,70 @@ impl AddressSpace {
         size: usize,
     ) -> Result<()> {
         use libc::{msync, MS_SYNC};
-        
+
         log::debug!(
             "Verifying multi-mapping: offset={:#x}, size={:#x}",
-            offset, size
+            offset,
+            size
         );
-        
+
         // Calculate addresses in each view
         let remapped_addr = remapped_base + offset;
         let marked0_addr = marked0_base + offset;
         let marked1_addr = marked1_base + offset;
-        
+
         // FIX Issue 1: Verify all views share same physical pages
         // Write test pattern to remapped view
         unsafe {
             let remapped_ptr = remapped_addr as *mut u8;
             let test_pattern: [u8; 8] = [0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE, 0xBA, 0xBE];
-            
+
             // Write test data
-            std::ptr::copy_nonoverlapping(
-                test_pattern.as_ptr(),
-                remapped_ptr,
-                8.min(size),
-            );
-            
+            std::ptr::copy_nonoverlapping(test_pattern.as_ptr(), remapped_ptr, 8.min(size));
+
             // Sync memory to ensure writes are visible
             let page_addr = (remapped_addr & !(PAGE_SIZE - 1)) as *mut libc::c_void;
             let msync_size = Self::aligned_size_for_msync(size);
             if msync(page_addr, msync_size, MS_SYNC) != 0 {
                 log::warn!("msync failed: {}", std::io::Error::last_os_error());
             }
-            
+
             // Read from marked0 view - should see same data
             let marked0_ptr = marked0_addr as *const u8;
             let mut marked0_data = [0u8; 8];
-            std::ptr::copy_nonoverlapping(
-                marked0_ptr,
-                marked0_data.as_mut_ptr(),
-                8.min(size),
-            );
-            
+            std::ptr::copy_nonoverlapping(marked0_ptr, marked0_data.as_mut_ptr(), 8.min(size));
+
             // Read from marked1 view - should see same data
             let marked1_ptr = marked1_addr as *const u8;
             let mut marked1_data = [0u8; 8];
-            std::ptr::copy_nonoverlapping(
-                marked1_ptr,
-                marked1_data.as_mut_ptr(),
-                8.min(size),
-            );
-            
+            std::ptr::copy_nonoverlapping(marked1_ptr, marked1_data.as_mut_ptr(), 8.min(size));
+
             // Verify all views see the same data
             if marked0_data[..8.min(size)] != test_pattern[..8.min(size)] {
-                log::error!(
-                    "Multi-mapping verification FAILED: marked0 view has different data"
-                );
+                log::error!("Multi-mapping verification FAILED: marked0 view has different data");
                 return Err(FgcError::VirtualMemoryError(
-                    "Multi-mapping verification failed: marked0 view mismatch".to_string()
+                    "Multi-mapping verification failed: marked0 view mismatch".to_string(),
                 ));
             }
-            
+
             if marked1_data[..8.min(size)] != test_pattern[..8.min(size)] {
-                log::error!(
-                    "Multi-mapping verification FAILED: marked1 view has different data"
-                );
+                log::error!("Multi-mapping verification FAILED: marked1 view has different data");
                 return Err(FgcError::VirtualMemoryError(
-                    "Multi-mapping verification failed: marked1 view mismatch".to_string()
+                    "Multi-mapping verification failed: marked1 view mismatch".to_string(),
                 ));
             }
         }
-        
+
         log::debug!("Multi-mapping verification successful");
         Ok(())
     }
-    
+
     /// Helper function to calculate aligned size for msync
     #[cfg(unix)]
     fn aligned_size_for_msync(size: usize) -> libc::size_t {
         ((size + PAGE_SIZE - 1) & !(PAGE_SIZE - 1)) as libc::size_t
     }
-    
+
     /// Verify multi-mapping on Windows platforms
     #[cfg(windows)]
     fn verify_multi_mapping_windows(
@@ -671,60 +647,49 @@ impl AddressSpace {
     ) -> Result<()> {
         log::debug!(
             "Verifying multi-mapping (Windows): offset={:#x}, size={:#x}",
-            offset, size
+            offset,
+            size
         );
-        
+
         // Calculate addresses in each view
         let remapped_addr = remapped_base + offset;
         let marked0_addr = marked0_base + offset;
         let marked1_addr = marked1_base + offset;
-        
+
         // Write test pattern to remapped view
         unsafe {
             let remapped_ptr = remapped_addr as *mut u8;
             let test_pattern: [u8; 8] = [0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE, 0xBA, 0xBE];
-            
-            std::ptr::copy_nonoverlapping(
-                test_pattern.as_ptr(),
-                remapped_ptr,
-                8.min(size),
-            );
-            
+
+            std::ptr::copy_nonoverlapping(test_pattern.as_ptr(), remapped_ptr, 8.min(size));
+
             // Flush to ensure visibility
             std::sync::atomic::fence(std::sync::atomic::Ordering::SeqCst);
-            
+
             // Read from marked0 view
             let marked0_ptr = marked0_addr as *const u8;
             let mut marked0_data = [0u8; 8];
-            std::ptr::copy_nonoverlapping(
-                marked0_ptr,
-                marked0_data.as_mut_ptr(),
-                8.min(size),
-            );
-            
+            std::ptr::copy_nonoverlapping(marked0_ptr, marked0_data.as_mut_ptr(), 8.min(size));
+
             // Read from marked1 view
             let marked1_ptr = marked1_addr as *const u8;
             let mut marked1_data = [0u8; 8];
-            std::ptr::copy_nonoverlapping(
-                marked1_ptr,
-                marked1_data.as_mut_ptr(),
-                8.min(size),
-            );
-            
+            std::ptr::copy_nonoverlapping(marked1_ptr, marked1_data.as_mut_ptr(), 8.min(size));
+
             // Verify all views see the same data
             if marked0_data[..8.min(size)] != test_pattern[..8.min(size)] {
                 return Err(FgcError::VirtualMemoryError(
-                    "Multi-mapping verification failed: marked0 view mismatch".to_string()
+                    "Multi-mapping verification failed: marked0 view mismatch".to_string(),
                 ));
             }
-            
+
             if marked1_data[..8.min(size)] != test_pattern[..8.min(size)] {
                 return Err(FgcError::VirtualMemoryError(
-                    "Multi-mapping verification failed: marked1 view mismatch".to_string()
+                    "Multi-mapping verification failed: marked1 view mismatch".to_string(),
                 ));
             }
         }
-        
+
         Ok(())
     }
 
@@ -797,7 +762,7 @@ impl Drop for AddressSpace {
             if self.marked1_base != 0 {
                 UnmapViewOfFile(self.marked1_base as *mut c_void);
             }
-            
+
             // Close the file mapping handle
             if self._windows_handle != 0 {
                 CloseHandle(self._windows_handle);
@@ -872,15 +837,21 @@ mod tests {
         // Read from marked0 view - should see same value (shared pages)
         unsafe {
             let ptr = space.marked0_base as *const u64;
-            assert_eq!(ptr.read(), 0xDEADBEEFCAFEBABE, 
-                "Multi-mapping not working - views not shared!");
+            assert_eq!(
+                ptr.read(),
+                0xDEADBEEFCAFEBABE,
+                "Multi-mapping not working - views not shared!"
+            );
         }
 
         // Read from marked1 view - should see same value
         unsafe {
             let ptr = space.marked1_base as *const u64;
-            assert_eq!(ptr.read(), 0xDEADBEEFCAFEBABE,
-                "Multi-mapping not working - views not shared!");
+            assert_eq!(
+                ptr.read(),
+                0xDEADBEEFCAFEBABE,
+                "Multi-mapping not working - views not shared!"
+            );
         }
     }
 
@@ -899,8 +870,11 @@ mod tests {
         // Read from remapped view - should see same value
         unsafe {
             let ptr = space.remapped_base as *const u64;
-            assert_eq!(ptr.read(), 0x1234567890ABCDEF,
-                "Multi-mapping not working - marked0 to remapped failed!");
+            assert_eq!(
+                ptr.read(),
+                0x1234567890ABCDEF,
+                "Multi-mapping not working - marked0 to remapped failed!"
+            );
         }
     }
 
@@ -963,9 +937,18 @@ mod tests {
 
         // Verify all views see the same value
         unsafe {
-            assert_eq!((space.remapped_base as *const u64).read(), 0xFEDCBA0987654321);
-            assert_eq!((space.marked0_base as *const u64).read(), 0xFEDCBA0987654321);
-            assert_eq!((space.marked1_base as *const u64).read(), 0xFEDCBA0987654321);
+            assert_eq!(
+                (space.remapped_base as *const u64).read(),
+                0xFEDCBA0987654321
+            );
+            assert_eq!(
+                (space.marked0_base as *const u64).read(),
+                0xFEDCBA0987654321
+            );
+            assert_eq!(
+                (space.marked1_base as *const u64).read(),
+                0xFEDCBA0987654321
+            );
         }
     }
 
@@ -1084,7 +1067,10 @@ mod tests {
         unsafe {
             let val = (space2.remapped_base as *const u64).read();
             // Value should be 0 (fresh mapping) or different from space1
-            assert_ne!(val, 0x11111111, "Different address spaces should be isolated");
+            assert_ne!(
+                val, 0x11111111,
+                "Different address spaces should be isolated"
+            );
         }
     }
 }

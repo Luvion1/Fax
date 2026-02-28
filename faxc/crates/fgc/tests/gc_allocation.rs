@@ -13,12 +13,8 @@
 mod common;
 
 use common::{
-    GcFixture,
-    assert_all_addresses_unique,
-    assert_address_aligned,
-    assert_address_in_bounds,
-    assert_addresses_monotonic,
-    DEFAULT_ALIGNMENT,
+    assert_address_aligned, assert_address_in_bounds, assert_addresses_monotonic,
+    assert_all_addresses_unique, GcFixture, DEFAULT_ALIGNMENT,
 };
 use std::collections::HashSet;
 
@@ -34,16 +30,16 @@ use std::collections::HashSet;
 fn test_allocation_returns_valid_address() {
     // Arrange
     let fixture = GcFixture::with_defaults();
-    
+
     // Act
     let addr = fixture.allocate(64);
-    
+
     // Assert - strict verification
     assert!(
         addr > 0,
         "Null pointer (0) returned for 64-byte allocation - allocator returned invalid address"
     );
-    
+
     // Address should be reasonable (not absurdly large)
     assert!(
         addr < usize::MAX / 2,
@@ -61,13 +57,16 @@ fn test_allocation_respects_alignment() {
     // Arrange
     let fixture = GcFixture::with_defaults();
     let sizes = [1, 7, 8, 15, 16, 31, 32, 64, 127, 128, 255, 256];
-    
+
     // Act & Assert
     for &size in &sizes {
         let addr = fixture.allocate(size);
-        
-        assert_address_aligned(addr, DEFAULT_ALIGNMENT, 
-            &format!("Allocation of {} bytes", size));
+
+        assert_address_aligned(
+            addr,
+            DEFAULT_ALIGNMENT,
+            &format!("Allocation of {} bytes", size),
+        );
     }
 }
 
@@ -82,14 +81,18 @@ fn test_allocation_within_heap_bounds() {
     let heap = fixture.gc.heap();
     let heap_base = heap.base_address();
     let heap_size = heap.max_size();
-    
+
     // Act - allocate multiple objects
     let addresses = fixture.allocate_many(100, 64);
-    
+
     // Assert - every address must be in bounds
     for (i, &addr) in addresses.iter().enumerate() {
-        assert_address_in_bounds(addr, heap_base, heap_size,
-            &format!("Allocation #{} ({} bytes)", i, 64));
+        assert_address_in_bounds(
+            addr,
+            heap_base,
+            heap_size,
+            &format!("Allocation #{} ({} bytes)", i, 64),
+        );
     }
 }
 
@@ -103,14 +106,13 @@ fn test_sequential_allocations_unique() {
     let fixture = GcFixture::with_defaults();
     let allocation_count = 1000;
     let allocation_size = 64;
-    
+
     // Act
     let addresses = fixture.allocate_many(allocation_count, allocation_size);
-    
+
     // Assert - strict uniqueness check
-    assert_all_addresses_unique(&addresses, 
-        "Sequential allocations");
-    
+    assert_all_addresses_unique(&addresses, "Sequential allocations");
+
     // Additional: verify we got exactly the expected count
     assert_eq!(
         addresses.len(),
@@ -131,14 +133,16 @@ fn test_bump_allocator_monotonic() {
     let fixture = GcFixture::with_defaults();
     let allocation_count = 100;
     let allocation_size = 64;
-    
+
     // Act
     let addresses = fixture.allocate_many(allocation_count, allocation_size);
-    
+
     // Assert - monotonic increase
-    assert_addresses_monotonic(&addresses, 
-        "Bump allocator should produce monotonically increasing addresses");
-    
+    assert_addresses_monotonic(
+        &addresses,
+        "Bump allocator should produce monotonically increasing addresses",
+    );
+
     // Additional: verify addresses actually increase (not all same)
     let unique: HashSet<_> = addresses.iter().collect();
     assert!(
@@ -160,39 +164,40 @@ fn test_bump_allocator_monotonic() {
 fn test_various_allocation_sizes() {
     // Arrange
     let fixture = GcFixture::with_defaults();
-    
+
     // Test sizes: edge cases and common sizes
     let test_sizes = [
-        1,      // Minimum
-        8,      // Word size
-        16,     // Common small alloc
-        64,     // Cache line
-        128,    // Small object
-        256,    // Threshold
-        512,    // Medium
-        1024,   // 1KB
-        4096,   // Page size
-        8192,   // 2 pages
-        65536,  // 64KB
+        1,     // Minimum
+        8,     // Word size
+        16,    // Common small alloc
+        64,    // Cache line
+        128,   // Small object
+        256,   // Threshold
+        512,   // Medium
+        1024,  // 1KB
+        4096,  // Page size
+        8192,  // 2 pages
+        65536, // 64KB
     ];
-    
+
     // Act & Assert
     let mut all_addresses = Vec::new();
     for &size in &test_sizes {
         let addr = fixture.allocate(size);
-        
-        assert_address_aligned(addr, DEFAULT_ALIGNMENT,
-            &format!("{}-byte allocation", size));
-        
-        assert!(addr > 0, 
-            "Null pointer for {}-byte allocation", size);
-        
+
+        assert_address_aligned(
+            addr,
+            DEFAULT_ALIGNMENT,
+            &format!("{}-byte allocation", size),
+        );
+
+        assert!(addr > 0, "Null pointer for {}-byte allocation", size);
+
         all_addresses.push(addr);
     }
-    
+
     // All addresses should be unique
-    assert_all_addresses_unique(&all_addresses, 
-        "Various size allocations");
+    assert_all_addresses_unique(&all_addresses, "Various size allocations");
 }
 
 /// Test that large allocations still work correctly
@@ -204,19 +209,22 @@ fn test_large_allocation() {
     // Arrange
     let fixture = GcFixture::with_defaults();
     let large_size = 1024 * 1024; // 1MB
-    
+
     // Act
     let addr = fixture.allocate(large_size);
-    
+
     // Assert
     assert!(
         addr > 0,
         "Null pointer for {}-byte (1MB) allocation",
         large_size
     );
-    
-    assert_address_aligned(addr, DEFAULT_ALIGNMENT,
-        &format!("{}-byte (1MB) allocation", large_size));
+
+    assert_address_aligned(
+        addr,
+        DEFAULT_ALIGNMENT,
+        &format!("{}-byte (1MB) allocation", large_size),
+    );
 }
 
 /// ============================================================================
@@ -234,7 +242,7 @@ fn test_concurrent_allocations_unique() {
     let thread_count = 8;
     let allocations_per_thread = 100;
     let allocation_size = 64;
-    
+
     // Act - run concurrent allocations
     common::run_concurrent_allocations(
         &fixture,
@@ -243,9 +251,13 @@ fn test_concurrent_allocations_unique() {
         allocation_size,
         move |all_addresses: Vec<usize>| {
             // Assert - strict uniqueness across ALL threads
-            assert_all_addresses_unique(&all_addresses,
-                &format!("Concurrent allocations ({} threads × {} allocs)",
-                    thread_count, allocations_per_thread));
+            assert_all_addresses_unique(
+                &all_addresses,
+                &format!(
+                    "Concurrent allocations ({} threads × {} allocs)",
+                    thread_count, allocations_per_thread
+                ),
+            );
         },
     );
 }
@@ -261,7 +273,7 @@ fn test_concurrent_allocations_aligned() {
     let thread_count = 4;
     let allocations_per_thread = 50;
     let allocation_size = 32;
-    
+
     // Act
     common::run_concurrent_allocations(
         &fixture,
@@ -271,8 +283,11 @@ fn test_concurrent_allocations_aligned() {
         |all_addresses: Vec<usize>| {
             // Assert - every address must be aligned
             for (i, &addr) in all_addresses.iter().enumerate() {
-                assert_address_aligned(addr, DEFAULT_ALIGNMENT,
-                    &format!("Concurrent allocation #{}", i));
+                assert_address_aligned(
+                    addr,
+                    DEFAULT_ALIGNMENT,
+                    &format!("Concurrent allocation #{}", i),
+                );
             }
         },
     );
@@ -291,7 +306,7 @@ fn test_concurrent_allocations_in_bounds() {
     let heap_size = heap.max_size();
     let thread_count = 4;
     let allocations_per_thread = 50;
-    
+
     // Act
     common::run_concurrent_allocations(
         &fixture,
@@ -301,8 +316,12 @@ fn test_concurrent_allocations_in_bounds() {
         move |all_addresses: Vec<usize>| {
             // Assert - every address in bounds
             for (i, &addr) in all_addresses.iter().enumerate() {
-                assert_address_in_bounds(addr, heap_base, heap_size,
-                    &format!("Concurrent allocation #{}", i));
+                assert_address_in_bounds(
+                    addr,
+                    heap_base,
+                    heap_size,
+                    &format!("Concurrent allocation #{}", i),
+                );
             }
         },
     );
@@ -319,7 +338,7 @@ fn test_high_contention_allocation() {
     let thread_count = 16; // High contention
     let allocations_per_thread = 50;
     let allocation_size = 16; // Small, fast allocations
-    
+
     // Act & Assert - should complete without deadlock
     common::assert_completed_within_timeout(
         || {
@@ -329,13 +348,12 @@ fn test_high_contention_allocation() {
                 allocations_per_thread,
                 allocation_size,
                 |all_addresses| {
-                    assert_all_addresses_unique(&all_addresses,
-                        "High-contention allocations");
+                    assert_all_addresses_unique(&all_addresses, "High-contention allocations");
                 },
             );
         },
         common::TEST_TIMEOUT,
-        "High-contention allocation test"
+        "High-contention allocation test",
     );
 }
 
@@ -351,21 +369,23 @@ fn test_high_contention_allocation() {
 fn test_interleaved_size_allocations() {
     // Arrange
     let fixture = GcFixture::with_defaults();
-    
+
     // Act - interleave small and large
     let mut addresses = Vec::new();
     for i in 0..50 {
         let size = if i % 2 == 0 { 16 } else { 4096 };
         addresses.push(fixture.allocate(size));
     }
-    
+
     // Assert
-    assert_all_addresses_unique(&addresses, 
-        "Interleaved size allocations");
-    
+    assert_all_addresses_unique(&addresses, "Interleaved size allocations");
+
     for (i, &addr) in addresses.iter().enumerate() {
-        assert_address_aligned(addr, DEFAULT_ALIGNMENT,
-            &format!("Interleaved allocation #{}", i));
+        assert_address_aligned(
+            addr,
+            DEFAULT_ALIGNMENT,
+            &format!("Interleaved allocation #{}", i),
+        );
     }
 }
 
@@ -379,17 +399,23 @@ fn test_repeated_same_size_allocations() {
     let fixture = GcFixture::with_defaults();
     let allocation_size = 128;
     let count = 500;
-    
+
     // Act
     let addresses = fixture.allocate_many(count, allocation_size);
-    
+
     // Assert
-    assert_all_addresses_unique(&addresses,
-        &format!("Repeated {}-byte allocations", allocation_size));
-    
+    assert_all_addresses_unique(
+        &addresses,
+        &format!("Repeated {}-byte allocations", allocation_size),
+    );
+
     // Verify bump pointer advanced
     let unique: HashSet<_> = addresses.iter().collect();
-    assert_eq!(unique.len(), count,
+    assert_eq!(
+        unique.len(),
+        count,
         "Bump pointer stuck: only {} unique addresses from {} allocations",
-        unique.len(), count);
+        unique.len(),
+        count
+    );
 }

@@ -7,7 +7,6 @@
 
 use crate::cfg::ControlFlowGraph;
 use crate::mir::*;
-use faxc_util::Idx;
 use std::collections::{HashMap, HashSet};
 
 pub struct LivenessAnalysis {

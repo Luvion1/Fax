@@ -3,6 +3,8 @@
 //! This module defines the standard command traits that all commands
 //! must implement to ensure consistency across the application.
 
+#![allow(dead_code)]
+
 use crate::error::Result;
 
 /// Standard command trait that all faxt commands must implement.

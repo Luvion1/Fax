@@ -452,7 +452,7 @@ impl StackScanner {
         }
 
         // Validate frame pointer alignment
-        if frame_pointer % std::mem::align_of::<usize>() != 0 {
+        if !frame_pointer.is_multiple_of(std::mem::align_of::<usize>()) {
             return Err(FgcError::Internal(format!(
                 "Frame pointer {:#x} is not aligned to {} bytes",
                 frame_pointer,
@@ -474,7 +474,7 @@ impl StackScanner {
             }
 
             // CRIT-04 FIX: Validate frame pointer alignment (x86_64 ABI requires 16-byte)
-            if fp % 16 != 0 {
+            if !fp.is_multiple_of(16) {
                 log::trace!("Invalid frame pointer alignment: {:#x}", fp);
                 break;
             }
@@ -485,7 +485,7 @@ impl StackScanner {
             }
 
             // Validate frame pointer alignment
-            if fp % std::mem::align_of::<usize>() != 0 {
+            if !fp.is_multiple_of(std::mem::align_of::<usize>()) {
                 log::trace!("Frame pointer {:#x} not aligned, terminating walk", fp);
                 break;
             }
@@ -535,7 +535,7 @@ impl StackScanner {
                     break; // Would read beyond bounds
                 }
 
-                if scan_addr % std::mem::align_of::<usize>() == 0 {
+                if scan_addr.is_multiple_of(std::mem::align_of::<usize>()) {
                     let value = unsafe { (scan_addr as *const usize).read_volatile() };
                     // CRIT-04 FIX: Use strict validation
                     if Self::is_valid_heap_pointer(value, heap_range) {
@@ -754,7 +754,7 @@ impl StackScanner {
 
         // Must be aligned (8-byte minimum)
         // CRIT-04 FIX: Reject misaligned pointers to prevent reading arbitrary memory
-        if value % 8 != 0 {
+        if !value.is_multiple_of(8) {
             return false;
         }
 
@@ -801,7 +801,7 @@ impl StackScanner {
         }
 
         // FIX Issue 2: Stricter alignment requirement (8 bytes minimum)
-        if value % 8 != 0 {
+        if !value.is_multiple_of(8) {
             return false;
         }
 

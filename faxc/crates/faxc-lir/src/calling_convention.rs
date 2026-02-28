@@ -3,7 +3,7 @@
 //! MIR-LIR-CODEGEN-DEV-001: Subtask 2
 //! Implements the System V AMD64 calling convention used on Linux, macOS, BSD.
 
-use crate::lir::{Operand, PhysicalRegister, RegisterWidth, VirtualRegister};
+use crate::lir::{Operand, PhysicalRegister, RegisterWidth};
 
 /// System V AMD64 ABI calling convention handler
 pub struct SystemVAbi;
@@ -155,7 +155,7 @@ pub enum ArgClass {
 }
 
 impl ArgClass {
-    pub fn for_type(width: RegisterWidth, is_float: bool) -> Self {
+    pub fn for_type(_width: RegisterWidth, is_float: bool) -> Self {
         if is_float {
             ArgClass::Float
         } else {

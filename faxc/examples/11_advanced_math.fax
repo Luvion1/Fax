@@ -1,0 +1,191 @@
+// 11_advanced_math.fax - Advanced Math and String Operations
+// ===========================================================
+// Demonstrates the runtime library functions for math and strings.
+//
+// Features demonstrated:
+// - Mathematical functions (sqrt, pow, sin, cos, etc.)
+// - String operations (concat, slice, replace, etc.)
+// - Type conversions
+// - Array operations
+//
+// Prerequisites:
+// - Runtime library must support: fax_f64_math_*, fax_string_*
+
+fn main() {
+    // Mathematical operations
+    let result_sqrt = math_sqrt(16.0)
+    let result_pow = math_pow(2.0, 3.0)
+    let result_sin = math_sin(0.0)
+    
+    println("Math operations:")
+    println("sqrt(16.0) = ")
+    println(result_sqrt)
+    println("pow(2.0, 3.0) = ")
+    println(result_pow)
+    println("sin(0.0) = ")
+    println(result_sin)
+    
+    // Rounding operations
+    let floor_val = math_floor(3.7)
+    let ceil_val = math_ceil(3.2)
+    let round_val = math_round(3.5)
+    
+    println("Rounding:")
+    println("floor(3.7) = ")
+    println(floor_val)
+    println("ceil(3.2) = ")
+    println(ceil_val)
+    println("round(3.5) = ")
+    println(round_val)
+    
+    // Exponential and logarithmic
+    let exp_val = math_exp(1.0)
+    let log_val = math_log(math_e())
+    
+    println("Exp/Log:")
+    println("exp(1.0) = ")
+    println(exp_val)
+    println("log(e) = ")
+    println(log_val)
+    
+    // String operations
+    let hello = "Hello"
+    let world = "World"
+    let combined = string_concat(hello, " ")
+    let full = string_concat(combined, world)
+    
+    println("String concat: ")
+    println(full)
+    
+    // String slice
+    let sliced = string_slice(full, 0, 5)
+    println("Slice [0,5]: ")
+    println(sliced)
+    
+    // String contains
+    let has_world = string_contains(full, "World")
+    println("Contains 'World': ")
+    println(has_world)
+    
+    // String replace
+    let replaced = string_replace(full, "World", "Fax")
+    println("Replace 'World'->'Fax': ")
+    println(replaced)
+    
+    // String case conversion
+    let upper = string_to_uppercase("hello")
+    let lower = string_to_lowercase("WORLD")
+    println("Uppercase 'hello': ")
+    println(upper)
+    println("Lowercase 'WORLD': ")
+    println(lower)
+    
+    // Type conversions
+    let num_str = int_to_string(42)
+    println("int_to_string(42): ")
+    println(num_str)
+    
+    let str_num = string_to_int("123")
+    println("string_to_int('123'): ")
+    println(str_num)
+    
+    let float_str = float_to_string(3.14)
+    println("float_to_string(3.14): ")
+    println(float_str)
+    
+    // Boolean to string
+    let bool_true = bool_to_string(true)
+    let bool_false = bool_to_string(false)
+    println("bool_to_string(true): ")
+    println(bool_true)
+    println("bool_to_string(false): ")
+    println(bool_false)
+    
+    // Array operations (when available)
+    // let arr = array_create(5)
+    // array_set(arr, 0, 42)
+    // let len = array_len(arr)
+    // println("Array length: ")
+    // println(len)
+    
+    println("All tests completed!")
+}
+
+// Placeholder functions - these would be built-in or imported
+// In actual implementation, these would call runtime functions
+
+fn math_sqrt(x: f64) -> f64 {
+    x * x  // Simplified - actual uses fax_f64_math_sqrt
+}
+
+fn math_pow(base: f64, exp: f64) -> f64 {
+    base  // Simplified
+}
+
+fn math_sin(x: f64) -> f64 {
+    x  // Simplified
+}
+
+fn math_floor(x: f64) -> f64 {
+    x  // Simplified
+}
+
+fn math_ceil(x: f64) -> f64 {
+    x  // Simplified
+}
+
+fn math_round(x: f64) -> f64 {
+    x  // Simplified
+}
+
+fn math_exp(x: f64) -> f64 {
+    2.718281828  // Simplified
+}
+
+fn math_log(x: f64) -> f64 {
+    x  // Simplified
+}
+
+fn math_e() -> f64 {
+    2.718281828
+}
+
+fn string_concat(s1: str, s2: str) -> str {
+    s1  // Simplified
+}
+
+fn string_slice(s: str, start: i32, end: i32) -> str {
+    s  // Simplified
+}
+
+fn string_contains(s: str, sub: str) -> bool {
+    false  // Simplified
+}
+
+fn string_replace(s: str, old: str, new: str) -> str {
+    s  // Simplified
+}
+
+fn string_to_uppercase(s: str) -> str {
+    s  // Simplified
+}
+
+fn string_to_lowercase(s: str) -> str {
+    s  // Simplified
+}
+
+fn int_to_string(n: i32) -> str {
+    "42"  // Simplified
+}
+
+fn string_to_int(s: str) -> i32 {
+    0  // Simplified
+}
+
+fn float_to_string(f: f64) -> str {
+    "0.0"  // Simplified
+}
+
+fn bool_to_string(b: bool) -> str {
+    "false"  // Simplified
+}

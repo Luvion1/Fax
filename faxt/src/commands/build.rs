@@ -212,11 +212,7 @@ impl BuildCommand {
             Self::remove_path(&path)?;
 
             if self.args.verbose {
-                eprintln!(
-                    "{} {}",
-                    output_messages::CLEANED_ARTIFACT,
-                    path.display()
-                );
+                eprintln!("{} {}", output_messages::CLEANED_ARTIFACT, path.display());
             }
         }
         Ok(())
@@ -237,11 +233,7 @@ impl BuildCommand {
         if !output_path.exists() {
             std::fs::create_dir_all(output_path)?;
             if self.args.verbose {
-                eprintln!(
-                    "{} {}",
-                    output_messages::CREATED_DIR,
-                    output_path.display()
-                );
+                eprintln!("{} {}", output_messages::CREATED_DIR, output_path.display());
             }
         }
         Ok(())
@@ -280,14 +272,11 @@ impl BuildCommand {
         eprintln!(
             "{} Build config: optimize={}, jobs={}",
             output_messages::INFO,
-            config.optimize, config.jobs
+            config.optimize,
+            config.jobs
         );
         if let Some(ref target) = config.target {
-            eprintln!(
-                "{} Target: {}",
-                output_messages::INFO,
-                target
-            );
+            eprintln!("{} Target: {}", output_messages::INFO, target);
         }
     }
 
@@ -295,9 +284,7 @@ impl BuildCommand {
     fn process_single_file(&self, input_path: &Path, output_path: &Path) -> Result<()> {
         let file_name = input_path
             .file_name()
-            .ok_or_else(|| {
-                FaxtError::FileOperation(error_messages::INVALID_FILE_PATH.to_string())
-            })?
+            .ok_or_else(|| FaxtError::FileOperation(error_messages::INVALID_FILE_PATH.to_string()))?
             .to_string_lossy()
             .to_string();
 

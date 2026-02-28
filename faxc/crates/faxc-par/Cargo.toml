@@ -11,3 +11,8 @@ faxc-util.workspace = true
 faxc-lex.workspace = true
 
 [dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "parser_bench"
+harness = false

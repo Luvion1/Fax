@@ -50,12 +50,9 @@ impl AtomicUtils {
 
     /// Atomic swap if condition is met
     pub fn swap_if(atomic: &AtomicBool, expected: bool, new_value: bool) -> bool {
-        atomic.compare_exchange_weak(
-            expected,
-            new_value,
-            Ordering::SeqCst,
-            Ordering::Relaxed,
-        ).is_ok()
+        atomic
+            .compare_exchange_weak(expected, new_value, Ordering::SeqCst, Ordering::Relaxed)
+            .is_ok()
     }
 
     /// Spin wait with backoff

@@ -94,7 +94,9 @@ pub enum PhysicalRegister {
     XMM6,
     XMM7,
     // Special
-    RAX_RDX,   // For 128-bit returns
+    #[allow(non_camel_case_types)]
+    RAX_RDX, // For 128-bit returns
+    #[allow(non_camel_case_types)]
     XMM0_XMM1, // For FP returns
 }
 
@@ -329,7 +331,7 @@ pub enum CallTarget {
 pub type Label = String;
 
 /// Operand for instructions
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Operand {
     Reg(VirtualRegister),
     PhysReg(PhysicalRegister),
@@ -339,7 +341,7 @@ pub enum Operand {
 }
 
 /// Memory addressing modes (x86-64)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Address {
     /// [base]
     Base { base: PhysicalRegister },

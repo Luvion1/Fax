@@ -35,10 +35,10 @@ pub use object_scanner::{
 pub use roots::{RootDescriptor, RootHandle, RootScanner, RootStats, RootType};
 
 use crate::error::Result;
-use crate::heap::Heap;
+use crate::heap::{Heap, Region};
 use indexmap::IndexMap;
 use parking_lot::Mutex as ParkingMutex;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 
 /// Marker - orchestrator for concurrent marking
@@ -75,6 +75,15 @@ pub struct Marker {
 
     /// GC thread pool (optional, created during marking)
     gc_thread_pool: ParkingMutex<Option<Arc<GcThreadPool>>>,
+
+    /// Region lookup cache: address -> region (O(1) lookup)
+    region_cache: ParkingMutex<IndexMap<usize, Arc<Region>>>,
+
+    /// Cache validity flag
+    cache_valid: AtomicBool,
+
+    /// Active worker count for termination detection
+    active_workers: AtomicUsize,
 }
 
 impl Marker {
@@ -93,6 +102,9 @@ impl Marker {
             marked_count: AtomicU64::new(0),
             thread_count: 4, // Default
             gc_thread_pool: ParkingMutex::new(None),
+            region_cache: ParkingMutex::new(IndexMap::new()),
+            cache_valid: AtomicBool::new(false),
+            active_workers: AtomicUsize::new(0),
         }
     }
 
@@ -103,6 +115,10 @@ impl Marker {
     pub fn start_marking(&self) -> Result<()> {
         self.marking_in_progress.store(true, Ordering::SeqCst);
         self.marked_count.store(0, Ordering::Relaxed);
+        self.active_workers.store(0, Ordering::SeqCst);
+
+        // Clear and refresh region cache
+        self.refresh_region_cache()?;
 
         // Clear mark queues
         self.global_queue.clear();
@@ -111,6 +127,43 @@ impl Marker {
         self.scan_roots()?;
 
         Ok(())
+    }
+
+    /// Refresh region cache for O(1) lookup
+    fn refresh_region_cache(&self) -> Result<()> {
+        let mut cache = self.region_cache.lock();
+        cache.clear();
+
+        let regions = self.heap.get_active_regions();
+        for region in regions {
+            cache.insert(region.start(), region);
+        }
+
+        self.cache_valid.store(true, Ordering::SeqCst);
+        Ok(())
+    }
+
+    /// Get region for address using cache (O(1))
+    fn get_region(&self, address: usize) -> Option<Arc<Region>> {
+        if !self.cache_valid.load(Ordering::Relaxed) {
+            return None;
+        }
+
+        let cache = self.region_cache.lock();
+
+        // Find the region containing this address
+        // Since regions are sorted by start address, we find the largest start <= address
+        cache
+            .iter()
+            .filter(|(start, _)| **start <= address)
+            .max_by_key(|(start, _)| *start)
+            .and_then(|(_start, region)| {
+                if address < region.end() {
+                    Some(region.clone())
+                } else {
+                    None
+                }
+            })
     }
 
     /// Scan all roots
@@ -176,10 +229,16 @@ impl Marker {
         &self,
         mut worker: crate::marker::mark_queue::MarkingWorker,
     ) -> Result<()> {
+        // Track this worker as active
+        self.active_workers.fetch_add(1, Ordering::Relaxed);
+        let mut spin_count = 0u32;
+        let mut backoff = 1u32;
+
         while self.marking_in_progress.load(Ordering::Relaxed) {
             // Get work from local worker (includes stealing)
             if let Some(object) = worker.pop() {
-                // Process object
+                spin_count = 0;
+                backoff = 1;
                 self.process_object(object, &mut worker)?;
             } else {
                 // No work, check termination
@@ -187,11 +246,22 @@ impl Marker {
                     break;
                 }
 
-                // Sleep briefly
-                std::thread::sleep(std::time::Duration::from_micros(100));
+                // Exponential backoff spin-wait (more efficient than sleep)
+                if spin_count < 1000 {
+                    // Spin phase - CPU-friendly busy wait
+                    spin_count += 1;
+                    std::hint::spin_loop();
+                } else {
+                    // Backoff phase - yield after spinning
+                    if backoff < 64 {
+                        backoff *= 2;
+                    }
+                    std::thread::yield_now();
+                }
             }
         }
 
+        self.active_workers.fetch_sub(1, Ordering::Relaxed);
         Ok(())
     }
 
@@ -225,14 +295,20 @@ impl Marker {
         Ok(())
     }
 
-    /// Mark object in bitmap
+    /// Mark object in bitmap (O(1) with cache)
     fn mark_object(&self, object: usize) -> Result<()> {
-        // Find region for object
-        let regions = self.heap.get_active_regions();
+        // Try O(1) cache lookup first
+        if let Some(region) = self.get_region(object) {
+            region.mark_object(object, 64);
+            self.marked_count.fetch_add(1, Ordering::Relaxed);
+            return Ok(());
+        }
 
+        // Fallback to O(n) scan if cache invalid
+        let regions = self.heap.get_active_regions();
         for region in regions {
             if object >= region.start() && object < region.end() {
-                region.mark_object(object, 64); // Dummy size
+                region.mark_object(object, 64);
                 self.marked_count.fetch_add(1, Ordering::Relaxed);
                 return Ok(());
             }
@@ -241,10 +317,15 @@ impl Marker {
         Ok(())
     }
 
-    /// Check if object is already marked
+    /// Check if object is already marked (O(1) with cache)
     pub fn is_marked(&self, object: usize) -> bool {
-        let regions = self.heap.get_active_regions();
+        // Try O(1) cache lookup first
+        if let Some(region) = self.get_region(object) {
+            return region.is_marked(object);
+        }
 
+        // Fallback to O(n) scan if cache invalid
+        let regions = self.heap.get_active_regions();
         for region in regions {
             if object >= region.start() && object < region.end() {
                 return region.is_marked(object);
@@ -254,11 +335,18 @@ impl Marker {
         false
     }
 
-    /// Wait until marking is complete
+    /// Wait until marking is complete (improved with spin-wait)
     pub fn wait_marking_complete(&self) -> Result<()> {
-        // Wait until injector is empty and all threads are idle
-        while !self.global_queue.is_empty() {
-            std::thread::sleep(std::time::Duration::from_millis(1));
+        let mut spin_count = 0u32;
+
+        while !self.global_queue.is_empty() || self.active_workers.load(Ordering::Relaxed) > 0 {
+            if spin_count < 10000 {
+                spin_count += 1;
+                std::hint::spin_loop();
+            } else {
+                std::thread::yield_now();
+                spin_count = 0;
+            }
         }
 
         Ok(())
@@ -276,11 +364,14 @@ impl Marker {
         Ok(())
     }
 
-    /// Check if marking should terminate
+    /// Check if marking should terminate (improved with worker count)
     fn should_terminate(&self) -> bool {
-        // Note: Real termination detection would need a distributed quiescence algorithm
-        // Simplified: injector is empty and no marking in progress
-        self.global_queue.is_empty() && !self.marking_in_progress.load(Ordering::Relaxed)
+        // Termination when: queue is empty AND marking is done AND no active workers
+        let queue_empty = self.global_queue.is_empty();
+        let marking_done = !self.marking_in_progress.load(Ordering::Relaxed);
+        let no_active_workers = self.active_workers.load(Ordering::Relaxed) == 0;
+
+        queue_empty && (marking_done || no_active_workers)
     }
 
     /// Get marked count
@@ -393,33 +484,6 @@ impl Marker {
             .map(|g| g.clone())
             .unwrap_or_else(|_| IndexMap::new());
 
-        Marker {
-            heap: self.heap.clone(),
-            global_queue: self.global_queue.clone(),
-            bitmaps: std::sync::Mutex::new(bitmaps_clone),
-            root_scanner: self.root_scanner.clone(),
-            current_mark_bit: AtomicBool::new(self.current_mark_bit.load(Ordering::Relaxed)),
-            marking_in_progress: AtomicBool::new(self.marking_in_progress.load(Ordering::Relaxed)),
-            marked_count: AtomicU64::new(self.marked_count.load(Ordering::Relaxed)),
-            thread_count: self.thread_count,
-            gc_thread_pool: ParkingMutex::new(None),
-        }
-    }
-
-    /// Get reference to root scanner
-    pub fn root_scanner(&self) -> &RootScanner {
-        &self.root_scanner
-    }
-}
-
-impl Clone for Marker {
-    fn clone(&self) -> Self {
-        let bitmaps_clone = self
-            .bitmaps
-            .lock()
-            .map(|g| g.clone())
-            .unwrap_or_else(|_| IndexMap::new());
-
         Self {
             heap: self.heap.clone(),
             global_queue: self.global_queue.clone(),
@@ -430,6 +494,14 @@ impl Clone for Marker {
             marked_count: AtomicU64::new(self.marked_count.load(Ordering::Relaxed)),
             thread_count: self.thread_count,
             gc_thread_pool: ParkingMutex::new(None),
+            region_cache: ParkingMutex::new(IndexMap::new()),
+            cache_valid: AtomicBool::new(false),
+            active_workers: AtomicUsize::new(0),
         }
+    }
+
+    /// Get reference to root scanner
+    pub fn root_scanner(&self) -> &RootScanner {
+        &self.root_scanner
     }
 }

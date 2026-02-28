@@ -22,6 +22,13 @@
 //! - LRU eviction for cache management
 //! - Generation-based invalidation
 //! - Per-thread to avoid contention
+//!
+//! ## Performance Optimizations
+//!
+//! - **Lock-free lookups**: Using atomic operations for fast path
+//! - **Atomic CAS**: Compare-and-swap for concurrent updates
+//! - **Generation tracking**: Detect stale lookups
+//! - **Cache-friendly layout**: Array-based storage for fast access
 
 use indexmap::IndexMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
@@ -123,7 +130,7 @@ impl ForwardingTable {
         }
 
         // Validate new_address is properly aligned
-        if new_address % std::mem::align_of::<usize>() != 0 {
+        if !new_address.is_multiple_of(std::mem::align_of::<usize>()) {
             log::warn!(
                 "add_entry: new_address {:#x} is not aligned to {} bytes",
                 new_address,
@@ -404,7 +411,7 @@ impl FastForwardingTable {
         }
 
         // Validate new_address is properly aligned
-        if new_address % std::mem::align_of::<usize>() != 0 {
+        if !new_address.is_multiple_of(std::mem::align_of::<usize>()) {
             return;
         }
 
@@ -449,6 +456,147 @@ impl FastForwardingTable {
         }
 
         None
+    }
+}
+
+/// Lock-free forwarding table using atomic operations
+///
+/// This implementation uses atomic operations for better concurrency
+/// when multiple GC threads are adding entries simultaneously.
+#[allow(dead_code)]
+pub struct LockFreeForwardingTable {
+    /// Region start
+    region_start: usize,
+
+    /// Region size
+    region_size: usize,
+
+    /// Atomic forwarding entries
+    /// Each entry is atomic u64 (address, valid flag)
+    entries: Vec<std::sync::atomic::AtomicU64>,
+
+    /// Granularity
+    granularity: usize,
+
+    /// Generation counter for cache invalidation
+    generation: AtomicU64,
+
+    /// Entry count
+    entry_count: AtomicUsize,
+}
+
+impl LockFreeForwardingTable {
+    /// Create lock-free forwarding table
+    pub fn new(region_start: usize, region_size: usize, granularity: usize) -> Self {
+        let entry_count = region_size / granularity;
+
+        Self {
+            region_start,
+            region_size,
+            entries: (0..entry_count)
+                .map(|_| std::sync::atomic::AtomicU64::new(0))
+                .collect(),
+            granularity,
+            generation: AtomicU64::new(0),
+            entry_count: AtomicUsize::new(0),
+        }
+    }
+
+    /// Add entry using atomic CAS
+    ///
+    /// Uses compare-and-swap to safely add entries concurrently
+    pub fn add_entry_atomic(&self, old_address: usize, new_address: usize) -> bool {
+        // Validate addresses
+        if new_address == 0 || !new_address.is_multiple_of(std::mem::align_of::<usize>()) {
+            return false;
+        }
+
+        if new_address > 0x0000_7FFF_FFFF_FFFF {
+            return false;
+        }
+
+        if old_address < self.region_start {
+            return false;
+        }
+
+        let offset = match old_address.checked_sub(self.region_start) {
+            Some(off) => off,
+            None => return false,
+        };
+
+        let index = offset / self.granularity;
+        if index >= self.entries.len() {
+            return false;
+        }
+
+        // Pack new_address with valid bit (bit 0)
+        // Format: [63:1] = address, [0] = valid
+        let packed_new = ((new_address as u64) << 1) | 1;
+
+        // Try CAS - only succeeds if entry is currently 0 (not set)
+        let current = self.entries[index].load(Ordering::Relaxed);
+        if current != 0 {
+            return false; // Already set by another thread
+        }
+
+        // Use CAS to atomically set the entry
+        match self.entries[index].compare_exchange(
+            0,
+            packed_new,
+            Ordering::Release,
+            Ordering::Relaxed,
+        ) {
+            Ok(_) => {
+                self.entry_count.fetch_add(1, Ordering::Relaxed);
+                self.generation.fetch_add(1, Ordering::Release);
+                true
+            },
+            Err(_) => false, // Another thread set it first
+        }
+    }
+
+    /// Fast lookup using atomic load
+    #[inline]
+    pub fn lookup(&self, old_address: usize) -> Option<usize> {
+        if old_address < self.region_start {
+            return None;
+        }
+
+        let offset = old_address.checked_sub(self.region_start)?;
+
+        let index = offset / self.granularity;
+        if index >= self.entries.len() {
+            return None;
+        }
+
+        let packed = self.entries[index].load(Ordering::Acquire);
+
+        // Check valid bit (bit 0)
+        if packed & 1 == 0 {
+            return None;
+        }
+
+        // Extract address (bits [63:1])
+        Some((packed >> 1) as usize)
+    }
+
+    /// Get current generation for cache validation
+    pub fn generation(&self) -> u64 {
+        self.generation.load(Ordering::Acquire)
+    }
+
+    /// Get entry count
+    pub fn entry_count(&self) -> usize {
+        self.entry_count.load(Ordering::Relaxed)
+    }
+
+    /// Clear all entries
+    pub fn clear(&self) {
+        for entry in &self.entries {
+            entry.store(0, Ordering::Relaxed);
+        }
+        self.entry_count.store(0, Ordering::Relaxed);
+        self.generation.fetch_add(1, Ordering::Release);
     }
 }
 

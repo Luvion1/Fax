@@ -1,4 +1,4 @@
-use faxc_util::{DefId, Idx, IndexVec, Symbol};
+use faxc_util::{DefId, Idx, IndexVec};
 use std::collections::HashMap;
 
 /// A type in the type system
@@ -10,9 +10,11 @@ pub enum Type {
     Unit,
     /// Never type (!) - diverges
     Never,
-    /// Primitive integer type
+    /// Primitive integer type (64-bit)
     Int,
-    /// Primitive float type
+    /// Primitive unsigned integer type (64-bit)
+    UInt,
+    /// Primitive float type (64-bit)
     Float,
     /// Boolean type
     Bool,
@@ -20,6 +22,20 @@ pub enum Type {
     Char,
     /// String type (GC-managed)
     String,
+    /// 8-bit integer
+    Int8,
+    /// 8-bit unsigned integer
+    UInt8,
+    /// 16-bit integer
+    Int16,
+    /// 16-bit unsigned integer
+    UInt16,
+    /// 32-bit integer
+    Int32,
+    /// 32-bit unsigned integer
+    UInt32,
+    /// 32-bit float
+    Float32,
     /// Named type (struct, enum, etc.)
     Adt(DefId),
     /// Type parameter
@@ -36,6 +52,10 @@ pub enum Type {
     Fn(Vec<Type>, Box<Type>),
     /// Future type
     Future(Box<Type>),
+    /// Option type Option<T>
+    Option(Box<Type>),
+    /// Result type Result<T, E>
+    Result(Box<Type>, Box<Type>),
     /// Type variable (for inference)
     Infer(InferId),
 }

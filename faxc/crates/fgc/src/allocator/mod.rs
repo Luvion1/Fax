@@ -17,14 +17,14 @@
 //! - Large: > 4KB (dedicated region per object)
 
 pub mod bump;
-pub mod tlab;
-pub mod large;
 pub mod generational;
+pub mod large;
+pub mod tlab;
 
 pub use bump::{BumpPointerAllocator, MultiBumpAllocator};
-pub use tlab::{Tlab, TlabManager, ThreadId};
+pub use generational::{AgeTracker, GenerationalAllocator, GenerationalStats};
 pub use large::LargeObjectAllocator;
-pub use generational::{GenerationalAllocator, GenerationalStats, AgeTracker};
+pub use tlab::{ThreadId, Tlab, TlabManager};
 
 use crate::error::Result;
 use crate::heap::Heap;
@@ -146,8 +146,7 @@ impl Allocator {
 
     /// Get current thread ID
     fn get_current_thread_id(&self) -> ThreadId {
-        static THREAD_COUNTER: std::sync::atomic::AtomicU64 =
-            std::sync::atomic::AtomicU64::new(0);
+        static THREAD_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
         thread_local! {
             static TID: u64 = THREAD_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -158,9 +157,12 @@ impl Allocator {
 
     /// Get statistics
     pub fn stats(&self) -> AllocatorStats {
+        let young = self.young_allocator.total_allocated().unwrap_or(0);
+        let old = self.old_allocator.total_allocated().unwrap_or(0);
+
         AllocatorStats {
-            young_allocated: self.young_allocator.total_allocated(),
-            old_allocated: self.old_allocator.total_allocated(),
+            young_allocated: young,
+            old_allocated: old,
             large_allocated: self.large_allocator.total_allocated(),
             large_objects: self.large_allocator.object_count(),
             active_tlabs: self.tlab_manager.active_tlab_count(),
@@ -170,7 +172,7 @@ impl Allocator {
 
     /// Reset allocator (for GC)
     pub fn reset_young(&self) {
-        self.young_allocator.reset_all();
+        self.young_allocator.reset_all().ok();
     }
 }
 

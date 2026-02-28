@@ -34,7 +34,7 @@ pub use read_barrier::write_barrier;
 
 pub use address_space::AddressSpace;
 pub use colored_ptr::ColoredPointer;
-pub use load_barrier::LoadBarrier;
 pub use load_barrier::heal_pointer;
 pub use load_barrier::heal_pointer_global;
 pub use load_barrier::on_object_read;
+pub use load_barrier::LoadBarrier;

@@ -1,22 +1,9 @@
 //! MIR Optimization Passes
-//!
-//! MIR-LIR-CODEGEN-DEV-001: Subtask 1
-//! Implements core MIR optimizations:
-//! 1. Constant Folding
-//! 2. Dead Code Elimination
-//! 3. Copy Propagation
-//! 4. Algebraic Simplification
-//! 5. Common Subexpression Elimination (CSE)
-//! 6. Strength Reduction
-//! 7. Loop Invariant Code Motion (LICM)
-//! 8. Branch Simplification
-//! 9. Phi Elimination
 
 use crate::mir::*;
 use faxc_sem::types::Type;
 use std::collections::HashMap;
 
-/// Run all optimization passes on a MIR function
 pub fn optimize_function(func: &mut Function) {
     let mut changed = true;
     let mut iterations = 0;
@@ -25,563 +12,506 @@ pub fn optimize_function(func: &mut Function) {
     while changed && iterations < max_iterations {
         changed = false;
 
-        algebraic_simplification(func);
-        constant_folding(func);
-        copy_propagation(func);
-        strength_reduction(func);
-        common_subexpression_elimination(func);
-        loop_invariant_code_motion(func);
-        branch_simplification(func);
-        phi_elimination(func);
-        changed |= dead_code_elimination(func);
+        simplify(func);
+        fold(func);
+        propagate(func);
+        reduce(func);
+        cse(func);
+        licm(func);
+        simplify_br(func);
+        eliminate_phi(func);
+        changed |= jump_threading(func);
+        changed |= merge_blocks(func);
+        changed |= eliminate_unreachable(func);
+        changed |= optimize_cond(func);
+        changed |= dead_code(func);
 
         iterations += 1;
     }
-
-    if iterations >= max_iterations {
-        eprintln!(
-            "Warning: optimization reached max iterations ({})",
-            max_iterations
-        );
-    }
 }
 
-/// Optimization 1: Constant Folding
-/// Evaluates constant expressions at compile time
-pub fn constant_folding(func: &mut Function) {
+fn simplify(func: &mut Function) {
     for block_idx in 0..func.blocks.len() {
         let block = &mut func.blocks[BlockId(block_idx as u32)];
         let mut i = 0;
         while i < block.statements.len() {
-            let new_stmt = match &block.statements[i] {
-                Statement::Assign(place, rvalue) => {
-                    let place_clone = place.clone();
-                    if let Rvalue::BinaryOp(op, left, right) = rvalue {
-                        if let (Some(lc), Some(rc)) = (fold_operand(left), fold_operand(right)) {
-                            if let (ConstantKind::Int(lv), ConstantKind::Int(rv)) =
-                                (&lc.kind, &rc.kind)
-                            {
-                                if let Some(result) = fold_int_binop(*op, *lv, *rv) {
-                                    Some(Statement::Assign(
-                                        place_clone,
-                                        Rvalue::Use(Operand::Constant(Constant {
-                                            ty: lc.ty.clone(),
-                                            kind: ConstantKind::Int(result),
-                                        })),
-                                    ))
-                                } else {
-                                    None
-                                }
-                            } else if let (ConstantKind::Float(lv), ConstantKind::Float(rv)) =
-                                (&lc.kind, &rc.kind)
-                            {
-                                if let Some(result) = fold_float_binop(*op, *lv, *rv) {
-                                    Some(Statement::Assign(
-                                        place_clone,
-                                        Rvalue::Use(Operand::Constant(Constant {
-                                            ty: lc.ty.clone(),
-                                            kind: ConstantKind::Float(result),
-                                        })),
-                                    ))
-                                } else {
-                                    None
-                                }
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
-                    } else if let Rvalue::UnaryOp(op, operand) = rvalue {
-                        if let Some(lc) = fold_operand(operand) {
-                            if let ConstantKind::Int(lv) = &lc.kind {
-                                if let Some(result) = fold_int_unop(*op, *lv) {
-                                    Some(Statement::Assign(
-                                        place_clone,
-                                        Rvalue::Use(Operand::Constant(Constant {
-                                            ty: lc.ty.clone(),
-                                            kind: ConstantKind::Int(result),
-                                        })),
-                                    ))
-                                } else {
-                                    None
-                                }
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                },
-                _ => None,
-            };
-
-            if let Some(stmt) = new_stmt {
-                block.statements[i] = stmt;
+            if let Statement::Assign(place, rvalue) = &block.statements[i] {
+                let simple = match rvalue {
+                    Rvalue::BinaryOp(op, left, right) => simp_bin(*op, left, right),
+                    Rvalue::UnaryOp(op, operand) => simp_un(*op, operand),
+                    _ => None,
+                };
+                if let Some(r) = simple {
+                    block.statements[i] = Statement::Assign(place.clone(), r);
+                }
             }
             i += 1;
         }
     }
 }
 
-fn fold_operand(op: &Operand) -> Option<Constant> {
+fn simp_bin(op: BinOp, left: &Box<Operand>, right: &Box<Operand>) -> Option<Rvalue> {
     match op {
-        Operand::Constant(c) => Some(c.clone()),
-        Operand::Copy(Place::Local(_)) | Operand::Move(Place::Local(_)) => None,
-        Operand::Copy(Place::Projection(_, _)) | Operand::Move(Place::Projection(_, _)) => None,
+        BinOp::Add => {
+            if is_zero(right) {
+                return Some(Rvalue::Use(*left.clone()));
+            }
+            if is_zero(left) {
+                return Some(Rvalue::Use(*right.clone()));
+            }
+            if eq_place(left, right) {
+                return Some(Rvalue::BinaryOp(
+                    BinOp::Mul,
+                    left.clone(),
+                    Box::new(Operand::Constant(Constant {
+                        ty: Type::Int,
+                        kind: ConstantKind::Int(2),
+                    })),
+                ));
+            }
+        },
+        BinOp::Sub => {
+            if is_zero(right) {
+                return Some(Rvalue::Use(*left.clone()));
+            }
+            if eq_place(left, right) {
+                return Some(Rvalue::Use(Operand::Constant(Constant {
+                    ty: Type::Int,
+                    kind: ConstantKind::Int(0),
+                })));
+            }
+        },
+        BinOp::Mul => {
+            if is_one(right) {
+                return Some(Rvalue::Use(*left.clone()));
+            }
+            if is_one(left) {
+                return Some(Rvalue::Use(*right.clone()));
+            }
+            if is_zero(right) || is_zero(left) {
+                return Some(Rvalue::Use(Operand::Constant(Constant {
+                    ty: Type::Int,
+                    kind: ConstantKind::Int(0),
+                })));
+            }
+        },
+        BinOp::Div => {
+            if is_one(right) {
+                return Some(Rvalue::Use(*left.clone()));
+            }
+            if is_zero(left) && !is_zero(right) {
+                return Some(Rvalue::Use(Operand::Constant(Constant {
+                    ty: Type::Int,
+                    kind: ConstantKind::Int(0),
+                })));
+            }
+        },
+        BinOp::Rem => {
+            if is_zero(right) {
+                return None;
+            }
+            if is_zero(left) {
+                return Some(Rvalue::Use(Operand::Constant(Constant {
+                    ty: Type::Int,
+                    kind: ConstantKind::Int(0),
+                })));
+            }
+        },
+        BinOp::BitAnd => {
+            if eq_place(left, right) {
+                return Some(Rvalue::Use(*left.clone()));
+            }
+            if is_zero(right) || is_zero(left) {
+                return Some(Rvalue::Use(Operand::Constant(Constant {
+                    ty: Type::Int,
+                    kind: ConstantKind::Int(0),
+                })));
+            }
+            if is_all_ones(right) {
+                return Some(Rvalue::Use(*left.clone()));
+            }
+            if is_all_ones(left) {
+                return Some(Rvalue::Use(*right.clone()));
+            }
+        },
+        BinOp::BitOr => {
+            if eq_place(left, right) {
+                return Some(Rvalue::Use(*left.clone()));
+            }
+            if is_zero(right) {
+                return Some(Rvalue::Use(*left.clone()));
+            }
+            if is_zero(left) {
+                return Some(Rvalue::Use(*right.clone()));
+            }
+        },
+        BinOp::BitXor => {
+            if is_zero(right) {
+                return Some(Rvalue::Use(*left.clone()));
+            }
+            if is_zero(left) {
+                return Some(Rvalue::Use(*right.clone()));
+            }
+            if eq_place(left, right) {
+                return Some(Rvalue::Use(Operand::Constant(Constant {
+                    ty: Type::Int,
+                    kind: ConstantKind::Int(0),
+                })));
+            }
+        },
+        BinOp::Shl | BinOp::Shr => {
+            if is_zero(right) {
+                return Some(Rvalue::Use(*left.clone()));
+            }
+            if is_zero(left) {
+                return Some(Rvalue::Use(Operand::Constant(Constant {
+                    ty: Type::Int,
+                    kind: ConstantKind::Int(0),
+                })));
+            }
+        },
+        BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge => {
+            if eq_place(left, right) {
+                return Some(Rvalue::Use(Operand::Constant(Constant {
+                    ty: Type::Bool,
+                    kind: ConstantKind::Bool(simp_cmp_eq(op)),
+                })));
+            }
+        },
+        _ => {},
+    }
+    None
+}
+
+fn simp_cmp_eq(op: BinOp) -> bool {
+    match op {
+        BinOp::Eq | BinOp::Le | BinOp::Ge => true,
+        _ => false,
     }
 }
 
-fn fold_int_binop(op: BinOp, lv: i64, rv: i64) -> Option<i64> {
-    Some(match op {
-        BinOp::Add => lv.wrapping_add(rv),
-        BinOp::Sub => lv.wrapping_sub(rv),
-        BinOp::Mul => lv.wrapping_mul(rv),
-        BinOp::Div if rv != 0 => lv.wrapping_div(rv),
-        BinOp::Rem if rv != 0 => lv.wrapping_rem(rv),
-        BinOp::BitAnd => lv & rv,
-        BinOp::BitOr => lv | rv,
-        BinOp::BitXor => lv ^ rv,
-        BinOp::Shl => lv.wrapping_shl(rv as u32),
-        BinOp::Shr => lv.wrapping_shr(rv as u32),
-        _ => return None,
-    })
+fn simp_un(op: UnOp, operand: &Box<Operand>) -> Option<Rvalue> {
+    if let UnOp::Not = op {
+        if let Operand::Constant(c) = operand.as_ref() {
+            if let ConstantKind::Int(n) = c.kind {
+                return Some(Rvalue::Use(Operand::Constant(Constant {
+                    ty: c.ty.clone(),
+                    kind: ConstantKind::Int(!n),
+                })));
+            }
+        }
+    }
+    None
 }
 
-fn fold_float_binop(op: BinOp, lv: f64, rv: f64) -> Option<f64> {
-    Some(match op {
-        BinOp::Add => lv + rv,
-        BinOp::Sub => lv - rv,
-        BinOp::Mul => lv * rv,
-        BinOp::Div if rv != 0.0 => lv / rv,
-        BinOp::Rem if rv != 0.0 => lv % rv,
-        _ => return None,
-    })
+fn is_zero(op: &Box<Operand>) -> bool {
+    matches!(op.as_ref(), Operand::Constant(c) if matches!(c.kind, ConstantKind::Int(0) | ConstantKind::Float(0.0)))
 }
 
-fn fold_int_unop(op: UnOp, v: i64) -> Option<i64> {
-    Some(match op {
-        UnOp::Neg => v.wrapping_neg(),
-        UnOp::Not => !v,
-    })
+fn is_one(op: &Box<Operand>) -> bool {
+    matches!(op.as_ref(), Operand::Constant(c) if matches!(c.kind, ConstantKind::Int(1) | ConstantKind::Float(1.0)))
 }
 
-/// Optimization 1b: Algebraic Simplification
-/// Simplifies expressions like x + 0 = x, x * 1 = x, etc.
-pub fn algebraic_simplification(func: &mut Function) {
+fn is_all_ones(op: &Box<Operand>) -> bool {
+    matches!(op.as_ref(), Operand::Constant(c) if matches!(c.kind, ConstantKind::Int(i) if i == -1))
+}
+
+fn eq_place(a: &Box<Operand>, b: &Box<Operand>) -> bool {
+    match (a.as_ref(), b.as_ref()) {
+        (Operand::Copy(p1), Operand::Copy(p2)) | (Operand::Move(p1), Operand::Move(p2)) => p1 == p2,
+        _ => false,
+    }
+}
+
+fn fold(func: &mut Function) {
     for block_idx in 0..func.blocks.len() {
         let block = &mut func.blocks[BlockId(block_idx as u32)];
         let mut i = 0;
         while i < block.statements.len() {
-            let new_stmt = match &block.statements[i] {
-                Statement::Assign(place, rvalue) => {
-                    let simplified = simplify_rvalue(rvalue);
-                    if simplified != *rvalue {
-                        Some(Statement::Assign(place.clone(), simplified))
-                    } else {
-                        None
-                    }
-                },
-                _ => None,
-            };
-            if let Some(stmt) = new_stmt {
-                block.statements[i] = stmt;
+            if let Statement::Assign(place, rvalue) = &block.statements[i] {
+                let folded = match rvalue {
+                    Rvalue::BinaryOp(op, left, right) => fold_bin(*op, left, right),
+                    Rvalue::UnaryOp(op, operand) => fold_un(*op, operand),
+                    _ => None,
+                };
+                if let Some(r) = folded {
+                    block.statements[i] = Statement::Assign(place.clone(), r);
+                }
             }
             i += 1;
         }
     }
 }
 
-fn simplify_rvalue(rvalue: &Rvalue) -> Rvalue {
-    match rvalue {
-        Rvalue::BinaryOp(op, left, right) => {
-            // Try to simplify binary operations
-            if let Some(simplified) = simplify_binop(op, left, right) {
-                return simplified;
+fn fold_bin(op: BinOp, left: &Box<Operand>, right: &Box<Operand>) -> Option<Rvalue> {
+    match (op, left.as_ref(), right.as_ref()) {
+        (BinOp::Add, Operand::Constant(l), Operand::Constant(r)) => {
+            if let (ConstantKind::Int(li), ConstantKind::Int(ri)) = (&l.kind, &r.kind) {
+                return const_int(li.wrapping_add(*ri));
             }
-            rvalue.clone()
+            if let (ConstantKind::Float(lf), ConstantKind::Float(rf)) = (&l.kind, &r.kind) {
+                return const_float(lf + rf);
+            }
         },
-        Rvalue::UnaryOp(op, operand) => simplify_unop(op, operand),
+        (BinOp::Sub, Operand::Constant(l), Operand::Constant(r)) => {
+            if let (ConstantKind::Int(li), ConstantKind::Int(ri)) = (&l.kind, &r.kind) {
+                return const_int(li.wrapping_sub(*ri));
+            }
+            if let (ConstantKind::Float(lf), ConstantKind::Float(rf)) = (&l.kind, &r.kind) {
+                return const_float(lf - rf);
+            }
+        },
+        (BinOp::Mul, Operand::Constant(l), Operand::Constant(r)) => {
+            if let (ConstantKind::Int(li), ConstantKind::Int(ri)) = (&l.kind, &r.kind) {
+                return const_int(li.wrapping_mul(*ri));
+            }
+            if let (ConstantKind::Float(lf), ConstantKind::Float(rf)) = (&l.kind, &r.kind) {
+                return const_float(lf * rf);
+            }
+        },
+        (BinOp::Div, Operand::Constant(l), Operand::Constant(r)) => {
+            if let (ConstantKind::Int(li), ConstantKind::Int(ri)) = (&l.kind, &r.kind) {
+                if *ri != 0 {
+                    return const_int(li.wrapping_div(*ri));
+                }
+            }
+            if let (ConstantKind::Float(lf), ConstantKind::Float(rf)) = (&l.kind, &r.kind) {
+                if *rf != 0.0 {
+                    return const_float(lf / rf);
+                }
+            }
+        },
+        (BinOp::Rem, Operand::Constant(l), Operand::Constant(r)) => {
+            if let (ConstantKind::Int(li), ConstantKind::Int(ri)) = (&l.kind, &r.kind) {
+                if *ri != 0 {
+                    return const_int(li.wrapping_rem(*ri));
+                }
+            }
+        },
+        (BinOp::BitAnd, Operand::Constant(l), Operand::Constant(r)) => {
+            if let (ConstantKind::Int(li), ConstantKind::Int(ri)) = (&l.kind, &r.kind) {
+                return const_int(li & ri);
+            }
+        },
+        (BinOp::BitOr, Operand::Constant(l), Operand::Constant(r)) => {
+            if let (ConstantKind::Int(li), ConstantKind::Int(ri)) = (&l.kind, &r.kind) {
+                return const_int(li | ri);
+            }
+        },
+        (BinOp::BitXor, Operand::Constant(l), Operand::Constant(r)) => {
+            if let (ConstantKind::Int(li), ConstantKind::Int(ri)) = (&l.kind, &r.kind) {
+                return const_int(li ^ ri);
+            }
+        },
+        (BinOp::Shl, Operand::Constant(l), Operand::Constant(r)) => {
+            if let (ConstantKind::Int(li), ConstantKind::Int(ri)) = (&l.kind, &r.kind) {
+                if *ri >= 0 && *ri < 64 {
+                    return const_int(li.wrapping_shl(*ri as u32));
+                }
+            }
+        },
+        (BinOp::Shr, Operand::Constant(l), Operand::Constant(r)) => {
+            if let (ConstantKind::Int(li), ConstantKind::Int(ri)) = (&l.kind, &r.kind) {
+                if *ri >= 0 && *ri < 64 {
+                    return const_int(li.wrapping_shr(*ri as u32));
+                }
+            }
+        },
+        (BinOp::Eq, Operand::Constant(l), Operand::Constant(r)) => {
+            return Some(Rvalue::Use(Operand::Constant(Constant {
+                ty: Type::Bool,
+                kind: ConstantKind::Bool(l.kind == r.kind),
+            })));
+        },
+        (BinOp::Ne, Operand::Constant(l), Operand::Constant(r)) => {
+            return Some(Rvalue::Use(Operand::Constant(Constant {
+                ty: Type::Bool,
+                kind: ConstantKind::Bool(l.kind != r.kind),
+            })));
+        },
+        (BinOp::Lt, Operand::Constant(l), Operand::Constant(r)) => {
+            if let (ConstantKind::Int(li), ConstantKind::Int(ri)) = (&l.kind, &r.kind) {
+                return Some(Rvalue::Use(Operand::Constant(Constant {
+                    ty: Type::Bool,
+                    kind: ConstantKind::Bool(li < ri),
+                })));
+            }
+        },
+        (BinOp::Le, Operand::Constant(l), Operand::Constant(r)) => {
+            if let (ConstantKind::Int(li), ConstantKind::Int(ri)) = (&l.kind, &r.kind) {
+                return Some(Rvalue::Use(Operand::Constant(Constant {
+                    ty: Type::Bool,
+                    kind: ConstantKind::Bool(li <= ri),
+                })));
+            }
+        },
+        (BinOp::Gt, Operand::Constant(l), Operand::Constant(r)) => {
+            if let (ConstantKind::Int(li), ConstantKind::Int(ri)) = (&l.kind, &r.kind) {
+                return Some(Rvalue::Use(Operand::Constant(Constant {
+                    ty: Type::Bool,
+                    kind: ConstantKind::Bool(li > ri),
+                })));
+            }
+        },
+        (BinOp::Ge, Operand::Constant(l), Operand::Constant(r)) => {
+            if let (ConstantKind::Int(li), ConstantKind::Int(ri)) = (&l.kind, &r.kind) {
+                return Some(Rvalue::Use(Operand::Constant(Constant {
+                    ty: Type::Bool,
+                    kind: ConstantKind::Bool(li >= ri),
+                })));
+            }
+            if let (ConstantKind::Float(lf), ConstantKind::Float(rf)) = (&l.kind, &r.kind) {
+                return Some(Rvalue::Use(Operand::Constant(Constant {
+                    ty: Type::Bool,
+                    kind: ConstantKind::Bool(lf >= rf),
+                })));
+            }
+        },
+        _ => {},
+    }
+    None
+}
+
+fn fold_un(op: UnOp, operand: &Box<Operand>) -> Option<Rvalue> {
+    if let Operand::Constant(c) = operand.as_ref() {
+        match op {
+            UnOp::Neg => {
+                if let ConstantKind::Int(n) = c.kind {
+                    return const_int(n.wrapping_neg());
+                }
+                if let ConstantKind::Float(f) = c.kind {
+                    return const_float(-f);
+                }
+            },
+            UnOp::Not => {
+                if let ConstantKind::Int(n) = c.kind {
+                    return const_int(!n);
+                }
+                if let ConstantKind::Bool(b) = c.kind {
+                    return Some(Rvalue::Use(Operand::Constant(Constant {
+                        ty: Type::Bool,
+                        kind: ConstantKind::Bool(!b),
+                    })));
+                }
+            },
+        }
+    }
+    None
+}
+
+fn const_int(n: i64) -> Option<Rvalue> {
+    Some(Rvalue::Use(Operand::Constant(Constant {
+        ty: Type::Int,
+        kind: ConstantKind::Int(n),
+    })))
+}
+
+fn const_float(f: f64) -> Option<Rvalue> {
+    Some(Rvalue::Use(Operand::Constant(Constant {
+        ty: Type::Float,
+        kind: ConstantKind::Float(f),
+    })))
+}
+
+fn propagate(func: &mut Function) {
+    for block_idx in 0..func.blocks.len() {
+        let block = &mut func.blocks[BlockId(block_idx as u32)];
+        let mut copies: HashMap<LocalId, Operand> = HashMap::new();
+
+        for stmt in block.statements.iter_mut() {
+            if let Statement::Assign(place, rvalue) = stmt {
+                let new_rvalue = propagate_rvalue(rvalue, &copies);
+                *rvalue = new_rvalue;
+
+                if let (Place::Local(dest), Rvalue::Use(src)) = (&*place, &*rvalue) {
+                    if let Operand::Copy(s) | Operand::Move(s) = src {
+                        if let Place::Local(_sid) = s {
+                            copies.insert(*dest, src.clone());
+                        }
+                    }
+                }
+                if let Place::Local(d) = &*place {
+                    copies.remove(d);
+                }
+            }
+        }
+
+        if let Terminator::If { cond, .. } = &mut block.terminator {
+            *cond = propagate_operand(cond, &copies);
+        }
+    }
+}
+
+fn propagate_rvalue(rvalue: &Rvalue, copies: &HashMap<LocalId, Operand>) -> Rvalue {
+    match rvalue {
+        Rvalue::Use(op) => Rvalue::Use(propagate_operand(op, copies)),
+        Rvalue::UnaryOp(uop, op) => Rvalue::UnaryOp(*uop, Box::new(propagate_operand(op, copies))),
+        Rvalue::BinaryOp(bop, l, r) => Rvalue::BinaryOp(
+            *bop,
+            Box::new(propagate_operand(l, copies)),
+            Box::new(propagate_operand(r, copies)),
+        ),
+        Rvalue::Cast(kind, op, ty) => {
+            Rvalue::Cast(*kind, propagate_operand(op, copies), ty.clone())
+        },
         _ => rvalue.clone(),
     }
 }
 
-fn simplify_binop(op: &BinOp, left: &Operand, right: &Operand) -> Option<Rvalue> {
-    // x + 0 = x
-    if *op == BinOp::Add {
-        if is_zero(right) {
-            return Some(Rvalue::Use(left.clone()));
-        }
-        if is_zero(left) {
-            return Some(Rvalue::Use(right.clone()));
-        }
-    }
-
-    // x - 0 = x
-    if *op == BinOp::Sub {
-        if is_zero(right) {
-            return Some(Rvalue::Use(left.clone()));
-        }
-    }
-
-    // x * 1 = x
-    if *op == BinOp::Mul {
-        if is_one(right) {
-            return Some(Rvalue::Use(left.clone()));
-        }
-        if is_one(left) {
-            return Some(Rvalue::Use(right.clone()));
-        }
-    }
-
-    // x * 0 = 0
-    if *op == BinOp::Mul {
-        if is_zero(right) || is_zero(left) {
-            return Some(Rvalue::Use(Operand::Constant(Constant {
-                ty: get_operand_type(left),
-                kind: ConstantKind::Int(0),
-            })));
-        }
-    }
-
-    // x / 1 = x
-    if *op == BinOp::Div {
-        if is_one(right) {
-            return Some(Rvalue::Use(left.clone()));
-        }
-    }
-
-    // x & x = x, x | x = x
-    if *op == BinOp::BitAnd || *op == BinOp::BitOr {
-        if left == right {
-            return Some(Rvalue::Use(left.clone()));
-        }
-    }
-
-    // x ^ 0 = x
-    if *op == BinOp::BitXor {
-        if is_zero(right) {
-            return Some(Rvalue::Use(left.clone()));
-        }
-        if is_zero(left) {
-            return Some(Rvalue::Use(right.clone()));
-        }
-    }
-
-    // x - x = 0
-    if *op == BinOp::Sub {
-        if left == right {
-            return Some(Rvalue::Use(Operand::Constant(Constant {
-                ty: get_operand_type(left),
-                kind: ConstantKind::Int(0),
-            })));
-        }
-    }
-
-    None
-}
-
-fn simplify_unop(op: &UnOp, operand: &Operand) -> Rvalue {
-    // !!x = x
-    if *op == UnOp::Not {
-        if let Operand::Constant(c) = operand {
-            if let ConstantKind::Int(v) = c.kind {
-                return Rvalue::Use(Operand::Constant(Constant {
-                    ty: c.ty.clone(),
-                    kind: ConstantKind::Int(!v),
-                }));
-            }
-        }
-    }
-
-    Rvalue::UnaryOp(*op, Box::new(operand.clone()))
-}
-
-fn is_zero(op: &Operand) -> bool {
-    match op {
-        Operand::Constant(c) => match &c.kind {
-            ConstantKind::Int(i) => *i == 0,
-            ConstantKind::Float(f) => *f == 0.0,
-            _ => false,
-        },
-        _ => false,
-    }
-}
-
-fn is_one(op: &Operand) -> bool {
-    match op {
-        Operand::Constant(c) => match &c.kind {
-            ConstantKind::Int(i) => *i == 1,
-            ConstantKind::Float(f) => *f == 1.0,
-            _ => false,
-        },
-        _ => false,
-    }
-}
-
-fn get_operand_type(op: &Operand) -> Type {
-    match op {
-        Operand::Constant(c) => c.ty.clone(),
-        _ => Type::Int,
-    }
-}
-
-/// Optimization 2: Dead Code Elimination
-/// Removes unused assignments and unreachable blocks
-pub fn dead_code_elimination(func: &mut Function) -> bool {
-    let mut changed = false;
-
-    let mut used_locals = vec![true; func.local_count()];
-
-    used_locals[0] = true;
-
-    for block_idx in 0..func.block_count() {
-        let block = &func.blocks[BlockId(block_idx as u32)];
-        for stmt in &block.statements {
-            if let Statement::Assign(_, rvalue) = stmt {
-                mark_operand_usage(&rvalue, &mut used_locals);
-            }
-        }
-        mark_terminator_usage(&block.terminator, &mut used_locals);
-    }
-
-    for block_idx in 0..func.block_count() {
-        let block = &mut func.blocks[BlockId(block_idx as u32)];
-        for stmt in &mut block.statements {
-            if let Statement::Assign(place, _) = stmt {
-                if let Place::Local(local_id) = place {
-                    if (local_id.0 as usize) < used_locals.len()
-                        && !used_locals[local_id.0 as usize]
-                    {
-                        *stmt = Statement::Nop;
-                        changed = true;
-                    }
-                }
-            }
-        }
-    }
-
-    changed
-}
-
-fn mark_operand_usage(rvalue: &Rvalue, used: &mut [bool]) {
-    match rvalue {
-        Rvalue::Use(op) => mark_op_usage(op, used),
-        Rvalue::UnaryOp(_, op) => mark_op_usage(op, used),
-        Rvalue::BinaryOp(_, l, r) => {
-            mark_op_usage(l, used);
-            mark_op_usage(r, used);
-        },
-        Rvalue::Aggregate(_, ops) => {
-            for op in ops {
-                mark_op_usage(op, used);
-            }
-        },
-        _ => {},
-    }
-}
-
-fn mark_op_usage(op: &Operand, used: &mut [bool]) {
+fn propagate_operand(op: &Operand, copies: &HashMap<LocalId, Operand>) -> Operand {
     if let Operand::Copy(Place::Local(id)) | Operand::Move(Place::Local(id)) = op {
-        if (id.0 as usize) < used.len() {
-            used[id.0 as usize] = true;
+        if let Some(cached) = copies.get(id) {
+            return cached.clone();
         }
     }
+    op.clone()
 }
 
-fn mark_terminator_usage(term: &Terminator, used: &mut [bool]) {
-    match term {
-        Terminator::If { cond, .. } => mark_op_usage(cond, used),
-        Terminator::SwitchInt { discr, .. } => mark_op_usage(discr, used),
-        Terminator::Call { args, .. } => {
-            for arg in args {
-                mark_op_usage(arg, used);
-            }
-        },
-        _ => {},
-    }
-}
-
-/// Optimization 3: Copy Propagation
-/// Replaces uses of variables that are simple copies
-pub fn copy_propagation(func: &mut Function) {
-    for block_idx in 0..func.block_count() {
-        let block = &mut func.blocks[BlockId(block_idx as u32)];
-        let mut copies: HashMap<LocalId, Operand> = HashMap::new();
-
-        for stmt in &mut block.statements {
-            if let Statement::Assign(place, rvalue) = stmt {
-                // Record copy: x = y
-                if let (Place::Local(dest), Rvalue::Use(src)) = (&*place, &*rvalue) {
-                    if let Operand::Copy(Place::Local(src_id))
-                    | Operand::Move(Place::Local(src_id)) = src
-                    {
-                        copies.insert(*dest, src.clone());
-                        continue;
-                    }
-                }
-
-                // Propagate copies in rvalue
-                propagate_in_rvalue(rvalue, &copies);
-
-                // Invalidate copies if destination is in the map
-                if let Place::Local(dest) = &*place {
-                    copies.remove(dest);
-                }
-            }
-        }
-    }
-}
-
-fn propagate_in_rvalue(rvalue: &mut Rvalue, copies: &HashMap<LocalId, Operand>) {
-    match rvalue {
-        Rvalue::Use(op) => propagate_in_op(op, copies),
-        Rvalue::UnaryOp(_, op) => propagate_in_op(op, copies),
-        Rvalue::BinaryOp(_, l, r) => {
-            propagate_in_op(l, copies);
-            propagate_in_op(r, copies);
-        },
-        Rvalue::Aggregate(_, ops) => {
-            for op in ops {
-                propagate_in_op(op, copies);
-            }
-        },
-        _ => {},
-    }
-}
-
-fn propagate_in_op(op: &mut Operand, copies: &HashMap<LocalId, Operand>) {
-    if let Operand::Copy(Place::Local(id)) | Operand::Move(Place::Local(id)) = op {
-        if let Some(replacement) = copies.get(id) {
-            *op = replacement.clone();
-        }
-    }
-}
-
-/// Optimization 4: Strength Reduction
-/// Replaces expensive operations with cheaper ones
-pub fn strength_reduction(func: &mut Function) {
+fn reduce(func: &mut Function) {
     for block_idx in 0..func.blocks.len() {
         let block = &mut func.blocks[BlockId(block_idx as u32)];
         let mut i = 0;
         while i < block.statements.len() {
-            let new_stmt = match &block.statements[i] {
-                Statement::Assign(place, rvalue) => {
-                    if let Rvalue::BinaryOp(op, left, right) = rvalue {
-                        let left_op = left.as_ref();
-                        let right_op = right.as_ref();
-                        let place_clone = place.clone();
-
-                        // x * 2 -> x + x
-                        if *op == BinOp::Mul {
-                            if let Operand::Constant(c) = right_op {
-                                if let ConstantKind::Int(2) = c.kind {
-                                    let new_rvalue =
-                                        Rvalue::BinaryOp(BinOp::Add, left.clone(), left.clone());
-                                    Some(Statement::Assign(place_clone, new_rvalue))
-                                } else {
-                                    None
-                                }
-                            } else if let Operand::Constant(c) = left_op {
-                                if let ConstantKind::Int(2) = c.kind {
-                                    let new_rvalue =
-                                        Rvalue::BinaryOp(BinOp::Add, right.clone(), right.clone());
-                                    Some(Statement::Assign(place_clone, new_rvalue))
-                                } else {
-                                    None
-                                }
-                            } else {
-                                None
-                            }
-                        } else if *op == BinOp::Div {
-                            // x / 2^k -> x >> k (division by power of 2)
-                            if let Operand::Constant(c) = right_op {
-                                if let ConstantKind::Int(ref n) = c.kind {
-                                    if *n > 0 && (*n as u64).is_power_of_two() {
-                                        let shift_amount = n.trailing_zeros() as u32;
-                                        let new_rvalue = Rvalue::BinaryOp(
-                                            BinOp::Shr,
-                                            left.clone(),
-                                            Box::new(Operand::Constant(Constant {
-                                                ty: c.ty.clone(),
-                                                kind: ConstantKind::Int(shift_amount as i64),
-                                            })),
-                                        );
-                                        Some(Statement::Assign(place_clone, new_rvalue))
-                                    } else {
-                                        None
-                                    }
-                                } else {
-                                    None
-                                }
-                            } else {
-                                None
-                            }
-                        } else if *op == BinOp::Rem {
-                            // x % 2^k -> x & (2^k - 1) (mod power of 2)
-                            if let Operand::Constant(c) = right_op {
-                                if let ConstantKind::Int(ref n) = c.kind {
-                                    if *n > 0 && (*n as u64).is_power_of_two() {
-                                        let mask = n - 1;
-                                        let new_rvalue = Rvalue::BinaryOp(
-                                            BinOp::BitAnd,
-                                            left.clone(),
-                                            Box::new(Operand::Constant(Constant {
-                                                ty: c.ty.clone(),
-                                                kind: ConstantKind::Int(mask),
-                                            })),
-                                        );
-                                        Some(Statement::Assign(place_clone, new_rvalue))
-                                    } else {
-                                        None
-                                    }
-                                } else {
-                                    None
-                                }
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                },
-                _ => None,
-            };
-
-            if let Some(stmt) = new_stmt {
-                block.statements[i] = stmt;
-            }
-            i += 1;
-        }
-    }
-}
-
-/// Optimization 5: Common Subexpression Elimination (CSE)
-/// Eliminates redundant computations by detecting and reusing previous results
-pub fn common_subexpression_elimination(func: &mut Function) {
-    for block_idx in 0..func.blocks.len() {
-        let block = &mut func.blocks[BlockId(block_idx as u32)];
-
-        let mut expr_map: HashMap<ExpressionKey, LocalId> = HashMap::new();
-
-        let mut i = 0;
-        while i < block.statements.len() {
-            if let Statement::Assign(place, rvalue) = &block.statements[i] {
-                if let Place::Local(dest_id) = place {
-                    if let Some(key) = ExpressionKey::from_rvalue(rvalue) {
-                        if let Some(cached) = expr_map.get(&key) {
+            if let Statement::Assign(place, Rvalue::BinaryOp(BinOp::Mul, left, right)) =
+                &block.statements[i]
+            {
+                if let Operand::Constant(c) = right.as_ref() {
+                    if let ConstantKind::Int(n) = c.kind {
+                        if n > 0 && (n as u64).is_power_of_two() {
+                            let shift = n.trailing_zeros();
                             block.statements[i] = Statement::Assign(
                                 place.clone(),
-                                Rvalue::Use(Operand::Copy(Place::Local(*cached))),
+                                Rvalue::BinaryOp(
+                                    BinOp::Shl,
+                                    left.clone(),
+                                    Box::new(Operand::Constant(Constant {
+                                        ty: Type::Int,
+                                        kind: ConstantKind::Int(shift as i64),
+                                    })),
+                                ),
                             );
-                        } else if !rvalue.contains_side_effects() {
-                            expr_map.insert(key, *dest_id);
+                        }
+                    }
+                }
+            }
+            if let Statement::Assign(place, Rvalue::BinaryOp(BinOp::Div, left, right)) =
+                &block.statements[i]
+            {
+                if let Operand::Constant(c) = right.as_ref() {
+                    if let ConstantKind::Int(n) = c.kind {
+                        if n > 0 && (n as u64).is_power_of_two() {
+                            let shift = n.trailing_zeros();
+                            block.statements[i] = Statement::Assign(
+                                place.clone(),
+                                Rvalue::BinaryOp(
+                                    BinOp::Shr,
+                                    left.clone(),
+                                    Box::new(Operand::Constant(Constant {
+                                        ty: Type::Int,
+                                        kind: ConstantKind::Int(shift as i64),
+                                    })),
+                                ),
+                            );
                         }
                     }
                 }
@@ -591,156 +521,154 @@ pub fn common_subexpression_elimination(func: &mut Function) {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-enum ExpressionKey {
-    Binary(BinOp, OperandKey, OperandKey),
-    Unary(UnOp, OperandKey),
-    Load(LocalId),
-}
+fn cse(func: &mut Function) {
+    let mut seen: HashMap<(BinOp, LocalId, LocalId), Place> = HashMap::new();
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-enum OperandKey {
-    Constant(i64),
-    Local(LocalId),
-}
-
-impl ExpressionKey {
-    fn from_rvalue(rvalue: &Rvalue) -> Option<Self> {
-        match rvalue {
-            Rvalue::BinaryOp(op, left, right) => {
-                let left_key = OperandKey::from_operand(left)?;
-                let right_key = OperandKey::from_operand(right)?;
-                Some(ExpressionKey::Binary(*op, left_key, right_key))
-            },
-            Rvalue::UnaryOp(op, operand) => {
-                let op_key = OperandKey::from_operand(operand)?;
-                Some(ExpressionKey::Unary(*op, op_key))
-            },
-            Rvalue::Use(Operand::Copy(id)) | Rvalue::Use(Operand::Move(id)) => {
-                if let Place::Local(local_id) = id {
-                    Some(ExpressionKey::Load(*local_id))
-                } else {
-                    None
-                }
-            },
-            _ => None,
-        }
-    }
-}
-
-impl OperandKey {
-    fn from_operand(op: &Operand) -> Option<Self> {
-        match op {
-            Operand::Constant(c) => {
-                if let ConstantKind::Int(i) = c.kind {
-                    Some(OperandKey::Constant(i))
-                } else {
-                    None
-                }
-            },
-            Operand::Copy(id) | Operand::Move(id) => {
-                if let Place::Local(local_id) = id {
-                    Some(OperandKey::Local(*local_id))
-                } else {
-                    None
-                }
-            },
-            _ => None,
-        }
-    }
-}
-
-impl Rvalue {
-    fn contains_side_effects(&self) -> bool {
-        match self {
-            Rvalue::Use(_) | Rvalue::UnaryOp(_, _) | Rvalue::BinaryOp(_, _, _) => false,
-            Rvalue::CheckedBinaryOp(_, _, _) => true,
-            Rvalue::NullaryOp(op, _) => matches!(op, NullOp::SizeOf | NullOp::AlignOf),
-            Rvalue::Cast(_, _, _) => false,
-            Rvalue::Aggregate(_, ops) => ops
-                .iter()
-                .any(|op| matches!(op, Operand::Copy(_) | Operand::Move(_))),
-            Rvalue::Ref(_, _) => true,
-            Rvalue::AddressOf(_, _) => false,
-            Rvalue::Discriminant(_) => false,
-        }
-    }
-}
-
-/// Optimization 6: Loop Invariant Code Motion (LICM)
-/// Moves loop-invariant code outside of loops
-pub fn loop_invariant_code_motion(func: &mut Function) {
     for block_idx in 0..func.blocks.len() {
         let block = &mut func.blocks[BlockId(block_idx as u32)];
+        seen.clear();
 
-        if let Terminator::SwitchInt { .. } = &block.terminator {
-            continue;
-        }
-
-        let loop_header = BlockId(block_idx as u32);
-
-        let mut invariant_stmts = Vec::new();
-        let mut non_invariant_stmts = Vec::new();
-
-        for stmt in &block.statements {
-            if let Statement::Assign(_, rvalue) = stmt {
-                if is_loop_invariant(rvalue) {
-                    invariant_stmts.push(stmt.clone());
-                } else {
-                    non_invariant_stmts.push(stmt.clone());
+        let mut i = 0;
+        while i < block.statements.len() {
+            if let Statement::Assign(place, Rvalue::BinaryOp(op, left, right)) =
+                &block.statements[i]
+            {
+                let l_id = get_local_id(left);
+                let r_id = get_local_id(right);
+                if let (Some(l), Some(r)) = (l_id, r_id) {
+                    let key = (*op, l, r);
+                    if let Some(prev_place) = seen.get(&key) {
+                        block.statements[i] = Statement::Assign(
+                            place.clone(),
+                            Rvalue::Use(Operand::Copy(prev_place.clone())),
+                        );
+                    } else {
+                        if let Place::Local(dest) = place {
+                            seen.insert(key, Place::Local(*dest));
+                        }
+                    }
                 }
             }
+            i += 1;
         }
+    }
+}
 
-        if !invariant_stmts.is_empty() && !non_invariant_stmts.is_empty() {
-            block.statements = non_invariant_stmts;
-
-            if let Some(dom_block_id) = find_dominated_block(func, loop_header) {
-                let dom_block = &mut func.blocks[dom_block_id];
-                dom_block.statements.extend(invariant_stmts);
+fn get_local_id(op: &Box<Operand>) -> Option<LocalId> {
+    match &**op {
+        Operand::Copy(p) | Operand::Move(p) => {
+            if let Place::Local(id) = p {
+                Some(*id)
+            } else {
+                None
             }
-        }
-    }
-}
-
-fn is_loop_invariant(rvalue: &Rvalue) -> bool {
-    match rvalue {
-        Rvalue::Use(op) => !op_uses_loop_variable(op),
-        Rvalue::BinaryOp(_, left, right) => {
-            !op_uses_loop_variable(left) && !op_uses_loop_variable(right)
         },
-        Rvalue::UnaryOp(_, op) => !op_uses_loop_variable(op),
-        _ => false,
+        _ => None,
     }
 }
+fn licm(func: &mut Function) {
+    let mut loop_headers: Vec<BlockId> = Vec::new();
 
-fn op_uses_loop_variable(op: &Operand) -> bool {
-    match op {
-        Operand::Copy(id) | Operand::Move(id) => {
-            matches!(id, Place::Local(_))
-        },
-        _ => false,
-    }
-}
-
-fn find_dominated_block(func: &Function, header: BlockId) -> Option<BlockId> {
-    for idx in 0..func.blocks.len() {
-        let block_id = BlockId(idx as u32);
+    for block_idx in 0..func.blocks.len() {
+        let block_id = BlockId(block_idx as u32);
         let block = &func.blocks[block_id];
-        if let Terminator::Goto { target } = &block.terminator {
-            if *target == header {
-                return Some(BlockId(block.id.0 + 1));
+        if let Terminator::If {
+            then_block,
+            else_block,
+            ..
+        } = &block.terminator
+        {
+            if *then_block == block_id || *else_block == block_id {
+                loop_headers.push(block_id);
             }
         }
     }
+
+    for header in loop_headers {
+        move_invariants(func, header);
+    }
+}
+
+fn move_invariants(func: &mut Function, header: BlockId) {
+    let header_block = &func.blocks[header];
+    let mut invariants: Vec<(usize, Rvalue)> = Vec::new();
+
+    for (idx, stmt) in header_block.statements.iter().enumerate() {
+        if let Statement::Assign(_, rvalue) = stmt {
+            if is_loop_invariant(rvalue, header) {
+                invariants.push((idx, rvalue.clone()));
+            }
+        }
+    }
+
+    if !invariants.is_empty() {
+        if let Some(first_block) = find_predecessor(func, header) {
+            let local_count = func.local_count();
+            let first = &mut func.blocks[first_block];
+            for (_, inv) in invariants.iter().rev() {
+                let new_place = Place::Local(LocalId(local_count as u32));
+                first
+                    .statements
+                    .push(Statement::Assign(new_place.clone(), inv.clone()));
+            }
+        }
+    }
+}
+
+fn is_loop_invariant(rvalue: &Rvalue, _header: BlockId) -> bool {
+    match rvalue {
+        Rvalue::Use(op) => !uses_local(op),
+        Rvalue::UnaryOp(_, op) => !uses_local(op),
+        Rvalue::BinaryOp(_, l, r) => !uses_local(l) && !uses_local(r),
+        Rvalue::NullaryOp(..) => true,
+        Rvalue::Cast(_, op, _) => !uses_local(op),
+        _ => false,
+    }
+}
+
+fn uses_local(op: &Operand) -> bool {
+    match op {
+        Operand::Copy(p) | Operand::Move(p) => matches!(p, Place::Local(..)),
+        Operand::Constant(_) => false,
+    }
+}
+
+fn find_predecessor(func: &Function, target: BlockId) -> Option<BlockId> {
+    for block_idx in 0..func.blocks.len() {
+        let bid = BlockId(block_idx as u32);
+        if bid == target {
+            continue;
+        }
+        let block = &func.blocks[bid];
+        match &block.terminator {
+            Terminator::Goto { target: tgt } => {
+                if *tgt == target {
+                    return Some(bid);
+                }
+            },
+            Terminator::If {
+                then_block,
+                else_block,
+                ..
+            } => {
+                if *then_block == target || *else_block == target {
+                    return Some(bid);
+                }
+            },
+            _ => {},
+        }
+    }
+
     None
 }
 
-/// Optimization 7: Conditional Branch Simplification
-/// Simplifies branches with known conditions
-pub fn branch_simplification(func: &mut Function) {
+fn optimize_cond(func: &mut Function) -> bool {
+    let mut changed = false;
+    let mut replacements: Vec<(BlockId, Terminator)> = Vec::new();
+
     for block_idx in 0..func.blocks.len() {
-        let block = &mut func.blocks[BlockId(block_idx as u32)];
+        let block_id = BlockId(block_idx as u32);
+        let block = &func.blocks[block_id];
 
         if let Terminator::If {
             cond,
@@ -749,8 +677,56 @@ pub fn branch_simplification(func: &mut Function) {
         } = &block.terminator
         {
             if let Operand::Constant(c) = cond {
-                if let ConstantKind::Int(value) = c.kind {
-                    let target = if value != 0 { then_block } else { else_block };
+                if let ConstantKind::Bool(b) = c.kind {
+                    let target = if b { *then_block } else { *else_block };
+                    replacements.push((block_id, Terminator::Goto { target }));
+                    changed = true;
+                }
+            }
+        }
+
+        if let Terminator::SwitchInt {
+            discr,
+            switch_ty: _,
+            targets,
+            otherwise,
+        } = &block.terminator
+        {
+            if let Operand::Constant(c) = discr {
+                if let ConstantKind::Int(v) = c.kind {
+                    let mut target = *otherwise;
+                    for (val, t) in targets {
+                        if *val == v as u128 {
+                            target = *t;
+                            break;
+                        }
+                    }
+                    replacements.push((block_id, Terminator::Goto { target }));
+                    changed = true;
+                }
+            }
+        }
+    }
+
+    for (block_id, new_term) in replacements {
+        func.blocks[block_id].terminator = new_term;
+    }
+
+    changed
+}
+
+fn simplify_br(func: &mut Function) {
+    for block_idx in 0..func.blocks.len() {
+        let block = &mut func.blocks[BlockId(block_idx as u32)];
+        if let Terminator::If {
+            cond,
+            then_block,
+            else_block,
+        } = &block.terminator
+        {
+            if let Operand::Constant(c) = cond {
+                if let ConstantKind::Int(v) = c.kind {
+                    let target = if v != 0 { then_block } else { else_block };
                     block.terminator = Terminator::Goto { target: *target };
                 }
             }
@@ -758,54 +734,339 @@ pub fn branch_simplification(func: &mut Function) {
     }
 }
 
-/// Optimization 8: Phi Node Elimination (for SSA-like form)
-/// Removes redundant phi nodes
-pub fn phi_elimination(func: &mut Function) {
+fn eliminate_phi(func: &mut Function) {
     for block_idx in 0..func.blocks.len() {
         let block = &mut func.blocks[BlockId(block_idx as u32)];
+        block.statements.retain(|s| {
+            if let Statement::Assign(p, Rvalue::Use(Operand::Copy(s))) = s {
+                if let (Place::Local(d), Place::Local(sid)) = (p, s) {
+                    return *d != *sid;
+                }
+            }
+            true
+        });
+    }
+}
 
-        let mut i = 0;
-        while i < block.statements.len() {
-            if let Statement::Assign(place, Rvalue::Use(Operand::Copy(src))) = &block.statements[i]
-            {
-                if let (Place::Local(dest), Place::Local(src_local)) = (place, src) {
-                    if dest == src_local {
-                        block.statements.remove(i);
-                        continue;
+pub fn dead_code(func: &mut Function) -> bool {
+    let mut used = vec![true; func.local_count()];
+    used[0] = true;
+
+    for block_idx in 0..func.blocks.len() {
+        let block = &func.blocks[BlockId(block_idx as u32)];
+        for stmt in &block.statements {
+            if let Statement::Assign(_, rvalue) = stmt {
+                mark_use(rvalue, &mut used);
+            }
+            mark_term_use(&block.terminator, &mut used);
+        }
+    }
+
+    let mut changed = false;
+    for block_idx in 0..func.blocks.len() {
+        let block = &mut func.blocks[BlockId(block_idx as u32)];
+        for stmt in block.statements.iter_mut() {
+            if let Statement::Assign(place, _) = stmt {
+                if let Place::Local(id) = place {
+                    if used[id.0 as usize] == false {
+                        *stmt = Statement::Nop;
+                        changed = true;
                     }
                 }
             }
-            i += 1;
+        }
+    }
+    changed
+}
+
+fn mark_use(rvalue: &Rvalue, used: &mut Vec<bool>) {
+    match rvalue {
+        Rvalue::Use(op) => mark_op_use(op, used),
+        Rvalue::UnaryOp(_, op) => mark_op_use(op, used),
+        Rvalue::BinaryOp(_, l, r) => {
+            mark_op_use(l, used);
+            mark_op_use(r, used);
+        },
+        Rvalue::Aggregate(_, ops) => {
+            for op in ops {
+                mark_op_use(op, used);
+            }
+        },
+        _ => {},
+    }
+}
+
+fn mark_op_use(op: &Operand, used: &mut Vec<bool>) {
+    if let Operand::Copy(id) | Operand::Move(id) = op {
+        if let Place::Local(i) = id {
+            if (i.0 as usize) < used.len() {
+                used[i.0 as usize] = true;
+            }
         }
     }
 }
 
-#[cfg(test)]
-mod optimize_tests {
-    use super::*;
-    use faxc_sem::Type;
-    use faxc_util::Symbol;
+fn mark_term_use(term: &Terminator, used: &mut Vec<bool>) {
+    match term {
+        Terminator::If { cond, .. } => mark_op_use(cond, used),
+        Terminator::SwitchInt { discr, .. } => mark_op_use(discr, used),
+        Terminator::Call { args, .. } => {
+            for arg in args {
+                mark_op_use(arg, used);
+            }
+        },
+        _ => {},
+    }
+}
 
-    #[test]
-    fn test_constant_folding() {
-        let name = Symbol::intern("test");
-        let mut func = Function::new(name, Type::Int, 0);
+fn jump_threading(func: &mut Function) -> bool {
+    let mut changed = false;
 
-        // Test will be expanded with full builder usage
-        assert_eq!(func.name, name);
+    let mut replacements: Vec<(BlockId, Terminator)> = Vec::new();
+
+    for block_idx in 0..func.blocks.len() {
+        let block_id = BlockId(block_idx as u32);
+        let block = &func.blocks[block_id];
+
+        if let Terminator::Goto { target } = &block.terminator {
+            let target_block = &func.blocks[*target];
+
+            if let Terminator::Goto {
+                target: next_target,
+            } = &target_block.terminator
+            {
+                replacements.push((
+                    block_id,
+                    Terminator::Goto {
+                        target: *next_target,
+                    },
+                ));
+                changed = true;
+            }
+
+            if let Terminator::If {
+                cond,
+                then_block,
+                else_block,
+            } = &target_block.terminator
+            {
+                if *then_block == *target || *else_block == *target {
+                    replacements.push((
+                        block_id,
+                        Terminator::If {
+                            cond: cond.clone(),
+                            then_block: *then_block,
+                            else_block: *else_block,
+                        },
+                    ));
+                    changed = true;
+                }
+            }
+        }
     }
 
-    #[test]
-    fn test_dead_code_elimination() {
-        let name = Symbol::intern("test_dce");
-        let mut func = Function::new(name, Type::Int, 0);
-        assert_eq!(func.local_count(), 0);
+    for (block_id, new_term) in replacements {
+        func.blocks[block_id].terminator = new_term;
     }
 
-    #[test]
-    fn test_copy_propagation() {
-        let name = Symbol::intern("test_cp");
-        let mut func = Function::new(name, Type::Int, 0);
-        assert_eq!(func.arg_count, 0);
+    let mut i = 0;
+    while i < func.blocks.len() {
+        let block_id = BlockId(i as u32);
+        let block = &func.blocks[block_id].clone();
+
+        if let Terminator::If {
+            cond: _,
+            then_block,
+            else_block,
+        } = &block.terminator
+        {
+            let then_target = func.blocks[*then_block].terminator.clone();
+            let else_target = func.blocks[*else_block].terminator.clone();
+
+            if let (Terminator::Goto { target: t_tgt }, Terminator::Goto { target: e_tgt }) =
+                (then_target, else_target)
+            {
+                if t_tgt == e_tgt {
+                    func.blocks[block_id].terminator = Terminator::Goto { target: t_tgt };
+                    changed = true;
+                }
+            }
+        }
+
+        i += 1;
+    }
+
+    changed
+}
+
+fn merge_blocks(func: &mut Function) -> bool {
+    let mut changed = false;
+
+    let mut merge_candidates: Vec<(BlockId, BlockId, Terminator)> = Vec::new();
+
+    for block_idx in 0..func.blocks.len() {
+        let block_id = BlockId(block_idx as u32);
+        let block = &func.blocks[block_id];
+
+        if let Terminator::Goto { target } = &block.terminator {
+            if *target != block_id {
+                let target_block = &func.blocks[*target];
+                if target_block.statements.is_empty() {
+                    if let Terminator::Goto {
+                        target: next_target,
+                    } = &target_block.terminator
+                    {
+                        merge_candidates.push((
+                            block_id,
+                            *target,
+                            Terminator::Goto {
+                                target: *next_target,
+                            },
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    for (from, _, new_term) in merge_candidates {
+        func.blocks[from].terminator = new_term;
+        changed = true;
+    }
+
+    changed
+}
+
+fn eliminate_unreachable(func: &mut Function) -> bool {
+    let mut reachable = vec![false; func.blocks.len()];
+    let mut queue = Vec::new();
+
+    reachable[func.entry_block.0 as usize] = true;
+    queue.push(func.entry_block);
+
+    while let Some(block_id) = queue.pop() {
+        let block = &func.blocks[block_id];
+        let targets = get_terminator_targets(&block.terminator);
+
+        for target in targets {
+            let idx = target.0 as usize;
+            if idx < reachable.len() && !reachable[idx] {
+                reachable[idx] = true;
+                queue.push(target);
+            }
+        }
+    }
+
+    let mut changed = false;
+    let mut new_blocks: Vec<(BlockId, BasicBlock)> = Vec::new();
+    let mut old_to_new: HashMap<BlockId, BlockId> = HashMap::new();
+
+    for (idx, is_reachable) in reachable.iter().enumerate() {
+        if *is_reachable {
+            let old_id = BlockId(idx as u32);
+            let new_id = BlockId(new_blocks.len() as u32);
+            old_to_new.insert(old_id, new_id);
+            new_blocks.push((new_id, func.blocks[old_id].clone()));
+        } else {
+            changed = true;
+        }
+    }
+
+    if changed {
+        func.blocks.clear();
+        for (_, mut block) in new_blocks {
+            block.id = BlockId(func.blocks.len() as u32);
+            update_terminator_targets(&mut block.terminator, &old_to_new);
+            func.blocks.push(block);
+        }
+
+        func.entry_block = BlockId(0);
+    }
+
+    changed
+}
+
+fn get_terminator_targets(term: &Terminator) -> Vec<BlockId> {
+    match term {
+        Terminator::Goto { target } => vec![*target],
+        Terminator::If {
+            then_block,
+            else_block,
+            ..
+        } => vec![*then_block, *else_block],
+        Terminator::SwitchInt {
+            targets, otherwise, ..
+        } => {
+            let mut result = vec![*otherwise];
+            for (_, t) in targets {
+                result.push(*t);
+            }
+            result
+        },
+        Terminator::Call {
+            target, cleanup, ..
+        } => {
+            let mut result = Vec::new();
+            if let Some(t) = target {
+                result.push(*t);
+            }
+            if let Some(c) = cleanup {
+                result.push(*c);
+            }
+            result
+        },
+        Terminator::Resume => vec![],
+        Terminator::Abort => vec![],
+        Terminator::Return => vec![],
+        Terminator::Unreachable => vec![],
+    }
+}
+
+fn update_terminator_targets(term: &mut Terminator, mapping: &HashMap<BlockId, BlockId>) {
+    match term {
+        Terminator::Goto { target } => {
+            if let Some(new_target) = mapping.get(target) {
+                *target = *new_target;
+            }
+        },
+        Terminator::If {
+            then_block,
+            else_block,
+            ..
+        } => {
+            if let Some(new_then) = mapping.get(then_block) {
+                *then_block = *new_then;
+            }
+            if let Some(new_else) = mapping.get(else_block) {
+                *else_block = *new_else;
+            }
+        },
+        Terminator::SwitchInt {
+            targets, otherwise, ..
+        } => {
+            for (_, t) in targets.iter_mut() {
+                if let Some(new_t) = mapping.get(t) {
+                    *t = *new_t;
+                }
+            }
+            if let Some(new_o) = mapping.get(otherwise) {
+                *otherwise = *new_o;
+            }
+        },
+        Terminator::Call {
+            target, cleanup, ..
+        } => {
+            if let Some(t) = target {
+                if let Some(new_t) = mapping.get(t) {
+                    *target = Some(*new_t);
+                }
+            }
+            if let Some(c) = cleanup {
+                if let Some(new_c) = mapping.get(c) {
+                    *cleanup = Some(*new_c);
+                }
+            }
+        },
+        _ => {},
     }
 }

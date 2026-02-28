@@ -468,7 +468,7 @@ checksum = "37909eebbb50d72f9059c3b6d82c0463f2ff062c9e95845c43a6c9c0355411be"
 
 [[package]]
 name = "faxc-drv"
-version = "0.1.0"
+version = "0.0.3"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -477,6 +477,7 @@ dependencies = [
  "faxc-lir",
  "faxc-mir",
  "faxc-par",
+ "faxc-runtime",
  "faxc-sem",
  "faxc-util",
  "inkwell",
@@ -486,7 +487,7 @@ dependencies = [
 
 [[package]]
 name = "faxc-gen"
-version = "0.1.0"
+version = "0.0.3"
 dependencies = [
  "faxc-lir",
  "faxc-util",
@@ -496,15 +497,16 @@ dependencies = [
 
 [[package]]
 name = "faxc-lex"
-version = "0.1.0"
+version = "0.0.3"
 dependencies = [
+ "criterion",
  "faxc-util",
  "proptest",
 ]
 
 [[package]]
 name = "faxc-lir"
-version = "0.1.0"
+version = "0.0.3"
 dependencies = [
  "faxc-mir",
  "faxc-sem",
@@ -513,7 +515,7 @@ dependencies = [
 
 [[package]]
 name = "faxc-mir"
-version = "0.1.0"
+version = "0.0.3"
 dependencies = [
  "faxc-sem",
  "faxc-util",
@@ -523,15 +525,24 @@ dependencies = [
 
 [[package]]
 name = "faxc-par"
-version = "0.1.0"
+version = "0.0.3"
 dependencies = [
+ "criterion",
  "faxc-lex",
  "faxc-util",
 ]
 
 [[package]]
+name = "faxc-runtime"
+version = "0.0.3"
+dependencies = [
+ "fgc",
+ "libc",
+]
+
+[[package]]
 name = "faxc-sem"
-version = "0.1.0"
+version = "0.0.3"
 dependencies = [
  "faxc-lex",
  "faxc-par",
@@ -542,7 +553,7 @@ dependencies = [
 
 [[package]]
 name = "faxc-util"
-version = "0.1.0"
+version = "0.0.3"
 dependencies = [
  "ahash",
  "bumpalo",
@@ -558,7 +569,7 @@ dependencies = [
 
 [[package]]
 name = "faxt"
-version = "0.1.0"
+version = "0.0.3"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -579,7 +590,7 @@ dependencies = [
 
 [[package]]
 name = "fgc"
-version = "0.1.0"
+version = "0.0.3"
 dependencies = [
  "anyhow",
  "chrono",

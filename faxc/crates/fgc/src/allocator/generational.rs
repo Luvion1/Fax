@@ -147,10 +147,10 @@ impl GenerationalAllocator {
         match self.stats.lock() {
             Ok(mut stats) => {
                 stats.promoted_count += 1;
-            }
+            },
             Err(e) => {
                 log::error!("GenerationalAllocator stats lock poisoned: {}", e);
-            }
+            },
         }
 
         Ok(())
@@ -161,10 +161,10 @@ impl GenerationalAllocator {
         match self.stats.lock() {
             Ok(mut stats) => {
                 stats.young_collections += 1;
-            }
+            },
             Err(e) => {
                 log::error!("GenerationalAllocator stats lock poisoned: {}", e);
-            }
+            },
         }
     }
 
@@ -173,10 +173,10 @@ impl GenerationalAllocator {
         match self.stats.lock() {
             Ok(mut stats) => {
                 stats.old_collections += 1;
-            }
+            },
             Err(e) => {
                 log::error!("GenerationalAllocator stats lock poisoned: {}", e);
-            }
+            },
         }
     }
 
@@ -192,7 +192,7 @@ impl GenerationalAllocator {
             Err(e) => {
                 log::error!("GenerationalAllocator stats lock poisoned: {}", e);
                 GenerationalStats::default()
-            }
+            },
         }
     }
 
@@ -339,9 +339,7 @@ mod tests {
             handles.push(handle);
         }
 
-        let total: usize = handles.into_iter()
-            .map(|h| h.join().unwrap())
-            .sum();
+        let total: usize = handles.into_iter().map(|h| h.join().unwrap()).sum();
 
         assert!(total > 0);
         assert_eq!(alloc.young_used(), total * 64);

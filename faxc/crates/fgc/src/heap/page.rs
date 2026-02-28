@@ -27,6 +27,7 @@ static SYSTEM_PAGE_SIZE: AtomicUsize = AtomicUsize::new(0);
 ///
 /// Returns actual system page size from OS.
 /// Caches result for performance.
+#[inline]
 pub fn get_page_size() -> usize {
     let cached = SYSTEM_PAGE_SIZE.load(Ordering::Relaxed);
     if cached != 0 {
@@ -39,40 +40,47 @@ pub fn get_page_size() -> usize {
 }
 
 /// Align size to page boundary (round up)
+#[inline]
 pub fn align_to_page(size: usize) -> usize {
     let ps = get_page_size();
     (size + ps - 1) & !(ps - 1)
 }
 
 /// Align address to page boundary (round down)
+#[inline]
 pub fn align_down_to_page(addr: usize) -> usize {
     let ps = get_page_size();
     addr & !(ps - 1)
 }
 
 /// Align address to page boundary (round up)
+#[inline]
 pub fn align_up_to_page(addr: usize) -> usize {
     let ps = get_page_size();
     (addr + ps - 1) & !(ps - 1)
 }
 
 /// Convert bytes to pages (round up)
+#[inline]
 pub fn bytes_to_pages(bytes: usize) -> usize {
     let ps = get_page_size();
     bytes.div_ceil(ps)
 }
 
 /// Convert pages to bytes
+#[inline]
 pub fn pages_to_bytes(pages: usize) -> usize {
     pages * get_page_size()
 }
 
 /// Check if address is page-aligned
+#[inline]
 pub fn is_page_aligned(addr: usize) -> bool {
     addr.is_multiple_of(get_page_size())
 }
 
 /// Calculate offset within page
+#[inline]
 pub fn page_offset(addr: usize) -> usize {
     addr & (get_page_size() - 1)
 }

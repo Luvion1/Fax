@@ -1,0 +1,80 @@
+// Traits and Interfaces Example
+// Demonstrates trait definitions, implementations, and usage
+
+trait Printable {
+    fn print(&self) -> str
+    fn println(&self) -> str
+}
+
+trait MathOps {
+    fn add(&self, other: i32) -> i32
+    fn mul(&self, other: i32) -> i32
+}
+
+struct Point {
+    x: f64,
+    y: f64,
+}
+
+struct Number {
+    value: i32,
+}
+
+impl Printable for Point {
+    fn print(&self) -> str {
+        "Point"
+    }
+    fn println(&self) -> str {
+        "Point"
+    }
+}
+
+impl Printable for Number {
+    fn print(&self) -> str {
+        "Number"
+    }
+    fn println(&self) -> str {
+        "Number"
+    }
+}
+
+impl MathOps for Number {
+    fn add(&self, other: i32) -> i32 {
+        self.value + other
+    }
+    fn mul(&self, other: i32) -> i32 {
+        self.value * other
+    }
+}
+
+fn print_all(items: &mut [&dyn Printable]) {
+    let i = 0
+    while i < items.len() {
+        println(items[i].println())
+        i = i + 1
+    }
+}
+
+fn main() {
+    let p = Point { x: 3.0, y: 4.0 }
+    let n = Number { value: 42 }
+    
+    // Trait method calls
+    println(p.println())
+    println(n.println())
+    
+    // Method calls through trait
+    let sum = n.add(8)
+    let product = n.mul(3)
+    
+    println("Sum: ")
+    println(sum)
+    println("Product: ")
+    println(product)
+    
+    // Trait as type (if supported)
+    // let printable: &dyn Printable = &n
+    // println(printable.println())
+    
+    println("Traits example complete!")
+}

@@ -1,0 +1,216 @@
+// Concurrency Examples in Fax
+// Demonstrates parallel programming concepts
+
+// Simulated thread spawning
+fn spawn_thread(f: fn() -> ()) {
+    f()
+}
+
+// Mutex-like synchronization
+struct Mutex {
+    value: i32,
+    locked: bool,
+}
+
+fn mutex_new(val: i32) -> Mutex {
+    Mutex { value: val, locked: false }
+}
+
+fn mutex_lock(m: &Mutex) -> bool {
+    !m.locked
+}
+
+fn mutex_unlock(m: &Mutex) {
+    // Simplified
+}
+
+// Channel for message passing
+struct Channel {
+    data: i32,
+    ready: bool,
+}
+
+fn channel_new() -> Channel {
+    Channel { data: 0, ready: false }
+}
+
+fn channel_send(c: &mut Channel, value: i32) {
+    c.data = value
+    c.ready = true
+}
+
+fn channel_receive(c: &mut Channel) -> i32 {
+    c.ready = false
+    c.data
+}
+
+// Atomic counter
+struct AtomicCounter {
+    value: i32,
+}
+
+fn atomic_new() -> AtomicCounter {
+    AtomicCounter { value: 0 }
+}
+
+fn atomic_fetch_add(c: &AtomicCounter, val: i32) -> i32 {
+    let old = c.value
+    c.value = c.value + val
+    old
+}
+
+fn atomic_load(c: &AtomicCounter) -> i32 {
+    c.value
+}
+
+// Work queue for parallel processing
+struct WorkQueue {
+    tasks: [i32],
+    head: i32,
+    tail: i32,
+}
+
+fn work_queue_new() -> WorkQueue {
+    WorkQueue { tasks: [], head: 0, tail: 0 }
+}
+
+fn work_queue_push(q: &mut WorkQueue, task: i32) {
+    q.tasks.push(task)
+}
+
+fn work_queue_pop(q: &mut WorkQueue) -> i32 {
+    if q.tasks.len() == 0 {
+        -1
+    } else {
+        let task = q.tasks[0]
+        q.tasks = q.tasks[1:]
+        task
+    }
+}
+
+// Parallel map using work queue
+fn parallel_map(arr: &[i32], f: fn(i32) -> i32, num_workers: i32) -> [i32] {
+    let mut queue = work_queue_new()
+    
+    // Fill queue with indices
+    let i = 0
+    while i < arr.len() {
+        work_queue_push(&mut queue, i as i32)
+        i = i + 1
+    }
+    
+    let mut results = [0; arr.len()]
+    
+    // Process in parallel (simplified - sequential)
+    let mut idx = work_queue_pop(&mut queue)
+    while idx >= 0 {
+        results[idx as i32] = f(arr[idx as i32])
+        idx = work_queue_pop(&mut queue)
+    }
+    
+    results
+}
+
+// Simple barrier synchronization
+struct Barrier {
+    count: i32,
+    waiting: i32,
+}
+
+fn barrier_new(n: i32) -> Barrier {
+    Barrier { count: n, waiting: 0 }
+}
+
+fn barrier_wait(b: &Barrier) {
+    b.waiting = b.waiting + 1
+    if b.waiting >= b.count {
+        b.waiting = 0
+    }
+}
+
+// Once initialization (run once)
+struct Once {
+    initialized: bool,
+}
+
+fn once_new() -> Once {
+    Once { initialized: false }
+}
+
+fn once_call(o: &Once, f: fn() -> ()) {
+    if !o.initialized {
+        f()
+        o.initialized = true
+    }
+}
+
+// Example: Producer-Consumer pattern
+fn producer_consumer() {
+    let channel = channel_new()
+    
+    // Producer
+    channel_send(&mut channel, 42)
+    
+    // Consumer
+    let value = channel_receive(&mut channel)
+    println("Received: ")
+    println(value)
+}
+
+// Example: Parallel sum using reduction
+fn parallel_sum(arr: &[i32]) -> i32 {
+    let sum_fn = fn(acc: i32, x: i32) -> i32 { acc + x }
+    reduce(arr, 0, sum_fn)
+}
+
+fn reduce(arr: &[i32], init: i32, f: fn(i32, i32) -> i32) -> i32 {
+    let acc = init
+    let i = 0
+    while i < arr.len() {
+        acc = f(acc, arr[i])
+        i = i + 1
+    }
+    acc
+}
+
+fn main() {
+    // Test mutex
+    let m = mutex_new(100)
+    let locked = mutex_lock(&m)
+    println("Mutex locked: ")
+    println(locked)
+    
+    // Test channel
+    producer_consumer()
+    
+    // Test atomic
+    let counter = atomic_new()
+    atomic_fetch_add(&counter, 5)
+    let val = atomic_load(&counter)
+    println("Atomic value: ")
+    println(val)
+    
+    // Test once
+    let o = once_new()
+    let call_count = 0
+    once_call(&o, fn() { 
+        println("Once called!")
+    })
+    
+    // Test barrier
+    let b = barrier_new(3)
+    barrier_wait(&b)
+    println("Barrier passed")
+    
+    // Test parallel map
+    let arr = [1, 2, 3, 4, 5]
+    let doubled = parallel_map(arr, fn(x: i32) -> i32 { x * 2 }, 2)
+    println("Parallel map result")
+    
+    // Test parallel sum
+    let total = parallel_sum(arr)
+    println("Sum: ")
+    println(total)
+    
+    println("Concurrency examples complete!")
+}

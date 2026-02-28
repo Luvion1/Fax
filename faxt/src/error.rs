@@ -44,7 +44,7 @@ pub enum FaxtError {
     /// - Wrapping errors from external libraries not covered by other variants
     /// - Temporary error handling during development
     /// - Cases where a more specific variant doesn't exist yet
-    #[allow(dead_code)]  // Reserved for future use and API compatibility
+    #[allow(dead_code)] // Reserved for future use and API compatibility
     #[error("{0}")]
     Other(String),
 }

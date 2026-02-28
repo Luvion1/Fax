@@ -152,7 +152,8 @@ pub unsafe fn zero_memory(addr: usize, size: usize) {
 #[inline]
 pub unsafe fn read_pointer(addr: usize) -> usize {
     // CRIT-04 FIX: Validate address before dereference
-    if addr == 0 || !addr.is_multiple_of(std::mem::align_of::<usize>()) {
+    let align = std::mem::align_of::<usize>();
+    if addr == 0 || !addr.is_multiple_of(align) {
         return 0; // Treat as null
     }
 
@@ -186,7 +187,8 @@ pub unsafe fn read_pointer(addr: usize) -> usize {
 #[inline]
 pub unsafe fn write_pointer(addr: usize, value: usize) {
     // CRIT-04 FIX: Validate address before dereference
-    if addr == 0 || !addr.is_multiple_of(std::mem::align_of::<usize>()) {
+    let align = std::mem::align_of::<usize>();
+    if addr == 0 || !addr.is_multiple_of(align) {
         return; // Cannot write to null or unaligned address
     }
 
@@ -688,7 +690,8 @@ pub fn validate_pointer(addr: usize, operation: &str) -> Result<(), FgcError> {
         return Err(FgcError::InvalidPointer { address: 0 });
     }
 
-    if !addr.is_multiple_of(std::mem::align_of::<usize>()) {
+    let align = std::mem::align_of::<usize>();
+    if !addr.is_multiple_of(align) {
         return Err(FgcError::InvalidArgument(format!(
             "Unaligned address for {}: {:#x}",
             operation, addr
@@ -752,14 +755,33 @@ pub unsafe fn compare_memory(addr1: usize, addr2: usize, size: usize) -> bool {
     if size == 0 {
         return true;
     }
-    // Use ptr::read to compare byte by byte
+
     let p1 = addr1 as *const u8;
     let p2 = addr2 as *const u8;
-    for i in 0..size {
-        if ptr::read(p1.add(i)) != ptr::read(p2.add(i)) {
+
+    // Optimized: use word-sized comparisons where possible
+    // Process in chunks of 8 bytes for efficiency
+    let word_size = std::mem::size_of::<usize>();
+    let word_count = size / word_size;
+    let remainder = size % word_size;
+
+    // Compare words first (fast path)
+    let p1_words = p1 as *const usize;
+    let p2_words = p2 as *const usize;
+    for i in 0..word_count {
+        if ptr::read(p1_words.add(i)) != ptr::read(p2_words.add(i)) {
             return false;
         }
     }
+
+    // Compare remaining bytes
+    let byte_offset = word_count * word_size;
+    for i in 0..remainder {
+        if ptr::read(p1.add(byte_offset + i)) != ptr::read(p2.add(byte_offset + i)) {
+            return false;
+        }
+    }
+
     true
 }
 
@@ -788,6 +810,168 @@ pub unsafe fn fill_memory(addr: usize, value: u8, size: usize) {
         return;
     }
     ptr::write_bytes(addr as *mut u8, value, size);
+}
+
+/// Validate a memory range for reading
+///
+/// # Arguments
+/// * `addr` - Starting address
+/// * `size` - Size of range in bytes
+///
+/// # Returns
+/// * `Ok(())` - Range appears valid for reading
+/// * `Err(FgcError)` - Range validation failed
+pub fn validate_read_range(addr: usize, size: usize) -> Result<(), FgcError> {
+    if size == 0 {
+        return Ok(());
+    }
+
+    // Check for null
+    if addr == 0 {
+        return Err(FgcError::InvalidPointer { address: 0 });
+    }
+
+    // Check for overflow
+    let end = addr.checked_add(size).ok_or_else(|| {
+        FgcError::InvalidArgument(format!("Address overflow: {:#x} + {}", addr, size))
+    })?;
+
+    // Check that end doesn't wrap
+    if end <= addr {
+        return Err(FgcError::InvalidArgument(
+            "Address wrap-around detected".to_string(),
+        ));
+    }
+
+    // Validate each page in range (stricter validation)
+    let page_size = 4096;
+    let mut current = addr;
+    while current < end {
+        let page_end = (current + page_size).min(end);
+        if !is_readable(current).unwrap_or(false) {
+            return Err(FgcError::InvalidArgument(format!(
+                "Unreadable memory at {:#x}",
+                current
+            )));
+        }
+        current = page_end;
+    }
+
+    Ok(())
+}
+
+/// Validate a memory range for writing
+///
+/// # Arguments
+/// * `addr` - Starting address
+/// * `size` - Size of range in bytes
+///
+/// # Returns
+/// * `Ok(())` - Range appears valid for writing
+/// * `Err(FgcError)` - Range validation failed
+pub fn validate_write_range(addr: usize, size: usize) -> Result<(), FgcError> {
+    if size == 0 {
+        return Ok(());
+    }
+
+    // Check for null
+    if addr == 0 {
+        return Err(FgcError::InvalidPointer { address: 0 });
+    }
+
+    // Check for overflow
+    let _end = addr.checked_add(size).ok_or_else(|| {
+        FgcError::InvalidArgument(format!("Address overflow: {:#x} + {}", addr, size))
+    })?;
+
+    // Check that end doesn't wrap
+    let end = addr + size;
+    if end <= addr {
+        return Err(FgcError::InvalidArgument(
+            "Address wrap-around detected".to_string(),
+        ));
+    }
+
+    // Validate write access
+    if !is_writable(addr).unwrap_or(false) {
+        return Err(FgcError::InvalidArgument(format!(
+            "Unwritable memory at {:#x}",
+            addr
+        )));
+    }
+
+    Ok(())
+}
+
+/// Check if an address is in user space (non-kernel)
+///
+/// # Arguments
+/// * `addr` - Address to check
+///
+/// # Returns
+/// * `true` if address is in user space
+pub fn is_user_address(addr: usize) -> bool {
+    // On 64-bit systems, user space is typically 0x0000_0000 to 0x7FFF_FFFF_FFFF
+    // This covers the lower 128TB of address space
+    #[cfg(target_pointer_width = "64")]
+    {
+        addr < 0x8000_0000_0000
+    }
+    #[cfg(target_pointer_width = "32")]
+    {
+        addr < 0x8000_0000
+    }
+}
+
+/// Check if an address is in heap region
+///
+/// # Arguments
+/// * `addr` - Address to check
+/// * `heap_base` - Base address of heap
+/// * `heap_size` - Size of heap
+///
+/// # Returns
+/// * `true` if address is within heap bounds
+pub fn is_in_heap_region(addr: usize, heap_base: usize, heap_size: usize) -> bool {
+    if heap_size == 0 {
+        return false;
+    }
+    addr >= heap_base && addr < heap_base + heap_size
+}
+
+/// Safe memory copy with validation
+///
+/// # Arguments
+/// * `src` - Source address
+/// * `dst` - Destination address
+/// * `size` - Number of bytes to copy
+///
+/// # Returns
+/// * `Ok(())` - Copy successful
+/// * `Err(FgcError)` - Validation failed
+pub fn safe_copy_memory(src: usize, dst: usize, size: usize) -> Result<(), FgcError> {
+    // Validate source range
+    validate_read_range(src, size)?;
+
+    // Validate destination range
+    validate_write_range(dst, size)?;
+
+    // Check for overlap
+    let src_end = src + size;
+    let dst_end = dst + size;
+
+    if src < dst_end && dst < src_end {
+        return Err(FgcError::InvalidArgument(
+            "Overlapping memory regions detected".to_string(),
+        ));
+    }
+
+    // Perform copy
+    unsafe {
+        copy_memory(src, dst, size);
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

@@ -106,6 +106,7 @@ impl LoadBarrier {
     ///
     /// # Note
     /// Returns the original pointer if the lock is poisoned.
+    #[inline]
     pub fn on_pointer_load(&self, pointer: ColoredPointer) -> ColoredPointer {
         // Fast path check - if barrier disabled or no processing needed (Good Color)
         if !self.enabled.load(Ordering::Relaxed) || self.is_good_color(pointer.raw()) {
@@ -117,7 +118,7 @@ impl LoadBarrier {
             Err(e) => {
                 log::error!("LoadBarrier phase lock poisoned: {}", e);
                 return pointer;
-            }
+            },
         };
 
         // Slow path: process based on phase
@@ -160,10 +161,11 @@ impl LoadBarrier {
     /// let healed = barrier.on_pointer_load_atomic(&ptr_location);
     /// // ptr_location is now updated atomically if pointer was healed
     /// ```
+    #[inline]
     pub fn on_pointer_load_atomic(&self, ptr_location: &AtomicUsize) -> ColoredPointer {
         // Fast path check - load current raw value
         let current_raw = ptr_location.load(Ordering::Acquire);
-        
+
         // If barrier disabled or color is good, just return
         if !self.enabled.load(Ordering::Relaxed) || self.is_good_color(current_raw) {
             return ColoredPointer::from_raw(current_raw);
@@ -174,19 +176,18 @@ impl LoadBarrier {
             Err(e) => {
                 log::error!("LoadBarrier phase lock poisoned: {}", e);
                 return ColoredPointer::from_raw(current_raw);
-            }
+            },
         };
 
         let pointer = ColoredPointer::from_raw(current_raw);
 
         // Slow path: process based on phase
-        let result = match phase {
+
+        match phase {
             GcPhase::Marking => self.handle_marking_atomic(ptr_location, pointer),
             GcPhase::Relocating => self.handle_relocating_atomic(ptr_location, pointer),
             _ => pointer,
-        };
-
-        result
+        }
     }
 
     /// Handle marking phase with atomic update
@@ -255,7 +256,7 @@ impl LoadBarrier {
             // CRIT-02 FIX: Prevent DoS via retry starvation
             if retries >= MAX_RETRIES {
                 log::warn!("Forwarding table lookup starved after {} retries", retries);
-                return pointer;  // Return as-is to prevent DoS
+                return pointer; // Return as-is to prevent DoS
             }
 
             let address = pointer.address();
@@ -263,10 +264,11 @@ impl LoadBarrier {
             // FIX Issue 8: Use lookup_with_generation for TOCTOU-safe lookup
             // Retry loop to handle forwarding table modifications during lookup
             // Lookup with generation counter
-            let (new_address, generation) = match self.forwarding_table.lookup_with_generation(address) {
-                Some(result) => result,
-                None => return pointer, // No forwarding entry
-            };
+            let (new_address, generation) =
+                match self.forwarding_table.lookup_with_generation(address) {
+                    Some(result) => result,
+                    None => return pointer, // No forwarding entry
+                };
 
             // FIX Issue 8: Verify generation hasn't changed during lookup
             // If generation changed, the table was modified and we need to retry
@@ -296,7 +298,8 @@ impl LoadBarrier {
 
                 let expected_raw = current_raw;
                 // Create new raw value with new address but preserve color bits from original pointer
-                let new_raw = (new_address & ColoredPointer::ADDRESS_MASK) | (pointer.raw() & !ColoredPointer::ADDRESS_MASK);
+                let new_raw = (new_address & ColoredPointer::ADDRESS_MASK)
+                    | (pointer.raw() & !ColoredPointer::ADDRESS_MASK);
 
                 match ptr_location.compare_exchange_weak(
                     expected_raw,
@@ -307,7 +310,7 @@ impl LoadBarrier {
                     Ok(_) => {
                         // CAS succeeded - we healed the pointer
                         return ColoredPointer::new(new_raw);
-                    }
+                    },
                     Err(actual) => {
                         // CAS failed - another thread updated the pointer
                         // Check if it was already healed
@@ -319,7 +322,7 @@ impl LoadBarrier {
                         // Different update - retry with new current value
                         current_raw = actual;
                         cas_retries += 1;
-                    }
+                    },
                 }
             }
         }
@@ -385,9 +388,9 @@ impl LoadBarrier {
         let mut guard = self.phase.lock().map_err(|e| {
             crate::error::FgcError::LockPoisoned(format!("LoadBarrier phase lock poisoned: {}", e))
         })?;
-        
+
         *guard = phase;
-        
+
         // Update Good Color Mask based on phase
         let new_mask = match phase {
             GcPhase::Marking => {
@@ -396,12 +399,12 @@ impl LoadBarrier {
                 } else {
                     ColoredPointer::MARKED0_MASK
                 }
-            }
+            },
             GcPhase::Relocating => ColoredPointer::REMAPPED_MASK,
             GcPhase::Idle => 0,
             _ => 0,
         };
-        
+
         self.good_color_mask.store(new_mask, Ordering::Release);
         Ok(())
     }
@@ -529,7 +532,6 @@ pub fn heal_pointer(ptr: &mut usize) {
     // For now, we check if the pointer is in the "relocated" state
     if is_remapped_color(color_bits) {
         // Pointer is already healed (remapped)
-        return;
     }
 
     // In a full implementation, we would:

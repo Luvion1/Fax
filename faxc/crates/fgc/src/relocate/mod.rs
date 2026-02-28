@@ -29,9 +29,9 @@ pub use forwarding::ForwardingTable;
 
 use crate::error::{FgcError, Result};
 use crate::heap::{Heap, Region};
+use indexmap::IndexMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
-use indexmap::IndexMap;
 
 /// Relocator - manager for object relocation
 ///
@@ -111,8 +111,12 @@ impl Relocator {
     ///
     /// Spawn GC threads to copy objects.
     pub fn start_relocation(&self) -> Result<()> {
-        let relocation_set = self.relocation_set.lock()
-            .map_err(|e| FgcError::LockPoisoned(format!("Relocator relocation_set lock poisoned: {}", e)))?
+        let relocation_set = self
+            .relocation_set
+            .lock()
+            .map_err(|e| {
+                FgcError::LockPoisoned(format!("Relocator relocation_set lock poisoned: {}", e))
+            })?
             .clone();
 
         let mut dest_regions = Vec::new();
@@ -124,7 +128,10 @@ impl Relocator {
         }
 
         *self.destination_regions.lock().map_err(|e| {
-            FgcError::LockPoisoned(format!("Relocator destination_regions lock poisoned: {}", e))
+            FgcError::LockPoisoned(format!(
+                "Relocator destination_regions lock poisoned: {}",
+                e
+            ))
         })? = dest_regions;
 
         Ok(())
@@ -153,7 +160,10 @@ impl Relocator {
         }
 
         let dest_regions = self.destination_regions.lock().map_err(|e| {
-            FgcError::LockPoisoned(format!("Relocator destination_regions lock poisoned: {}", e))
+            FgcError::LockPoisoned(format!(
+                "Relocator destination_regions lock poisoned: {}",
+                e
+            ))
         })?;
 
         let new_address = if let Some(dest_region) = dest_regions.first() {
@@ -232,7 +242,7 @@ impl Relocator {
             Err(e) => {
                 log::error!("Relocator relocation_set lock poisoned: {}", e);
                 return None;
-            }
+            },
         };
 
         for region in relocation_set.iter() {
@@ -253,7 +263,7 @@ impl Relocator {
             Err(e) => {
                 log::error!("Relocator relocation_set lock poisoned: {}", e);
                 return false;
-            }
+            },
         };
 
         for region in relocation_set.iter() {
@@ -280,12 +290,19 @@ impl Relocator {
     pub fn complete_relocation(&self) -> Result<()> {
         self.in_progress.store(false, Ordering::SeqCst);
 
-        self.forwarding_tables.lock().map_err(|e| {
-            FgcError::LockPoisoned(format!("Relocator forwarding_tables lock poisoned: {}", e))
-        })?.clear();
+        self.forwarding_tables
+            .lock()
+            .map_err(|e| {
+                FgcError::LockPoisoned(format!("Relocator forwarding_tables lock poisoned: {}", e))
+            })?
+            .clear();
 
-        let relocation_set = self.relocation_set.lock()
-            .map_err(|e| FgcError::LockPoisoned(format!("Relocator relocation_set lock poisoned: {}", e)))?
+        let relocation_set = self
+            .relocation_set
+            .lock()
+            .map_err(|e| {
+                FgcError::LockPoisoned(format!("Relocator relocation_set lock poisoned: {}", e))
+            })?
             .clone();
         for region in relocation_set {
             self.heap.return_region(region);

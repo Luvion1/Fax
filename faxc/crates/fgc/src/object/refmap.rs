@@ -108,7 +108,7 @@ impl ReferenceMap {
         for &offset in offsets {
             // Validate alignment
             debug_assert!(
-                offset.is_multiple_of(SLOT_SIZE),
+                offset % SLOT_SIZE == 0,
                 "Offset {} must be aligned to {} bytes",
                 offset,
                 SLOT_SIZE

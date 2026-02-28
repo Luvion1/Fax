@@ -1,0 +1,105 @@
+// Error Handling Examples in Fax
+// Demonstrates Option and Result types for error handling
+
+enum MyError {
+    NotFound,
+    InvalidInput(str),
+    DivisionByZero,
+    OutOfBounds(i32),
+}
+
+// Divide with error handling
+fn safe_divide(a: i32, b: i32) -> Result<i32, MyError> {
+    if b == 0 {
+        Result::Err(MyError::DivisionByZero)
+    } else {
+        Result::Ok(a / b)
+    }
+}
+
+// Find element in array
+fn find_element(arr: &[i32], target: i32) -> Result<i32, MyError> {
+    let i = 0
+    while i < arr.len() {
+        if arr[i] == target {
+            return Result::Ok(i)
+        }
+        i = i + 1
+    }
+    Result::Err(MyError::NotFound)
+}
+
+// Parse positive integer
+fn parse_positive(s: str) -> Result<i32, MyError> {
+    let num = string_to_int(s)
+    if num < 0 {
+        Result::Err(MyError::InvalidInput("Negative number".to_string()))
+    } else {
+        Result::Ok(num)
+    }
+}
+
+fn string_to_int(s: str) -> i32 {
+    0  // Simplified
+}
+
+// Using Option for nullable values
+fn find_user(id: i32) -> Option<str> {
+    if id == 1 {
+        Option::Some("Alice".to_string())
+    } else if id == 2 {
+        Option::Some("Bob".to_string())
+    } else {
+        Option::None
+    }
+}
+
+// Chain option operations
+fn get_user_name(id: i32) -> Option<str> {
+    find_user(id)
+}
+
+// Example of error propagation
+fn process_data(input: i32) -> Result<i32, MyError> {
+    // Chain operations that might fail
+    let result = safe_divide(input, 2)?
+    
+    // More processing...
+    if result > 100 {
+        Result::Err(MyError::InvalidInput("Value too large".to_string()))
+    } else {
+        Result::Ok(result)
+    }
+}
+
+fn main() {
+    // Using Result
+    match safe_divide(10, 2) {
+        Result::Ok(value) => println("Division result: ".to_string() + value.to_string()),
+        Result::Err(MyError::DivisionByZero) => println("Cannot divide by zero!"),
+        Result::Err(MyError::InvalidInput(msg)) => println("Invalid input: ".to_string() + msg),
+        _ => println("Unknown error"),
+    }
+    
+    // Using Option
+    match find_user(1) {
+        Option::Some(name) => println("Found user: ".to_string() + name),
+        Option::None => println("User not found"),
+    }
+    
+    // Using Option with chained operations
+    let user = find_user(2)
+    if user.is_some() {
+        println("User exists!")
+    }
+    
+    // Pattern matching on Option
+    let result = find_user(99)
+    let message = match result {
+        Option::Some(name) => "User: ".to_string() + name,
+        Option::None => "User not found".to_string(),
+    }
+    println(message)
+    
+    println("Error handling examples complete!")
+}

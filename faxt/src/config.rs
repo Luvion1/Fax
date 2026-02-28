@@ -180,9 +180,8 @@ impl Config {
         }
 
         let content = std::fs::read_to_string(path)?;
-        let config: Config = toml::from_str(&content).map_err(|e| {
-            FaxtError::Config(format!("Failed to parse configuration: {}", e))
-        })?;
+        let config: Config = toml::from_str(&content)
+            .map_err(|e| FaxtError::Config(format!("Failed to parse configuration: {}", e)))?;
 
         Ok(config)
     }
@@ -200,9 +199,8 @@ impl Config {
             std::fs::create_dir_all(parent)?;
         }
 
-        let content = toml::to_string_pretty(self).map_err(|e| {
-            FaxtError::Config(format!("Failed to serialize configuration: {}", e))
-        })?;
+        let content = toml::to_string_pretty(self)
+            .map_err(|e| FaxtError::Config(format!("Failed to serialize configuration: {}", e)))?;
 
         std::fs::write(path, content)?;
         Ok(())

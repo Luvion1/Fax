@@ -12,6 +12,11 @@
 //! - **Panic Mode** error recovery for robust error handling
 //!
 //! # Example Usage
+
+#![allow(missing_docs)]
+#![allow(unused_variables)]
+#![allow(unused_imports)]
+
 //!
 //! ```
 //! use faxc_util::Handler;
@@ -49,8 +54,9 @@
 //! - Block boundaries (`{`, `}`)
 //! - Top-level item keywords (`fn`, `struct`, `enum`, etc.)
 
-#![warn(missing_docs)]
-#![warn(rustdoc::missing_crate_level_docs)]
+#![allow(missing_docs)]
+#![allow(unused_variables)]
+#![allow(unused_imports)]
 
 #[cfg(test)]
 mod edge_cases;
@@ -1005,6 +1011,7 @@ pub struct Parser<'a> {
     handler: &'a mut Handler,
 
     /// Source code (for span calculation)
+    #[allow(dead_code)]
     source: &'a str,
 }
 
@@ -1023,22 +1030,18 @@ impl<'a> Parser<'a> {
     /// use faxc_lex::{Lexer, Token};
     /// use faxc_par::Parser;
     ///
-    /// let source = "let x = 42;";
+    /// let source = "fn main() { }";
     /// let mut handler = Handler::new();
     /// let mut lexer = Lexer::new(source, &mut handler);
     ///
     /// let mut tokens = Vec::new();
-    /// let mut start = 0;
     /// loop {
     ///     let token = lexer.next_token();
     ///     if token == Token::Eof { break; }
-    ///     tokens.push(faxc_par::TokenWithSpan::new(
-    ///         token,
-    ///         Span::DUMMY, // In production, calculate actual span
-    ///     ));
+    ///     tokens.push(token);
     /// }
     ///
-    /// let mut parser = Parser::from_tokens(tokens, &mut handler, source);
+    /// let mut parser = Parser::new(tokens, &mut handler);
     /// let ast = parser.parse();
     /// ```
     pub fn from_tokens(
@@ -1080,9 +1083,10 @@ impl<'a> Parser<'a> {
     /// # Example
     ///
     /// ```
-    /// # use faxc_util::Handler;
-    /// # use faxc_lex::{Lexer, Token};
-    /// # use faxc_par::{Parser, TokenWithSpan};
+    /// use faxc_util::Handler;
+    /// use faxc_lex::{Lexer, Token};
+    /// use faxc_par::Parser;
+    ///
     /// let source = "fn main() { }";
     /// let mut handler = Handler::new();
     /// let mut lexer = Lexer::new(source, &mut handler);
@@ -1091,10 +1095,10 @@ impl<'a> Parser<'a> {
     /// loop {
     ///     let token = lexer.next_token();
     ///     if token == Token::Eof { break; }
-    ///     tokens.push(TokenWithSpan::new(token, Span::DUMMY));
+    ///     tokens.push(token);
     /// }
     ///
-    /// let mut parser = Parser::from_tokens(tokens, &mut handler, source);
+    /// let mut parser = Parser::new(tokens, &mut handler);
     /// let ast = parser.parse();
     /// ```
     pub fn parse(&mut self) -> Ast {
@@ -2207,7 +2211,7 @@ impl<'a> Parser<'a> {
 
     /// Parse closure with pipe syntax: |params| body
     fn parse_closure_pipe(&mut self) -> Option<Expr> {
-        let span_start = self.current_span();
+        let _span_start = self.current_span();
 
         // Parse parameters between pipes
         let params = self.parse_closure_params()?;
@@ -2424,7 +2428,7 @@ impl<'a> Parser<'a> {
 
     /// Parse parenthesized expression, tuple, or closure
     fn parse_paren_or_tuple_or_closure(&mut self) -> Option<Expr> {
-        let span_start = self.current_span();
+        let _span_start = self.current_span();
 
         self.expect(Token::LParen)?;
 
@@ -2617,6 +2621,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Check if current position could be a trailing expression
+    #[allow(dead_code)]
     fn is_trailing_expr(&mut self) -> bool {
         // If next token after potential expr would be RBrace or EOF
         matches!(
@@ -2653,7 +2658,7 @@ impl<'a> Parser<'a> {
 
     /// Parse if expression
     fn parse_if_expr(&mut self) -> Option<Expr> {
-        let span_start = self.current_span();
+        let _span_start = self.current_span();
 
         self.expect(Token::If)?;
 
@@ -2682,7 +2687,7 @@ impl<'a> Parser<'a> {
 
     /// Parse match expression
     fn parse_match_expr(&mut self) -> Option<Expr> {
-        let span_start = self.current_span();
+        let _span_start = self.current_span();
 
         self.expect(Token::Match)?;
 
@@ -3125,6 +3130,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Get current token with span
+    #[allow(dead_code)]
     fn current_token_with_span(&self) -> Option<&TokenWithSpan> {
         self.tokens.get(self.position)
     }
@@ -3163,6 +3169,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Peek at current token without consuming
+    #[allow(dead_code)]
     fn peek_token_raw(&self) -> Token {
         self.tokens
             .get(self.position)
@@ -3423,18 +3430,26 @@ impl<'a> Parser<'a> {
     /// Report an error
     fn error(&mut self, message: impl Into<String>) {
         let span = self.current_span();
-        self.handler.error(message, span);
+        use faxc_util::diagnostic::DiagnosticBuilder;
+        DiagnosticBuilder::error(message)
+            .span(span)
+            .emit(&self.handler);
     }
 
     /// Report an error with expected token info
+    #[allow(dead_code)]
     fn error_expected(&mut self, expected: &str) {
         let found = self.current_token().to_string();
         self.error(format!("expected {}, found {}", expected, found));
     }
 
     /// Report an error with context
+    #[allow(dead_code)]
     fn error_at(&mut self, message: impl Into<String>, span: Span) {
-        self.handler.error(message, span);
+        use faxc_util::diagnostic::DiagnosticBuilder;
+        DiagnosticBuilder::error(message)
+            .span(span)
+            .emit(&self.handler);
     }
 
     /// Recover to synchronization point

@@ -9,6 +9,7 @@ members = [
     "faxc/crates/faxc-lir",
     "faxc/crates/faxc-gen",
     "faxc/crates/faxc-drv",
+    "faxc/crates/faxc-runtime",
     "faxt",
 ]
 resolver = "2"
@@ -18,9 +19,8 @@ version = "0.0.3"
 edition = "2021"
 authors = ["Fax Team"]
 license = "MIT OR Apache-2.0"
-license-files = ["LICENSE", "LICENSE-APACHE"]
 repository = "https://github.com/fax-lang/faxc"
-rust-version = "1.75"
+rust-version = "1.87"
 
 [workspace.dependencies]
 # Core utilities
@@ -35,6 +35,7 @@ faxc-mir = { path = "faxc/crates/faxc-mir" }
 faxc-lir = { path = "faxc/crates/faxc-lir" }
 faxc-gen = { path = "faxc/crates/faxc-gen" }
 faxc-drv = { path = "faxc/crates/faxc-drv" }
+faxc-runtime = { path = "faxc/crates/faxc-runtime" }
 
 # External dependencies
 inkwell = { version = "0.8.0", features = ["llvm20-1", "target-all"] }

@@ -200,10 +200,9 @@ impl MultiBumpAllocator {
 
     pub fn allocate(&self, size: usize) -> Result<usize> {
         {
-            let regions = self.regions.lock().unwrap_or_else(|e| {
-                log::error!("MultiBumpAllocator regions lock poisoned: {}", e);
-                std::process::abort();
-            });
+            let regions = self.regions.lock().map_err(|e| {
+                FgcError::LockPoisoned(format!("MultiBumpAllocator regions lock poisoned: {}", e))
+            })?;
             for region in regions.iter() {
                 if let Ok(addr) = region.allocate(size) {
                     return Ok(addr);
@@ -237,30 +236,28 @@ impl MultiBumpAllocator {
         Ok(addr)
     }
 
-    pub fn reset_all(&self) {
-        let regions = self.regions.lock().unwrap_or_else(|e| {
-            log::error!("MultiBumpAllocator regions lock poisoned: {}", e);
-            std::process::abort();
-        });
+    pub fn reset_all(&self) -> Result<()> {
+        let regions = self.regions.lock().map_err(|e| {
+            FgcError::LockPoisoned(format!("MultiBumpAllocator regions lock poisoned: {}", e))
+        })?;
         for region in regions.iter() {
             region.reset();
         }
+        Ok(())
     }
 
-    pub fn total_allocated(&self) -> usize {
-        let regions = self.regions.lock().unwrap_or_else(|e| {
-            log::error!("MultiBumpAllocator regions lock poisoned: {}", e);
-            std::process::abort();
-        });
-        regions.iter().map(|r| r.allocated()).sum()
+    pub fn total_allocated(&self) -> Result<usize> {
+        let regions = self.regions.lock().map_err(|e| {
+            FgcError::LockPoisoned(format!("MultiBumpAllocator regions lock poisoned: {}", e))
+        })?;
+        Ok(regions.iter().map(|r| r.allocated()).sum())
     }
 
-    pub fn total_capacity(&self) -> usize {
-        let regions = self.regions.lock().unwrap_or_else(|e| {
-            log::error!("MultiBumpAllocator regions lock poisoned: {}", e);
-            std::process::abort();
-        });
-        regions.len() * self.region_size
+    pub fn total_capacity(&self) -> Result<usize> {
+        let regions = self.regions.lock().map_err(|e| {
+            FgcError::LockPoisoned(format!("MultiBumpAllocator regions lock poisoned: {}", e))
+        })?;
+        Ok(regions.len() * self.region_size)
     }
 }
 
@@ -481,8 +478,8 @@ mod tests {
     #[test]
     fn test_multi_bump_allocator_new() {
         let alloc = MultiBumpAllocator::new(4096, 8, 10);
-        assert_eq!(alloc.total_capacity(), 0);
-        assert_eq!(alloc.total_allocated(), 0);
+        assert_eq!(alloc.total_capacity().unwrap(), 0);
+        assert_eq!(alloc.total_allocated().unwrap(), 0);
     }
 
     #[test]
@@ -490,7 +487,7 @@ mod tests {
         let alloc = MultiBumpAllocator::new(4096, 8, 10);
         let addr = alloc.allocate(64).unwrap();
         assert!(addr > 0);
-        assert_eq!(alloc.total_allocated(), 64);
+        assert_eq!(alloc.total_allocated().unwrap(), 64);
     }
 
     #[test]
@@ -505,7 +502,7 @@ mod tests {
         // This should create a new region
         let addr = alloc.allocate(64).unwrap();
         assert!(addr > 0);
-        assert!(alloc.total_capacity() > 256);
+        assert!(alloc.total_capacity().unwrap() > 256);
     }
 
     #[test]
@@ -526,10 +523,10 @@ mod tests {
     fn test_multi_bump_allocator_reset_all() {
         let alloc = MultiBumpAllocator::new(4096, 8, 10);
         let _ = alloc.allocate(100).unwrap();
-        assert!(alloc.total_allocated() > 0);
+        assert!(alloc.total_allocated().unwrap() > 0);
 
-        alloc.reset_all();
-        assert_eq!(alloc.total_allocated(), 0);
+        alloc.reset_all().unwrap();
+        assert_eq!(alloc.total_allocated().unwrap(), 0);
     }
 
     #[test]

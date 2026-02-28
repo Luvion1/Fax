@@ -1,0 +1,13 @@
+[package]
+name = "faxc-runtime"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+fgc.workspace = true
+libc = "0.2"

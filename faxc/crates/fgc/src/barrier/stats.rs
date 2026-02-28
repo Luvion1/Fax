@@ -71,7 +71,8 @@ impl LoadBarrierStats {
         if self.total_invocations == 0 {
             self.fast_path_rate = 100.0;
         } else {
-            self.fast_path_rate = (self.already_marked as f64 / self.total_invocations as f64) * 100.0;
+            self.fast_path_rate =
+                (self.already_marked as f64 / self.total_invocations as f64) * 100.0;
         }
     }
 
@@ -97,8 +98,15 @@ impl LoadBarrierStats {
     pub fn print(&self) {
         println!("LoadBarrier Statistics:");
         println!("  Total invocations: {}", self.total_invocations);
-        println!("  Already marked (fast path): {} ({:.2}%)", self.already_marked, self.fast_path_rate);
-        println!("  Needed marking (slow path): {} ({:.2}%)", self.needed_marking, self.slow_path_rate());
+        println!(
+            "  Already marked (fast path): {} ({:.2}%)",
+            self.already_marked, self.fast_path_rate
+        );
+        println!(
+            "  Needed marking (slow path): {} ({:.2}%)",
+            self.needed_marking,
+            self.slow_path_rate()
+        );
         println!("  Pointers healed: {}", self.pointers_healed);
         println!("  Null pointers skipped: {}", self.null_pointers);
     }
@@ -188,7 +196,7 @@ impl AtomicLoadBarrierStats {
     pub fn snapshot(&self) -> LoadBarrierStats {
         let total = self.total_invocations.load(Ordering::Relaxed);
         let marked = self.already_marked.load(Ordering::Relaxed);
-        
+
         let fast_path_rate = if total == 0 {
             100.0
         } else {

@@ -44,6 +44,10 @@ pub enum CodeGenError {
     #[error("ABI error: {0}")]
     AbiError(String),
 
+    /// Compilation error (target, linking, etc.)
+    #[error("Compilation error: {0}")]
+    CompilationError(String),
+
     /// Internal error - indicates a bug
     #[error("Internal error: {0}")]
     Internal(String),

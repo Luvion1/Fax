@@ -222,6 +222,44 @@ impl LirLowerer {
                     target: format!(".Lbb{}", target.0),
                 });
             },
+            mir::Terminator::Call {
+                func: _,
+                args,
+                destination: _,
+                target: _,
+                cleanup: _,
+            } => {
+                let mut call_args = Vec::new();
+                for arg in args {
+                    let arg_reg = match arg {
+                        mir::Operand::Copy(p) | mir::Operand::Move(p) => self.get_place_reg(p),
+                        mir::Operand::Constant(c) => {
+                            let reg = self.new_reg();
+                            let imm = match &c.kind {
+                                mir::ConstantKind::Int(i) => *i,
+                                mir::ConstantKind::Bool(b) => {
+                                    if *b {
+                                        1
+                                    } else {
+                                        0
+                                    }
+                                },
+                                _ => 0,
+                            };
+                            self.function.instructions.push(Instruction::Mov {
+                                dest: Operand::Reg(reg),
+                                src: Operand::Imm(imm),
+                            });
+                            reg
+                        },
+                    };
+                    call_args.push(Operand::Reg(arg_reg));
+                }
+
+                self.function.instructions.push(Instruction::Call {
+                    target: CallTarget::Direct(faxc_util::Symbol::intern("print")),
+                });
+            },
             mir::Terminator::If {
                 cond,
                 then_block,

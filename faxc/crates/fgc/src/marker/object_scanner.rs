@@ -21,12 +21,66 @@
 //!
 //! All scanner functions are thread-safe and can be called
 //! from multiple threads concurrently.
+//!
+//! # Performance Optimizations
+//!
+//! - **Memory Prefetching**: Prefetch object data before scanning
+//! - **Batch Processing**: Scan multiple objects efficiently
+//! - **SIMD-friendly Layout**: Object fields aligned for vectorization
 
 use crate::memory;
 use crate::object::{ObjectHeader, ReferenceMap, HEADER_SIZE, OBJECT_ALIGNMENT};
-use std::collections::HashMap;
+use indexmap::IndexMap;
 use std::sync::RwLock;
 use std::time::Instant;
+
+/// Validate object address before scanning
+///
+/// This function checks if an address is safe to dereference as an object header.
+/// It prevents crashes from:
+/// - Null pointers
+/// - Unaligned addresses
+/// - Kernel-space addresses
+/// - Unmapped memory
+///
+/// # Arguments
+/// * `obj_addr` - Address to validate
+///
+/// # Returns
+/// * `true` if address appears valid for object scanning
+/// * `false` otherwise
+#[inline]
+fn is_valid_object_address(obj_addr: usize) -> bool {
+    // Check null
+    if obj_addr == 0 {
+        return false;
+    }
+
+    // Check alignment - ObjectHeader requires 8-byte alignment
+    if !obj_addr.is_multiple_of(8) {
+        return false;
+    }
+
+    // Check kernel-space (for 64-bit)
+    if obj_addr > 0x0000_7FFF_FFFF_FFFF {
+        return false;
+    }
+
+    // Check if readable using memory module
+    memory::is_readable(obj_addr).unwrap_or(false)
+}
+
+/// Safely get object header reference
+///
+/// Returns None if address is invalid
+#[inline]
+unsafe fn get_object_header(obj_addr: usize) -> Option<&'static ObjectHeader> {
+    if !is_valid_object_address(obj_addr) {
+        return None;
+    }
+    // Now we can safely dereference
+    Some(&*(obj_addr as *const ObjectHeader))
+}
 
 /// Object scanning statistics
 #[derive(Debug, Default, Clone)]
@@ -49,6 +103,7 @@ pub struct ObjectScanStats {
 
 /// Cache entry for object layout
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct LayoutCacheEntry {
     /// Reference map for this layout
     ref_map: ReferenceMap,
@@ -73,7 +128,7 @@ struct LayoutCacheEntry {
 /// - **Memory Efficient**: Share reference maps via Arc
 pub struct ObjectLayoutCache {
     /// Cache entries (size -> layout)
-    entries: RwLock<HashMap<usize, LayoutCacheEntry>>,
+    entries: RwLock<IndexMap<usize, LayoutCacheEntry>>,
     /// Maximum cache size
     max_entries: usize,
     /// Total cache hits
@@ -86,7 +141,7 @@ impl ObjectLayoutCache {
     /// Create new layout cache
     pub fn new(max_entries: usize) -> Self {
         Self {
-            entries: RwLock::new(HashMap::with_capacity(max_entries)),
+            entries: RwLock::new(IndexMap::with_capacity(max_entries)),
             max_entries,
             hits: std::sync::atomic::AtomicU64::new(0),
             misses: std::sync::atomic::AtomicU64::new(0),
@@ -97,18 +152,20 @@ impl ObjectLayoutCache {
     ///
     /// Returns cached reference map if available, otherwise computes and caches it.
     pub fn get_or_compute(&self, obj_addr: usize) -> ReferenceMap {
-        unsafe {
-            let header = &*(obj_addr as *const ObjectHeader);
-            let size = header.size;
+        let header = match unsafe { get_object_header(obj_addr) } {
+            Some(h) => h,
+            None => return ReferenceMap::default(),
+        };
 
-            if let Some(cached) = self.get_cached(size) {
-                return cached;
-            }
+        let size = header.size;
 
-            let ref_map = compute_reference_map(obj_addr);
-            self.insert(size, ref_map.clone());
-            ref_map
+        if let Some(cached) = self.get_cached(size) {
+            return cached;
         }
+
+        let ref_map = compute_reference_map(obj_addr);
+        self.insert(size, ref_map);
+        ref_map
     }
 
     /// Get cached entry
@@ -117,7 +174,7 @@ impl ObjectLayoutCache {
 
         if let Some(entry) = entries.get(&size) {
             self.hits.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            return Some(entry.ref_map.clone());
+            return Some(entry.ref_map);
         }
 
         self.misses
@@ -145,7 +202,7 @@ impl ObjectLayoutCache {
     }
 
     /// Evict least recently used entry
-    fn evict_lru(&self, entries: &mut HashMap<usize, LayoutCacheEntry>) {
+    fn evict_lru(&self, entries: &mut IndexMap<usize, LayoutCacheEntry>) {
         let mut oldest_key = None;
         let mut oldest_time = Instant::now();
 
@@ -157,7 +214,7 @@ impl ObjectLayoutCache {
         }
 
         if let Some(key) = oldest_key {
-            entries.remove(&key);
+            entries.swap_remove(&key);
         }
     }
 
@@ -193,17 +250,19 @@ pub fn layout_cache() -> &'static ObjectLayoutCache {
 
 /// Compute reference map for object (without cache)
 fn compute_reference_map(obj_addr: usize) -> ReferenceMap {
-    unsafe {
-        let header = &*(obj_addr as *const ObjectHeader);
-        let data_size = header.get_data_size();
+    let header = match unsafe { get_object_header(obj_addr) } {
+        Some(h) => h,
+        None => return ReferenceMap::default(),
+    };
 
-        let mut offsets = Vec::new();
-        for i in 0..(data_size / OBJECT_ALIGNMENT) {
-            offsets.push(i * OBJECT_ALIGNMENT);
-        }
+    let data_size = header.get_data_size();
 
-        ReferenceMap::new(&offsets)
+    let mut offsets = Vec::new();
+    for i in 0..(data_size / OBJECT_ALIGNMENT) {
+        offsets.push(i * OBJECT_ALIGNMENT);
     }
+
+    ReferenceMap::new(&offsets)
 }
 
 impl ObjectScanStats {
@@ -277,29 +336,60 @@ impl ObjectScanStats {
 ///     println!("Found reference: {:#x}", ref_value);
 /// });
 /// ```
+#[inline]
 pub fn scan_object_precise<F>(obj_addr: usize, ref_map: &ReferenceMap, mut callback: F) -> usize
 where
     F: FnMut(usize), // Called with address of each reference field
 {
-    unsafe {
-        let header = &*(obj_addr as *const ObjectHeader);
+    // Validate object address first
+    if !is_valid_object_address(obj_addr) {
+        return 0;
+    }
 
-        // Validate object
-        if header.size == 0 || header.size > 1024 * 1024 * 1024 {
-            return 0;
+    let header = match unsafe { get_object_header(obj_addr) } {
+        Some(h) => h,
+        None => return 0,
+    };
+
+    // Validate object
+    if header.size == 0 || header.size > 1024 * 1024 * 1024 {
+        return 0;
+    }
+
+    let data_start = obj_addr + HEADER_SIZE;
+    let data_size = header.get_data_size();
+
+    let mut ref_count = 0;
+
+    // Prefetch first cache line for faster initial access
+    #[cfg(target_arch = "x86_64")]
+    {
+        if data_size >= 64 {
+            core::arch::x86_64::_mm_prefetch(data_start as *const _, 3);
+            if data_size >= 128 {
+                core::arch::x86_64::_mm_prefetch((data_start + 64) as *const _, 2);
+            }
         }
+    }
 
-        let data_start = obj_addr + HEADER_SIZE;
-        let data_size = header.get_data_size();
+    // Scan for references using reference map
+    for offset in ref_map.iter() {
+        if offset < data_size {
+            let ref_addr = data_start + offset;
 
-        let mut ref_count = 0;
+            // Prefetch ahead for next reference
+            if ref_count > 0 && ref_count % 4 == 0 {
+                let next_offset = offset + 64;
+                if next_offset < data_size {
+                    #[cfg(target_arch = "x86_64")]
+                    {
+                        core::arch::x86_64::_mm_prefetch((data_start + next_offset) as *const _, 1);
+                    }
+                }
+            }
 
-        // Scan for references using reference map
-        for offset in ref_map.iter() {
-            if offset < data_size {
-                let ref_addr = data_start + offset;
-
-                // Read the reference
+            // Read the reference
+            unsafe {
                 let ref_value = memory::read_pointer(ref_addr);
 
                 // Only yield non-null references
@@ -309,9 +399,9 @@ where
                 }
             }
         }
-
-        ref_count
     }
+
+    ref_count
 }
 
 /// Scan object with reference map from header
@@ -324,28 +414,79 @@ where
 ///
 /// # Returns
 /// Number of references found
+#[inline]
 pub fn scan_object<F>(obj_addr: usize, mut callback: F) -> usize
 where
     F: FnMut(usize),
 {
-    unsafe {
-        let header = &*(obj_addr as *const ObjectHeader);
+    // Validate object address before dereferencing
+    // This prevents crashes on invalid/unaligned addresses during concurrent marking
+    if obj_addr == 0 {
+        return 0;
+    }
 
-        if header.size == 0 || header.size > 1024 * 1024 * 1024 {
+    // Check alignment - ObjectHeader requires 8-byte alignment
+    if !obj_addr.is_multiple_of(8) {
+        log::debug!("scan_object: rejecting unaligned address {:#x}", obj_addr);
+        return 0;
+    }
+
+    // Basic sanity check: reject obviously kernel-space addresses
+    if obj_addr > 0x0000_7FFF_FFFF_FFFF {
+        log::debug!(
+            "scan_object: rejecting kernel-space address {:#x}",
+            obj_addr
+        );
+        return 0;
+    }
+
+    // Now it's safe to dereference after validation
+    let header = match unsafe { get_object_header(obj_addr) } {
+        Some(h) => h,
+        None => {
+            log::debug!("scan_object: address {:#x} not mapped", obj_addr);
             return 0;
+        },
+    };
+
+    if header.size == 0 || header.size > 1024 * 1024 * 1024 {
+        return 0;
+    }
+
+    let data_start = obj_addr + HEADER_SIZE;
+    let data_size = header.get_data_size();
+
+    let ref_map = layout_cache().get_or_compute(obj_addr);
+
+    // Prefetch object data for faster access
+    #[cfg(target_arch = "x86_64")]
+    {
+        if data_size >= 64 {
+            core::arch::x86_64::_mm_prefetch(data_start as *const _, 3);
+            if data_size >= 128 {
+                core::arch::x86_64::_mm_prefetch((data_start + 64) as *const _, 2);
+            }
         }
+    }
 
-        let data_start = obj_addr + HEADER_SIZE;
-        let data_size = header.get_data_size();
+    let mut ref_count = 0;
 
-        let ref_map = layout_cache().get_or_compute(obj_addr);
+    for offset in ref_map.iter() {
+        if offset < data_size {
+            let ref_addr = data_start + offset;
 
-        let mut ref_count = 0;
+            // Prefetch next cache line periodically
+            if ref_count > 0 && ref_count % 4 == 0 {
+                let next_offset = offset + 64;
+                if next_offset < data_size {
+                    #[cfg(target_arch = "x86_64")]
+                    {
+                        core::arch::x86_64::_mm_prefetch((data_start + next_offset) as *const _, 1);
+                    }
+                }
+            }
 
-        for offset in ref_map.iter() {
-            if offset < data_size {
-                let ref_addr = data_start + offset;
-
+            unsafe {
                 if memory::is_readable(ref_addr).unwrap_or(false) {
                     let ref_value = memory::read_pointer(ref_addr);
 
@@ -356,9 +497,9 @@ where
                 }
             }
         }
-
-        ref_count
     }
+
+    ref_count
 }
 
 /// Conservative reference scanner
@@ -378,28 +519,59 @@ where
 ///
 /// # Returns
 /// Number of potential references found
+#[inline]
 pub fn scan_object_conservative<F>(obj_addr: usize, mut callback: F) -> usize
 where
     F: FnMut(usize),
 {
-    unsafe {
-        let header = &*(obj_addr as *const ObjectHeader);
+    // Validate object address before dereferencing
+    if !is_valid_object_address(obj_addr) {
+        return 0;
+    }
 
-        // Validate object
-        if header.size == 0 || header.size > 1024 * 1024 * 1024 {
-            return 0;
+    let header = match unsafe { get_object_header(obj_addr) } {
+        Some(h) => h,
+        None => return 0,
+    };
+
+    // Validate object
+    if header.size == 0 || header.size > 1024 * 1024 * 1024 {
+        return 0;
+    }
+
+    let data_start = obj_addr + HEADER_SIZE;
+    let data_size = header.get_data_size();
+    let word_count = data_size / std::mem::size_of::<usize>();
+
+    // Prefetch initial data for faster access
+    #[cfg(target_arch = "x86_64")]
+    {
+        if data_size >= 64 {
+            core::arch::x86_64::_mm_prefetch(data_start as *const _, 3);
+            if data_size >= 128 {
+                core::arch::x86_64::_mm_prefetch((data_start + 64) as *const _, 2);
+            }
+        }
+    }
+
+    let mut ref_count = 0;
+
+    for i in 0..word_count {
+        let word_addr = data_start + (i * std::mem::size_of::<usize>());
+
+        // Prefetch ahead periodically for better cache utilization
+        if i > 0 && i % 8 == 0 {
+            let next_addr = word_addr + 64;
+            if next_addr < data_start + data_size {
+                #[cfg(target_arch = "x86_64")]
+                {
+                    core::arch::x86_64::_mm_prefetch(next_addr as *const _, 1);
+                }
+            }
         }
 
-        let data_start = obj_addr + HEADER_SIZE;
-        let data_size = header.get_data_size();
-        let word_count = data_size / std::mem::size_of::<usize>();
-
-        let mut ref_count = 0;
-
-        for i in 0..word_count {
-            let word_addr = data_start + (i * std::mem::size_of::<usize>());
-
-            // Check if address is readable
+        // Check if address is readable
+        unsafe {
             if memory::is_readable(word_addr).unwrap_or(false) {
                 let word_value = memory::read_pointer(word_addr);
 
@@ -410,9 +582,9 @@ where
                 }
             }
         }
-
-        ref_count
     }
+
+    ref_count
 }
 
 /// Hybrid scanner - precise if reference map exists, conservative if not
@@ -446,19 +618,21 @@ where
 /// # Safety
 /// `obj_addr` must point to valid object
 fn get_reference_map_for_object(obj_addr: usize) -> ReferenceMap {
-    unsafe {
-        let header = &*(obj_addr as *const ObjectHeader);
-        let data_size = header.get_data_size();
+    let header = match unsafe { get_object_header(obj_addr) } {
+        Some(h) => h,
+        None => return ReferenceMap::default(),
+    };
 
-        // Create map assuming all 8-byte slots contain references
-        // This is conservative fallback
-        let mut offsets = Vec::new();
-        for i in 0..(data_size / OBJECT_ALIGNMENT) {
-            offsets.push(i * OBJECT_ALIGNMENT);
-        }
+    let data_size = header.get_data_size();
 
-        ReferenceMap::new(&offsets)
+    // Create map assuming all 8-byte slots contain references
+    // This is conservative fallback
+    let mut offsets = Vec::new();
+    for i in 0..(data_size / OBJECT_ALIGNMENT) {
+        offsets.push(i * OBJECT_ALIGNMENT);
     }
+
+    ReferenceMap::new(&offsets)
 }
 
 /// Object scanner iterator
@@ -481,7 +655,12 @@ impl ObjectScanner {
     /// # Safety
     /// `obj_addr` must point to valid object
     pub unsafe fn new(obj_addr: usize) -> Option<Self> {
-        let header = &*(obj_addr as *const ObjectHeader);
+        // Validate address first
+        if !is_valid_object_address(obj_addr) {
+            return None;
+        }
+
+        let header = get_object_header(obj_addr)?;
 
         if header.size == 0 || header.size > 1024 * 1024 * 1024 {
             return None;
@@ -514,7 +693,7 @@ impl Iterator for ObjectScanner {
     type Item = usize; // Returns reference address
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(offset) = self.ref_iter.next() {
+        for offset in self.ref_iter.by_ref() {
             if offset < self.data_size {
                 let ref_addr = self.obj_addr + HEADER_SIZE + offset;
 
@@ -635,7 +814,7 @@ impl ReferenceValidator {
         }
 
         // Check alignment if enabled
-        if self.check_alignment && value % OBJECT_ALIGNMENT != 0 {
+        if self.check_alignment && !value.is_multiple_of(OBJECT_ALIGNMENT) {
             return false;
         }
 

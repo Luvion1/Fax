@@ -78,11 +78,12 @@ impl OutputFormat {
 /// - Directory traversal using `..` components
 /// - Symbolic link attacks
 /// - Absolute path injection
+#[allow(dead_code)]
 pub fn sanitize_path(path: &Path, base_dir: Option<&Path>) -> Result<PathBuf> {
     let base = base_dir.unwrap_or_else(|| Path::new("."));
-    let base_canonical = base.canonicalize().map_err(|e| {
-        FaxtError::Validation(format!("Invalid base directory: {}", e))
-    })?;
+    let base_canonical = base
+        .canonicalize()
+        .map_err(|e| FaxtError::Validation(format!("Invalid base directory: {}", e)))?;
 
     let path_canonical = path.canonicalize().unwrap_or_else(|_| {
         // For non-existent paths, resolve relative to base

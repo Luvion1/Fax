@@ -1,0 +1,112 @@
+// Closures and Higher-Order Functions in Fax
+// Demonstrates function as values, closures, and functional patterns
+
+// Function that takes a function as parameter
+fn apply(f: fn(i32) -> i32, x: i32) -> i32 {
+    f(x)
+}
+
+// Function that returns a function
+fn multiplier(n: i32) -> fn(i32) -> i32 {
+    fn inner(x: i32) -> i32 {
+        x * n
+    }
+    inner
+}
+
+// Map function over array
+fn map(arr: &[i32], f: fn(i32) -> i32) -> [i32] {
+    let result = []
+    let i = 0
+    while i < arr.len() {
+        result.push(f(arr[i]))
+        i = i + 1
+    }
+    result
+}
+
+// Filter array
+fn filter(arr: &[i32], pred: fn(i32) -> bool) -> [i32] {
+    let result = []
+    let i = 0
+    while i < arr.len() {
+        if pred(arr[i]) {
+            result.push(arr[i])
+        }
+        i = i + 1
+    }
+    result
+}
+
+// Reduce array
+fn reduce(arr: &[i32], init: i32, f: fn(i32, i32) -> i32) -> i32 {
+    let acc = init
+    let i = 0
+    while i < arr.len() {
+        acc = f(acc, arr[i])
+        i = i + 1
+    }
+    acc
+}
+
+// Curried function
+fn add(a: i32) -> fn(i32) -> i32 {
+    fn inner(b: i32) -> i32 {
+        a + b
+    }
+    inner
+}
+
+// Composition
+fn compose(f: fn(i32) -> i32, g: fn(i32) -> i32) -> fn(i32) -> i32 {
+    fn inner(x: i32) -> i32 {
+        g(f(x))
+    }
+    inner
+}
+
+fn main() {
+    // Using closures
+    let double = fn(x: i32) -> i32 { x * 2 }
+    let result = apply(double, 5)
+    println("Double of 5: ")
+    println(result)
+    
+    // Using closure factory
+    let triple = multiplier(3)
+    let result2 = triple(4)
+    println("Triple of 4: ")
+    println(result2)
+    
+    // Map over array
+    let numbers = [1, 2, 3, 4, 5]
+    let doubled = map(numbers, fn(x: i32) -> i32 { x * 2 })
+    println("Doubled array")
+    
+    // Filter array
+    let is_even = fn(x: i32) -> bool { x % 2 == 0 }
+    let evens = filter(numbers, is_even)
+    println("Even numbers")
+    
+    // Reduce array
+    let sum = fn(acc: i32, x: i32) -> i32 { acc + x }
+    let total = reduce(numbers, 0, sum)
+    println("Sum of array: ")
+    println(total)
+    
+    // Currying
+    let add5 = add(5)
+    let result3 = add5(10)
+    println("5 + 10 = ")
+    println(result3)
+    
+    // Composition
+    let add1 = fn(x: i32) -> i32 { x + 1 }
+    let double2 = fn(x: i32) -> i32 { x * 2 }
+    let add1_then_double = compose(add1, double2)
+    let result4 = add1_then_double(3)
+    println("(3 + 1) * 2 = ")
+    println(result4)
+    
+    println("Closures and higher-order functions complete!")
+}

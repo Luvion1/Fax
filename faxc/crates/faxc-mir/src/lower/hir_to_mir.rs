@@ -5,6 +5,7 @@
 use crate::build::Builder;
 use crate::mir::*;
 use faxc_sem::hir;
+use faxc_sem::Type;
 
 pub fn lower_hir_function(hir_fn: &hir::FnItem) -> Function {
     let mut builder = Builder::new(hir_fn.name.clone(), hir_fn.ret_type.clone());
@@ -117,6 +118,30 @@ pub fn lower_expr(builder: &mut Builder, expr: &hir::Expr) -> Place {
             builder.set_current_block(join_block);
             let res_temp = builder.add_local(ty.clone(), None);
             Place::Local(res_temp)
+        },
+
+        hir::Expr::Call { func: _, args, ty } => {
+            eprintln!("DEBUG: Handling call expression with ty={:?}", ty);
+            let mut arg_operands = Vec::new();
+            for arg in args {
+                let place = lower_expr(builder, arg);
+                arg_operands.push(place_to_operand(place));
+            }
+
+            let result_temp = builder.add_local(ty.clone(), None);
+
+            builder.terminator(Terminator::Call {
+                func: Operand::Constant(Constant {
+                    ty: Type::Unit,
+                    kind: ConstantKind::Int(0),
+                }),
+                args: arg_operands,
+                destination: Place::Local(result_temp),
+                target: None,
+                cleanup: None,
+            });
+
+            Place::Local(result_temp)
         },
 
         _ => Place::Local(LocalId(0)),

@@ -12,7 +12,7 @@
 
 mod common;
 
-use common::{GcFixture, assert_address_aligned, DEFAULT_ALIGNMENT};
+use common::{assert_address_aligned, GcFixture, DEFAULT_ALIGNMENT};
 use fgc::{FgcError, GcConfig, GcGeneration};
 use std::sync::Arc;
 
@@ -28,10 +28,10 @@ use std::sync::Arc;
 fn test_zero_size_allocation() {
     // Arrange
     let fixture = GcFixture::with_defaults();
-    
+
     // Act - attempt zero-size allocation
     let result = fixture.gc.heap().allocate_tlab_memory(0);
-    
+
     // Assert - should either succeed with valid address or return clear error
     match result {
         Ok(addr) => {
@@ -40,19 +40,17 @@ fn test_zero_size_allocation() {
                 addr > 0,
                 "Zero-size allocation returned null (0) - invalid behavior"
             );
-            
-            assert_address_aligned(addr, DEFAULT_ALIGNMENT,
-                "Zero-size allocation result");
-        }
+
+            assert_address_aligned(addr, DEFAULT_ALIGNMENT, "Zero-size allocation result");
+        },
         Err(e) => {
             // If it fails, error must be specific (not generic)
             assert!(
-                matches!(e, FgcError::OutOfMemory { .. } | 
-                         FgcError::TlabError(_)),
+                matches!(e, FgcError::OutOfMemory { .. } | FgcError::TlabError(_)),
                 "Zero-size allocation returned unexpected error: {:?}",
                 e
             );
-        }
+        },
     }
 }
 
@@ -65,7 +63,7 @@ fn test_multiple_zero_size_allocations() {
     // Arrange
     let fixture = GcFixture::with_defaults();
     let count = 100;
-    
+
     // Act
     let mut addresses = Vec::new();
     for _ in 0..count {
@@ -73,11 +71,11 @@ fn test_multiple_zero_size_allocations() {
             addresses.push(addr);
         }
     }
-    
+
     // Assert - if any succeeded, they should be unique
     if !addresses.is_empty() {
         let unique: std::collections::HashSet<_> = addresses.iter().collect();
-        
+
         assert_eq!(
             unique.len(),
             addresses.len(),
@@ -100,18 +98,21 @@ fn test_multiple_zero_size_allocations() {
 fn test_minimum_allocation() {
     // Arrange
     let fixture = GcFixture::with_defaults();
-    
+
     // Act
     let addr = fixture.allocate(1);
-    
+
     // Assert
     assert!(
         addr > 0,
         "1-byte allocation returned null - minimum size bug"
     );
-    
-    assert_address_aligned(addr, DEFAULT_ALIGNMENT,
-        "1-byte allocation (should be aligned to 8 bytes)");
+
+    assert_address_aligned(
+        addr,
+        DEFAULT_ALIGNMENT,
+        "1-byte allocation (should be aligned to 8 bytes)",
+    );
 }
 
 /// Test allocation of various small sizes
@@ -122,22 +123,21 @@ fn test_minimum_allocation() {
 fn test_small_size_allocations() {
     // Arrange
     let fixture = GcFixture::with_defaults();
-    
+
     // Test sizes around alignment boundaries
     let sizes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 15, 16, 17, 31, 32, 33];
-    
+
     // Act & Assert
     for &size in &sizes {
         let addr = fixture.allocate(size);
-        
-        assert!(
-            addr > 0,
-            "{}-byte allocation returned null",
-            size
+
+        assert!(addr > 0, "{}-byte allocation returned null", size);
+
+        assert_address_aligned(
+            addr,
+            DEFAULT_ALIGNMENT,
+            &format!("{}-byte allocation", size),
         );
-        
-        assert_address_aligned(addr, DEFAULT_ALIGNMENT,
-            &format!("{}-byte allocation", size));
     }
 }
 
@@ -154,40 +154,41 @@ fn test_very_large_allocation() {
     // Arrange
     let fixture = GcFixture::with_heap_size(256 * 1024 * 1024); // 256MB heap
     let large_size = 64 * 1024 * 1024; // 64MB
-    
+
     // Act
     let result = fixture.gc.heap().allocate_tlab_memory(large_size);
-    
+
     // Assert
     match result {
         Ok(addr) => {
-            assert!(
-                addr > 0,
-                "Large allocation ({}) returned null",
-                large_size
+            assert!(addr > 0, "Large allocation ({}) returned null", large_size);
+
+            assert_address_aligned(
+                addr,
+                DEFAULT_ALIGNMENT,
+                &format!("{}-byte large allocation", large_size),
             );
-            
-            assert_address_aligned(addr, DEFAULT_ALIGNMENT,
-                &format!("{}-byte large allocation", large_size));
-        }
-        Err(FgcError::OutOfMemory { requested, available }) => {
+        },
+        Err(FgcError::OutOfMemory {
+            requested,
+            available,
+        }) => {
             // OOM is acceptable if heap is too small
             assert_eq!(
-                requested,
-                large_size,
+                requested, large_size,
                 "OutOfMemory error should report correct requested size"
             );
-            
+
             assert!(
                 available < requested,
                 "OutOfMemory reported available={} >= requested={}",
                 available,
                 requested
             );
-        }
+        },
         Err(e) => {
             panic!("Unexpected error for large allocation: {:?}", e);
-        }
+        },
     }
 }
 
@@ -200,24 +201,24 @@ fn test_allocation_near_heap_limit() {
     // Arrange - small heap for testing
     let heap_size = 1024 * 1024; // 1MB
     let fixture = GcFixture::with_heap_size(heap_size);
-    
+
     // Allocate most of heap
     let alloc_size = heap_size - 1024; // Leave 1KB headroom
-    
+
     // Act
     let result = fixture.gc.heap().allocate_tlab_memory(alloc_size);
-    
+
     // Assert - should either succeed or return OOM
     match result {
         Ok(addr) => {
             assert!(addr > 0, "Near-limit allocation returned null");
-        }
+        },
         Err(FgcError::OutOfMemory { .. }) => {
             // OOM is acceptable
-        }
+        },
         Err(e) => {
             panic!("Unexpected error for near-limit allocation: {:?}", e);
-        }
+        },
     }
 }
 
@@ -233,31 +234,33 @@ fn test_allocation_near_heap_limit() {
 fn test_oom_error_type() {
     // Arrange - tiny heap
     let fixture = GcFixture::with_heap_size(1024); // 1KB
-    
+
     // Act - allocate more than heap size
     let result = fixture.gc.heap().allocate_tlab_memory(2048); // 2KB
-    
+
     // Assert - must be OutOfMemory error
     match result {
-        Err(FgcError::OutOfMemory { requested, available }) => {
+        Err(FgcError::OutOfMemory {
+            requested,
+            available,
+        }) => {
             assert_eq!(
-                requested,
-                2048,
+                requested, 2048,
                 "OutOfMemory should report requested=2048, got {}",
                 requested
             );
-            
+
             assert!(
                 available < 2048,
                 "OutOfMemory should report available < requested"
             );
-        }
+        },
         Err(e) => {
             panic!("Expected OutOfMemory error, got: {:?}", e);
-        }
+        },
         Ok(_) => {
             panic!("Allocation larger than heap succeeded - heap limit bug");
-        }
+        },
     }
 }
 
@@ -271,26 +274,26 @@ fn test_heap_exhaustion() {
     let heap_size = 64 * 1024; // 64KB
     let fixture = GcFixture::with_heap_size(heap_size);
     let alloc_size = 8 * 1024; // 8KB per allocation
-    
+
     // Act - allocate until OOM
     let mut allocation_count = 0;
     let mut got_oom = false;
-    
+
     for _ in 0..100 {
         match fixture.gc.heap().allocate_tlab_memory(alloc_size) {
             Ok(_) => {
                 allocation_count += 1;
-            }
+            },
             Err(FgcError::OutOfMemory { .. }) => {
                 got_oom = true;
                 break;
-            }
+            },
             Err(e) => {
                 panic!("Unexpected error during exhaustion test: {:?}", e);
-            }
+            },
         }
     }
-    
+
     // Assert - should have gotten OOM
     assert!(
         got_oom,
@@ -301,7 +304,7 @@ fn test_heap_exhaustion() {
         allocation_count * alloc_size,
         heap_size
     );
-    
+
     // Should have allocated at least some objects
     assert!(
         allocation_count > 0,
@@ -320,22 +323,22 @@ fn test_oom_recovery_after_gc() {
     let heap_size = 32 * 1024; // 32KB
     let fixture = GcFixture::with_heap_size(heap_size);
     let alloc_size = 16 * 1024; // 16KB
-    
+
     // Fill heap
     let mut addresses = Vec::new();
     while let Ok(addr) = fixture.gc.heap().allocate_tlab_memory(alloc_size) {
         addresses.push(addr);
     }
-    
+
     // Drop references (make objects garbage)
     drop(addresses);
-    
+
     // Act - GC to reclaim memory
     fixture.trigger_gc(GcGeneration::Full);
-    
+
     // Assert - should be able to allocate again
     let result = fixture.gc.heap().allocate_tlab_memory(alloc_size);
-    
+
     assert!(
         result.is_ok(),
         "Allocation failed after GC - memory not reclaimed"
@@ -362,16 +365,23 @@ fn test_various_alignments() {
         // Use the new aligned allocation API
         // Minimum alignment is 8 bytes, so effective alignment is align.max(8)
         let effective_align = align.max(DEFAULT_ALIGNMENT);
-        
-        let addr = fixture.gc.heap()
+
+        let addr = fixture
+            .gc
+            .heap()
             .allocate_tlab_memory_aligned(align, effective_align)
             .unwrap_or_else(|e| {
-                panic!("Aligned allocation of {} bytes with {}-byte alignment failed: {:?}", 
-                       align, effective_align, e);
+                panic!(
+                    "Aligned allocation of {} bytes with {}-byte alignment failed: {:?}",
+                    align, effective_align, e
+                );
             });
 
-        assert_address_aligned(addr, effective_align,
-            &format!("Allocation with {}-byte alignment", effective_align));
+        assert_address_aligned(
+            addr,
+            effective_align,
+            &format!("Allocation with {}-byte alignment", effective_align),
+        );
     }
 }
 
@@ -383,23 +393,27 @@ fn test_various_alignments() {
 fn test_non_power_of_2_sizes() {
     // Arrange
     let fixture = GcFixture::with_defaults();
-    
+
     // Non-power-of-2 sizes
-    let sizes = [3, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 
-                 17, 23, 31, 33, 47, 63, 65, 127, 129, 255, 257];
-    
+    let sizes = [
+        3, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 17, 23, 31, 33, 47, 63, 65, 127, 129, 255, 257,
+    ];
+
     // Act & Assert
     for &size in &sizes {
         let addr = fixture.allocate(size);
-        
+
         assert!(
             addr > 0,
             "Non-power-of-2 size {} allocation returned null",
             size
         );
-        
-        assert_address_aligned(addr, DEFAULT_ALIGNMENT,
-            &format!("{}-byte (non-power-of-2) allocation", size));
+
+        assert_address_aligned(
+            addr,
+            DEFAULT_ALIGNMENT,
+            &format!("{}-byte (non-power-of-2) allocation", size),
+        );
     }
 }
 
@@ -417,28 +431,28 @@ fn test_rapid_allocations() {
     let fixture = GcFixture::with_defaults();
     let count = 10000;
     let size = 64;
-    
+
     // Act
     let mut success_count = 0;
     let mut oom_count = 0;
-    
+
     for _ in 0..count {
         match fixture.gc.heap().allocate_tlab_memory(size) {
             Ok(_) => success_count += 1,
             Err(FgcError::OutOfMemory { .. }) => oom_count += 1,
             Err(e) => {
                 panic!("Unexpected error during rapid allocation: {:?}", e);
-            }
+            },
         }
     }
-    
+
     // Assert
     assert!(
         success_count > 0 || oom_count > 0,
         "All {} rapid allocations failed with non-OOM error",
         count
     );
-    
+
     // If we got OOM, it should be consistent
     if oom_count > 0 {
         assert_eq!(
@@ -461,27 +475,26 @@ fn test_rapid_allocations() {
 fn test_maximum_size_allocation() {
     // Arrange
     let fixture = GcFixture::with_defaults();
-    
+
     // Act - attempt maximum size
     let result = fixture.gc.heap().allocate_tlab_memory(usize::MAX);
-    
+
     // Assert - must be OOM, not panic
     match result {
         Err(FgcError::OutOfMemory { .. }) => {
             // Expected - can't allocate usize::MAX bytes
-        }
+        },
         Ok(_) => {
             panic!("usize::MAX allocation succeeded - impossible");
-        }
+        },
         Err(e) => {
             // Other errors are acceptable too
             assert!(
-                matches!(e, FgcError::OutOfMemory { .. } | 
-                         FgcError::TlabError(_)),
+                matches!(e, FgcError::OutOfMemory { .. } | FgcError::TlabError(_)),
                 "Unexpected error for usize::MAX: {:?}",
                 e
             );
-        }
+        },
     }
 }
 
@@ -500,9 +513,9 @@ fn test_concurrent_heap_exhaustion() {
     let fixture = GcFixture::with_heap_size(heap_size);
     let thread_count = 4;
     let alloc_size = 4 * 1024; // 4KB
-    
+
     let mut handles = Vec::new();
-    
+
     // Act - concurrent allocations until OOM
     for thread_id in 0..thread_count {
         let gc: Arc<fgc::GarbageCollector> = Arc::clone(&fixture.gc);
@@ -510,33 +523,33 @@ fn test_concurrent_heap_exhaustion() {
         let handle = std::thread::spawn(move || {
             let mut local_success = 0;
             let mut local_oom = 0;
-            
+
             for _ in 0..100 {
                 match gc.heap().allocate_tlab_memory(alloc_size) {
                     Ok(_) => local_success += 1,
                     Err(FgcError::OutOfMemory { .. }) => local_oom += 1,
                     Err(e) => {
                         panic!("Thread {} unexpected error: {:?}", thread_id, e);
-                    }
+                    },
                 }
             }
-            
+
             (local_success, local_oom)
         });
-        
+
         handles.push(handle);
     }
-    
+
     // Collect results
     let mut total_success = 0;
     let mut total_oom = 0;
-    
+
     for handle in handles {
         let (success, oom) = handle.join().expect("Thread should not panic");
         total_success += success;
         total_oom += oom;
     }
-    
+
     // Assert - at least some OOM should occur
     assert!(
         total_oom > 0,

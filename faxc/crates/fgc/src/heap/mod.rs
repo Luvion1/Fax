@@ -37,7 +37,7 @@ pub use virtual_memory::VirtualMemory;
 
 use crate::config::GcConfig;
 use crate::error::{FgcError, Result};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 
 /// Default alignment for TLAB allocations (8 bytes)
@@ -101,6 +101,12 @@ pub struct Heap {
 
     /// GC configuration
     config: Arc<GcConfig>,
+
+    /// Total allocations counter
+    allocations: AtomicU64,
+
+    /// Total bytes allocated
+    total_allocated: AtomicU64,
 }
 
 impl Heap {
@@ -131,6 +137,8 @@ impl Heap {
             numa_manager,
             virtual_memory: std::sync::Mutex::new(virtual_memory),
             config,
+            allocations: AtomicU64::new(0),
+            total_allocated: AtomicU64::new(0),
         };
 
         heap.initialize_regions()?;
@@ -309,7 +317,7 @@ impl Heap {
             .unwrap_or_default()
     }
 
-    /// Returns heap statistics
+    /// Returns heap statistics - ZGC-style comprehensive metrics
     pub fn get_stats(&self) -> HeapStats {
         let (active_regions, free_regions) =
             match (self.active_regions.lock(), self.free_regions.lock()) {
@@ -330,6 +338,12 @@ impl Heap {
             }
         }
 
+        let utilization = if self.max_size > 0 {
+            used_bytes as f64 / self.max_size as f64
+        } else {
+            0.0
+        };
+
         HeapStats {
             used: used_bytes,
             committed: self.committed_size.load(Ordering::Relaxed),
@@ -338,6 +352,9 @@ impl Heap {
             old_size,
             region_count: active_regions.len(),
             free_region_count: free_regions,
+            utilization,
+            allocations: self.allocations.load(Ordering::Relaxed),
+            total_allocated: self.total_allocated.load(Ordering::Relaxed),
         }
     }
 
@@ -389,6 +406,7 @@ impl Heap {
     ///
     /// This function is thread-safe. Multiple threads can allocate simultaneously
     /// without contention beyond the atomic operation.
+    #[inline]
     pub fn allocate_tlab_memory(&self, size: usize) -> Result<usize> {
         self.allocate_tlab_memory_aligned(size, DEFAULT_ALIGNMENT)
     }
@@ -450,6 +468,7 @@ impl Heap {
     /// // Allocate with 64-byte alignment for cache line alignment
     /// let addr = heap.allocate_tlab_memory_aligned(256, 64)?;
     /// ```
+    #[inline]
     pub fn allocate_tlab_memory_aligned(&self, size: usize, alignment: usize) -> Result<usize> {
         // Validate alignment is a power of 2
         if !alignment.is_power_of_two() {
@@ -548,6 +567,11 @@ impl Heap {
                 Ordering::SeqCst,
             ) {
                 Ok(_) => {
+                    // Track allocations for ZGC-style stats
+                    self.allocations.fetch_add(1, Ordering::Relaxed);
+                    self.total_allocated
+                        .fetch_add(aligned_size as u64, Ordering::Relaxed);
+
                     // Success! Return the ALIGNED pointer value (start of allocation)
                     return Ok(aligned_current);
                 },
@@ -679,7 +703,7 @@ pub fn is_gc_managed_address_with_heap(addr: usize, heap: &Heap) -> bool {
     heap.contains_address(addr)
 }
 
-/// Heap statistics
+/// Heap statistics - ZGC-style comprehensive metrics
 #[derive(Debug, Default)]
 pub struct HeapStats {
     /// Memory currently in use (bytes)
@@ -696,6 +720,32 @@ pub struct HeapStats {
     pub region_count: usize,
     /// Number of free regions
     pub free_region_count: usize,
+    /// Heap utilization (0.0 - 1.0)
+    pub utilization: f64,
+    /// Number of allocations since last GC
+    pub allocations: u64,
+    /// Total bytes allocated
+    pub total_allocated: u64,
+}
+
+impl HeapStats {
+    /// Calculate utilization percentage
+    pub fn utilization_percent(&self) -> f64 {
+        if self.max == 0 {
+            return 0.0;
+        }
+        (self.used as f64 / self.max as f64) * 100.0
+    }
+
+    /// Check if heap is highly utilized (>80%)
+    pub fn is_high_utilization(&self) -> bool {
+        self.utilization > 0.8
+    }
+
+    /// Get available memory
+    pub fn available(&self) -> usize {
+        self.max.saturating_sub(self.used)
+    }
 }
 
 #[cfg(test)]

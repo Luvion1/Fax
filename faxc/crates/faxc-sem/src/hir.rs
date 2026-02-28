@@ -1,5 +1,5 @@
 use crate::types::*;
-use faxc_util::{Idx, Symbol, DefId};
+use faxc_util::{DefId, Symbol};
 
 /// HIR Item
 #[derive(Debug, Clone)]
@@ -163,15 +163,25 @@ pub struct FnSig {
 /// HIR Expression
 #[derive(Debug, Clone)]
 pub enum Expr {
-    Literal { lit: Literal, ty: Type },
-    Var { def_id: DefId, ty: Type },
+    Literal {
+        lit: Literal,
+        ty: Type,
+    },
+    Var {
+        def_id: DefId,
+        ty: Type,
+    },
     Binary {
         op: BinOp,
         left: Box<Expr>,
         right: Box<Expr>,
         ty: Type,
     },
-    Unary { op: UnOp, expr: Box<Expr>, ty: Type },
+    Unary {
+        op: UnOp,
+        expr: Box<Expr>,
+        ty: Type,
+    },
     Call {
         func: Box<Expr>,
         args: Vec<Expr>,
@@ -204,7 +214,10 @@ pub enum Expr {
         arms: Vec<Arm>,
         ty: Type,
     },
-    Assign { place: Box<Expr>, value: Box<Expr> },
+    Assign {
+        place: Box<Expr>,
+        value: Box<Expr>,
+    },
     Return(Option<Box<Expr>>),
     Break(Option<Box<Expr>>, Option<LabelId>),
     Continue(Option<LabelId>),
@@ -213,6 +226,10 @@ pub enum Expr {
         ty: Type,
     },
     Await {
+        expr: Box<Expr>,
+        ty: Type,
+    },
+    Cast {
         expr: Box<Expr>,
         ty: Type,
     },
@@ -237,6 +254,7 @@ impl Expr {
             Expr::Continue(_) => Type::Never,
             Expr::Async { ty, .. } => ty.clone(),
             Expr::Await { ty, .. } => ty.clone(),
+            Expr::Cast { ty, .. } => ty.clone(),
         }
     }
 }
@@ -255,15 +273,28 @@ pub enum Literal {
 /// Binary operator
 #[derive(Debug, Clone, Copy)]
 pub enum BinOp {
-    Add, Sub, Mul, Div, Mod,
-    Eq, Ne, Lt, Gt, Le, Ge,
-    And, Or,
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+    Eq,
+    Ne,
+    Lt,
+    Gt,
+    Le,
+    Ge,
+    And,
+    Or,
 }
 
 /// Unary operator
 #[derive(Debug, Clone, Copy)]
 pub enum UnOp {
-    Neg, Not, Deref, Ref(bool),
+    Neg,
+    Not,
+    Deref,
+    Ref(bool),
 }
 
 /// Statement

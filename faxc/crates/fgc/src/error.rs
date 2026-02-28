@@ -202,7 +202,7 @@ pub enum FgcError {
     ///
     /// **When returned:** Another thread panicked while holding mutex
     ///
-    /// **Recovery strategy:** 
+    /// **Recovery strategy:**
     /// - For `lock_with_recovery()`: Log warning and recover with inner data
     /// - For `lock_strict()`: Propagate error, cannot safely continue
     ///

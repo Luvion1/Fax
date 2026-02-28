@@ -209,6 +209,14 @@ pub struct GcConfig {
     ///
     /// Default: 0
     pub gc_interval_ms: u64,
+
+    /// Heap usage threshold to trigger GC (0.0 - 1.0)
+    ///
+    /// When heap usage exceeds this threshold, GC is triggered.
+    /// Example: 0.75 = trigger GC when 75% of heap is used.
+    ///
+    /// Default: 0.75
+    pub gc_trigger_threshold: f32,
 }
 
 impl Default for GcConfig {
@@ -263,6 +271,9 @@ impl Default for GcConfig {
             verbose: false,
             stats_enabled: true,
             gc_interval_ms: 0,
+
+            // GC trigger
+            gc_trigger_threshold: 0.75,
 
             // Adaptive tuning
             adaptive_tuning: true,
@@ -362,6 +373,60 @@ impl GcConfig {
         if self.target_pause_time_ms == 0 {
             return Err(ConfigError::InvalidPauseTime(
                 "target_pause_time_ms must be > 0".to_string(),
+            ));
+        }
+
+        // Tenure threshold validation
+        if self.tenure_threshold == 0 {
+            return Err(ConfigError::InvalidThreshold(
+                "tenure_threshold must be > 0".to_string(),
+            ));
+        }
+
+        if self.tenure_threshold > 15 {
+            return Err(ConfigError::InvalidThreshold(
+                "tenure_threshold must be <= 15".to_string(),
+            ));
+        }
+
+        // Soft max heap validation
+        if self.soft_max_heap_size < self.min_heap_size {
+            return Err(ConfigError::InvalidHeapSize(
+                "soft_max_heap_size cannot be less than min_heap_size".to_string(),
+            ));
+        }
+
+        if self.soft_max_heap_size > self.max_heap_size {
+            return Err(ConfigError::InvalidHeapSize(
+                "soft_max_heap_size cannot exceed max_heap_size".to_string(),
+            ));
+        }
+
+        // Large threshold validation
+        if self.large_threshold == 0 {
+            return Err(ConfigError::InvalidThreshold(
+                "large_threshold must be > 0".to_string(),
+            ));
+        }
+
+        // TLAB min size validation
+        if self.tlab_min_size == 0 {
+            return Err(ConfigError::InvalidTlabSize(
+                "tlab_min_size must be > 0".to_string(),
+            ));
+        }
+
+        // TLAB max size validation
+        if self.tlab_max_size == 0 {
+            return Err(ConfigError::InvalidTlabSize(
+                "tlab_max_size must be > 0".to_string(),
+            ));
+        }
+
+        // TLAB max must be >= min
+        if self.tlab_max_size < self.tlab_min_size {
+            return Err(ConfigError::InvalidTlabSize(
+                "tlab_max_size must be >= tlab_min_size".to_string(),
             ));
         }
 

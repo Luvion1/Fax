@@ -1,0 +1,236 @@
+// Data Structures Examples in Fax
+// Demonstrates common data structures and algorithms
+
+// Node for linked list
+struct ListNode {
+    value: i32,
+    next: &ListNode,
+}
+
+// Binary Tree Node
+struct TreeNode {
+    value: i32,
+    left: &TreeNode,
+    right: &TreeNode,
+}
+
+// Stack implementation
+struct Stack {
+    data: [i32],
+    top: i32,
+}
+
+fn stack_new() -> Stack {
+    Stack { data: [], top: -1 }
+}
+
+fn stack_push(s: &mut Stack, value: i32) {
+    s.data.push(value)
+    s.top = s.top + 1
+}
+
+fn stack_pop(s: &mut Stack) -> i32 {
+    if s.top < 0 {
+        -1
+    } else {
+        let val = s.data[s.top as i32]
+        s.top = s.top - 1
+        val
+    }
+}
+
+fn stack_is_empty(s: &Stack) -> bool {
+    s.top < 0
+}
+
+// Queue implementation
+struct Queue {
+    data: [i32],
+    front: i32,
+    rear: i32,
+}
+
+fn queue_new() -> Queue {
+    Queue { data: [], front: 0, rear: -1 }
+}
+
+fn queue_enqueue(q: &mut Queue, value: i32) {
+    q.data.push(value)
+    q.rear = q.rear + 1
+}
+
+fn queue_dequeue(q: &mut Queue) -> i32 {
+    if q.data.len() == 0 {
+        -1
+    } else {
+        let val = q.data[0]
+        q.front = q.front + 1
+        val
+    }
+}
+
+// Hash Map (simplified)
+struct HashMap {
+    keys: [i32],
+    values: [i32],
+}
+
+fn hashmap_new() -> HashMap {
+    HashMap { keys: [], values: [] }
+}
+
+fn hashmap_put(m: &mut HashMap, key: i32, value: i32) {
+    m.keys.push(key)
+    m.values.push(value)
+}
+
+fn hashmap_get(m: &HashMap, key: i32) -> i32 {
+    let i = 0
+    while i < m.keys.len() {
+        if m.keys[i] == key {
+            return m.values[i]
+        }
+        i = i + 1
+    }
+    -1
+}
+
+// Bubble sort
+fn bubble_sort(arr: &mut [i32]) {
+    let n = arr.len()
+    let i = 0
+    while i < n {
+        let j = 0
+        while j < n - i - 1 {
+            if arr[j] > arr[j + 1] {
+                let temp = arr[j]
+                arr[j] = arr[j + 1]
+                arr[j + 1] = temp
+            }
+            j = j + 1
+        }
+        i = i + 1
+    }
+}
+
+// Linear search
+fn linear_search(arr: &[i32], target: i32) -> i32 {
+    let i = 0
+    while i < arr.len() {
+        if arr[i] == target {
+            return i
+        }
+        i = i + 1
+    }
+    -1
+}
+
+// Binary search (array must be sorted)
+fn binary_search_sorted(arr: &[i32], target: i32) -> i32 {
+    let mut left = 0
+    let mut right = arr.len() - 1
+    
+    while left <= right {
+        let mid = left + (right - left) / 2
+        if arr[mid] == target {
+            return mid
+        } else if arr[mid] < target {
+            left = mid + 1
+        } else {
+            right = mid - 1
+        }
+    }
+    -1
+}
+
+// Quick sort
+fn quick_sort(arr: &mut [i32], low: i32, high: i32) {
+    if low < high {
+        let pivot = arr[high]
+        let i = low - 1
+        let j = low
+        while j < high {
+            if arr[j] < pivot {
+                i = i + 1
+                let temp = arr[i]
+                arr[i] = arr[j]
+                arr[j] = temp
+            }
+            j = j + 1
+        }
+        let temp = arr[i + 1]
+        arr[i + 1] = arr[high]
+        arr[high] = temp
+        
+        let pi = i + 1
+        quick_sort(arr, low, pi - 1)
+        quick_sort(arr, pi + 1, high)
+    }
+}
+
+// Fibonacci with memoization
+fn fib_memo(n: i32, memo: &mut [i32]) -> i32 {
+    if n <= 1 {
+        return n
+    }
+    if memo[n as i32] != -1 {
+        return memo[n as i32]
+    }
+    let result = fib_memo(n - 1, memo) + fib_memo(n - 2, memo)
+    memo[n as i32] = result
+    result
+}
+
+fn main() {
+    // Test Stack
+    let mut stack = stack_new()
+    stack_push(&mut stack, 10)
+    stack_push(&mut stack, 20)
+    stack_push(&mut stack, 30)
+    
+    println("Stack pop: ")
+    println(stack_pop(&mut stack))
+    println("Stack pop: ")
+    println(stack_pop(&mut stack))
+    println("Stack is empty: ")
+    println(stack_is_empty(&stack))
+    
+    // Test Queue
+    let mut queue = queue_new()
+    queue_enqueue(&mut queue, 1)
+    queue_enqueue(&mut queue, 2)
+    queue_enqueue(&mut queue, 3)
+    
+    println("Queue dequeue: ")
+    println(queue_dequeue(&mut queue))
+    println("Queue dequeue: ")
+    println(queue_dequeue(&mut queue))
+    
+    // Test HashMap
+    let mut map = hashmap_new()
+    hashmap_put(&mut map, 1, 100)
+    hashmap_put(&mut map, 2, 200)
+    hashmap_put(&mut map, 3, 300)
+    
+    println("HashMap get(2): ")
+    println(hashmap_get(&map, 2))
+    
+    // Test sorting
+    let mut arr = [64, 34, 25, 12, 22, 11, 90]
+    bubble_sort(&mut arr)
+    println("Sorted array (bubble): ")
+    
+    // Test search
+    let sorted = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    let idx = binary_search_sorted(sorted, 7)
+    println("Binary search for 7: ")
+    println(idx)
+    
+    // Test Fibonacci
+    let mut memo = [-1; 10]
+    let fib5 = fib_memo(5, &mut memo)
+    println("Fibonacci(5): ")
+    println(fib5)
+    
+    println("Data structures examples complete!")
+}

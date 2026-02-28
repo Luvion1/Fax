@@ -246,9 +246,9 @@
 //! - [Troubleshooting Guide](../TROUBLESHOOTING.md)
 
 // Core GC modules
-pub mod gc;
 pub mod config;
 pub mod error;
+pub mod gc;
 
 // Memory management subsystems
 pub mod allocator;

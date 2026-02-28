@@ -178,8 +178,62 @@ impl Tlab {
             } else {
                 (count as u64 * 10).max(10)
             };
-            self.allocation_rate.store(rate, Ordering::Relaxed);
+
+            // Use exponential moving average for smoother rate tracking
+            let old_rate = self.allocation_rate.load(Ordering::Relaxed);
+            let new_rate = if old_rate > 0 {
+                ((old_rate as f64 * 0.7) + (rate as f64 * 0.3)) as u64
+            } else {
+                rate
+            };
+            self.allocation_rate.store(new_rate, Ordering::Relaxed);
         }
+    }
+
+    /// Detect allocation burst pattern
+    ///
+    /// Returns true if the thread is in a burst allocation pattern
+    /// (high allocation rate with low TLAB utilization)
+    pub fn is_burst_pattern(&self) -> bool {
+        let _count = self.allocation_count.load(Ordering::Relaxed);
+        let total = self.total_allocated.load(Ordering::Relaxed);
+        let size = self.current_size.load(Ordering::Relaxed);
+
+        if size == 0 || total == 0 {
+            return false;
+        }
+
+        let utilization = total as f64 / size as f64;
+        let rate = self.allocation_rate.load(Ordering::Relaxed);
+
+        // Burst pattern: high rate but low utilization
+        // This suggests the thread is allocating many large objects
+        // or allocating and discarding quickly
+        utilization < 0.5 && rate > 5000
+    }
+
+    /// Calculate burst-adjusted TLAB size
+    ///
+    /// For burst allocators, we need larger TLABs to reduce refill overhead
+    pub fn burst_recommended_size(&self, _min_size: usize, max_size: usize) -> usize {
+        if !self.is_burst_pattern() {
+            return self.current_size.load(Ordering::Relaxed);
+        }
+
+        let current = self.current_size.load(Ordering::Relaxed);
+        let rate = self.allocation_rate.load(Ordering::Relaxed);
+
+        // Increase TLAB size for burst allocators
+        // This reduces the frequency of refills during allocation bursts
+        let burst_multiplier = if rate > 50000 {
+            4.0
+        } else if rate > 20000 {
+            3.0
+        } else {
+            2.0
+        };
+
+        ((current as f64 * burst_multiplier) as usize).min(max_size)
     }
 
     /// Get current TLAB size
@@ -193,6 +247,7 @@ impl Tlab {
     /// - High allocation rate: larger TLAB (up to max)
     /// - Low allocation rate: smaller TLAB (down to min)
     /// - Burst patterns: temporary increase
+    /// - Heap pressure: scale down under memory constraints
     pub fn recommended_size(
         &self,
         min_size: usize,
@@ -204,6 +259,11 @@ impl Tlab {
         let rate = self.allocation_rate.load(Ordering::Relaxed);
         let current = self.current_size.load(Ordering::Relaxed);
 
+        // Check for burst pattern first
+        if self.is_burst_pattern() {
+            return self.burst_recommended_size(min_size, max_size);
+        }
+
         let heap_factor = if current_heap_pressure > 0.8 {
             0.5
         } else if current_heap_pressure > 0.6 {
@@ -212,6 +272,7 @@ impl Tlab {
             1.0
         };
 
+        // Use smoother rate transitions with EMA-like calculation
         let rate_factor = if rate > 10000 {
             2.0
         } else if rate > 5000 {
@@ -224,7 +285,12 @@ impl Tlab {
             1.0
         };
 
-        let recommended = (current as f64 * rate_factor * heap_factor) as usize;
+        // Apply gradual changes to avoid thrashing
+        let target = (min_size as f64 * rate_factor * heap_factor) as usize;
+        let current_f64 = current as f64;
+
+        // Move 30% towards target each time (smoothing)
+        let recommended = (current_f64 * 0.7 + target as f64 * 0.3) as usize;
         recommended.clamp(min_size, max_size)
     }
 
@@ -289,6 +355,7 @@ impl Tlab {
 /// - **Heap pressure**: Scale down when heap is full
 /// - **Historical patterns**: Learn from past refill frequency
 /// - **Global balance**: Fair distribution across threads
+#[allow(dead_code)]
 pub struct TlabManager {
     /// Default TLAB size
     default_size: usize,

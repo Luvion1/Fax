@@ -9,6 +9,7 @@ use crate::heap::Heap;
 use crate::marker::Marker;
 use crate::relocate::Relocator;
 use crate::stats::GcStats;
+use indexmap::IndexMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 
@@ -52,6 +53,49 @@ pub enum GcReason {
     MemoryPressure,
     /// Shutdown - final cleanup
     Shutdown,
+}
+
+/// GC recommendation level
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RecommendationLevel {
+    /// Informational message
+    Info,
+    /// Warning - may need attention
+    Warning,
+    /// Critical - action recommended
+    Critical,
+}
+
+/// GC tuning recommendation
+#[derive(Debug, Clone)]
+pub struct GcRecommendation {
+    /// Recommendation level
+    pub level: RecommendationLevel,
+    /// Description of the situation
+    pub message: String,
+    /// Suggested action
+    pub suggestion: String,
+}
+
+/// GC health status
+#[derive(Debug, Clone)]
+pub struct GcHealth {
+    /// Whether GC is healthy (no critical issues)
+    pub healthy: bool,
+    /// Current GC state
+    pub state: GcState,
+    /// Heap used in bytes
+    pub heap_used: usize,
+    /// Maximum heap size in bytes
+    pub heap_max: usize,
+    /// Heap utilization (0.0 - 1.0)
+    pub utilization: f64,
+    /// Number of active regions
+    pub active_regions: usize,
+    /// Critical issues found
+    pub issues: Vec<String>,
+    /// Warnings (non-critical)
+    pub warnings: Vec<String>,
 }
 
 /// GarbageCollector - orchestrator for the entire GC cycle
@@ -146,6 +190,14 @@ impl GarbageCollector {
     /// Returns `LockPoisoned` error if another thread panicked while holding
     /// the generation mutex.
     pub fn request_gc(&self, generation: GcGeneration, reason: GcReason) -> Result<()> {
+        // Prevent concurrent GC requests
+        if self.is_collecting() {
+            if self.config.verbose {
+                println!("[GC] GC already in progress, skipping request");
+            }
+            return Ok(());
+        }
+
         if self.config.verbose {
             println!("[GC] Requesting {:?} GC, reason: {:?}", generation, reason);
         }
@@ -197,32 +249,60 @@ impl GarbageCollector {
     /// # Returns
     /// Result indicating success or GC error
     fn execute_gc_cycle(&self) -> Result<()> {
-        // Marking phase
-        *self
-            .state
-            .lock()
-            .map_err(|e| FgcError::LockPoisoned(format!("state mutex poisoned: {}", e)))? =
-            GcState::Marking;
+        // Phase 1: Marking
+        {
+            let mut state_guard = self
+                .state
+                .lock()
+                .map_err(|e| FgcError::LockPoisoned(format!("state mutex poisoned: {}", e)))?;
+            *state_guard = GcState::Marking;
+        }
+
+        if self.config.verbose {
+            println!("[GC] Starting Marking Phase");
+        }
+
         self.pause_mark_start()?;
         self.concurrent_mark()?;
         self.pause_mark_end()?;
 
-        // Relocating phase
-        *self
-            .state
-            .lock()
-            .map_err(|e| FgcError::LockPoisoned(format!("state mutex poisoned: {}", e)))? =
-            GcState::Relocating;
+        // Verify marking completed successfully
+        let marked_count = self.marker.marked_count();
+        if self.config.verbose {
+            println!("[GC] Marking complete, {} objects marked", marked_count);
+        }
+
+        // Phase 2: Relocating
+        {
+            let mut state_guard = self
+                .state
+                .lock()
+                .map_err(|e| FgcError::LockPoisoned(format!("state mutex poisoned: {}", e)))?;
+            *state_guard = GcState::Relocating;
+        }
+
+        if self.config.verbose {
+            println!("[GC] Starting Relocation Phase");
+        }
+
         self.prepare_relocation()?;
         self.concurrent_relocate()?;
 
-        // Cleanup phase
+        if self.config.verbose {
+            println!("[GC] Relocation complete");
+        }
+
+        // Phase 3: Cleanup
         self.cleanup()?;
-        *self
-            .state
-            .lock()
-            .map_err(|e| FgcError::LockPoisoned(format!("state mutex poisoned: {}", e)))? =
-            GcState::Idle;
+
+        // Final state
+        {
+            let mut state_guard = self
+                .state
+                .lock()
+                .map_err(|e| FgcError::LockPoisoned(format!("state mutex poisoned: {}", e)))?;
+            *state_guard = GcState::Idle;
+        }
 
         Ok(())
     }
@@ -379,6 +459,104 @@ impl GarbageCollector {
         self.state.lock().map(|g| *g).unwrap_or(GcState::Idle)
     }
 
+    /// Check GC health status
+    ///
+    /// Returns health information about the GC including:
+    /// - Whether GC is running
+    /// - Current heap usage
+    /// - Any warnings or issues
+    pub fn health_check(&self) -> GcHealth {
+        let current_state = self.state();
+        let heap_stats = self.heap.get_stats();
+        let is_running = current_state != GcState::Idle;
+
+        let mut issues = Vec::new();
+        let mut warnings = Vec::new();
+
+        // Check for potential issues
+        if heap_stats.utilization > 0.9 {
+            issues.push("Heap utilization critically high (>90%)".to_string());
+        } else if heap_stats.utilization > 0.75 {
+            warnings.push("Heap utilization high (>75%)".to_string());
+        }
+
+        if is_running && current_state == GcState::Marking {
+            warnings.push("GC marking phase in progress".to_string());
+        }
+
+        if heap_stats.region_count == 0 {
+            warnings.push("No active regions".to_string());
+        }
+
+        // Check for GC in progress for too long
+        if let Ok(state) = self.state.try_lock() {
+            if *state != GcState::Idle {
+                // Could add timing check here for stalled GC detection
+            }
+        }
+
+        // Check for allocation failures (if tracked)
+        if heap_stats.used >= heap_stats.max {
+            issues.push("Heap at maximum capacity".to_string());
+        }
+
+        GcHealth {
+            healthy: issues.is_empty(),
+            state: current_state,
+            heap_used: heap_stats.used,
+            heap_max: heap_stats.max,
+            utilization: heap_stats.utilization,
+            active_regions: heap_stats.region_count,
+            issues,
+            warnings,
+        }
+    }
+
+    /// Get detailed diagnostic information
+    ///
+    /// # Returns
+    /// A map containing detailed diagnostic information
+    pub fn diagnostics(&self) -> IndexMap<String, String> {
+        let mut diagnostics = IndexMap::new();
+
+        // GC state
+        if let Ok(state) = self.state.lock() {
+            diagnostics.insert("state".to_string(), format!("{:?}", *state));
+        }
+
+        // Cycle count
+        diagnostics.insert(
+            "cycle_count".to_string(),
+            self.cycle_count.load(Ordering::Relaxed).to_string(),
+        );
+
+        // Heap stats
+        let heap_stats = self.heap.get_stats();
+        diagnostics.insert("heap_used".to_string(), heap_stats.used.to_string());
+        diagnostics.insert("heap_max".to_string(), heap_stats.max.to_string());
+        diagnostics.insert(
+            "heap_utilization".to_string(),
+            format!("{:.2}", heap_stats.utilization),
+        );
+        diagnostics.insert(
+            "region_count".to_string(),
+            heap_stats.region_count.to_string(),
+        );
+
+        // GC requested flag
+        diagnostics.insert(
+            "gc_requested".to_string(),
+            self.gc_requested.load(Ordering::Relaxed).to_string(),
+        );
+
+        // Current generation
+        if let Ok(gen) = self.current_generation.lock() {
+            diagnostics.insert("current_generation".to_string(), format!("{:?}", *gen));
+        }
+
+        diagnostics
+    }
+
     /// Get heap reference for allocation
     pub fn heap(&self) -> &Arc<Heap> {
         &self.heap
@@ -403,7 +581,94 @@ impl GarbageCollector {
     /// * `Ok(usize)` - Address of allocated memory
     /// * `Err(FgcError)` - Allocation failed
     pub fn allocate(&self, size: usize) -> Result<usize> {
-        self.heap.allocate_tlab_memory(size)
+        // Check if GC should be triggered based on heap usage
+        if self.should_collect() {
+            self.collect()?;
+        }
+
+        // Attempt allocation with retry logic
+        let max_retries = 3;
+        let mut last_error = None;
+
+        for attempt in 0..max_retries {
+            match self.heap.allocate_tlab_memory(size) {
+                Ok(addr) => return Ok(addr),
+                Err(e) => {
+                    last_error = Some(e);
+
+                    // If not already collecting, try to collect and retry
+                    if !self.is_collecting() && attempt < max_retries - 1 {
+                        if self.config.verbose {
+                            println!(
+                                "[GC] Allocation attempt {} failed, triggering GC...",
+                                attempt + 1
+                            );
+                        }
+                        let _ = self.collect();
+                    }
+                },
+            }
+        }
+
+        // All retries failed, return error
+        Err(last_error.unwrap_or(FgcError::OutOfMemory {
+            requested: size,
+            available: 0,
+        }))
+    }
+
+    /// Check if GC should be triggered based on heap usage
+    ///
+    /// Returns true if heap usage exceeds the trigger threshold.
+    pub fn should_collect(&self) -> bool {
+        let stats = self.heap.get_stats();
+        let threshold = self.config.gc_trigger_threshold;
+
+        stats.utilization as f32 > threshold
+    }
+
+    /// Get heap usage percentage (0.0 - 1.0)
+    pub fn heap_usage(&self) -> f64 {
+        self.heap.get_stats().utilization
+    }
+
+    /// Get GC recommendations for tuning
+    ///
+    /// Returns recommendations based on current GC state and heap usage.
+    pub fn get_recommendations(&self) -> Vec<GcRecommendation> {
+        let mut recommendations = Vec::new();
+        let stats = self.heap.get_stats();
+
+        // High heap utilization warning
+        if stats.utilization > 0.8 {
+            recommendations.push(GcRecommendation {
+                level: RecommendationLevel::Warning,
+                message: format!("Heap utilization is high ({:.1}%). Consider increasing heap size or triggering GC.", 
+                    stats.utilization * 100.0),
+                suggestion: "Increase max_heap_size or call collect() explicitly".to_string(),
+            });
+        }
+
+        // Low heap utilization with high allocation
+        if stats.utilization < 0.2 && stats.total_allocated > 100_000_000 {
+            recommendations.push(GcRecommendation {
+                level: RecommendationLevel::Info,
+                message: "Low heap utilization but high allocation rate detected".to_string(),
+                suggestion: "Consider reducing initial_heap_size to save memory".to_string(),
+            });
+        }
+
+        // GC frequency check
+        let cycles = self.cycle_count();
+        if cycles > 0 {
+            recommendations.push(GcRecommendation {
+                level: RecommendationLevel::Info,
+                message: format!("Total GC cycles: {}", cycles),
+                suggestion: "Monitor pause times and adjust gc_threads if needed".to_string(),
+            });
+        }
+
+        recommendations
     }
 
     /// Register a root with the GC

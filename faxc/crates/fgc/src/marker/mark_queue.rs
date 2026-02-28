@@ -8,6 +8,8 @@
 //! - **Load Balancing**: Steal from most-loaded queue first
 //! - **Adaptive Spin**: Dynamic spin/sleep based on idle time
 //! - **Thread Local Caching**: Minimize atomic operations
+//! - **Adaptive Batch Sizing**: Dynamically adjust batch size based on workload
+//! - **Work stealing with random victim selection**: Better load distribution
 
 use crossbeam_deque::{Injector, Stealer, Worker};
 use rand::Rng;
@@ -45,6 +47,14 @@ pub struct MarkQueueConfig {
     pub max_spin_iters: usize,
     /// Sleep duration in microseconds when no work
     pub sleep_us: u32,
+    /// Minimum batch size for adaptive sizing
+    pub min_batch_size: usize,
+    /// Maximum batch size for adaptive sizing
+    pub max_batch_size: usize,
+    /// Threshold for increasing batch size
+    pub batch_grow_threshold: usize,
+    /// Threshold for decreasing batch size
+    pub batch_shrink_threshold: usize,
 }
 
 impl Default for MarkQueueConfig {
@@ -53,6 +63,10 @@ impl Default for MarkQueueConfig {
             batch_size: 16,
             max_spin_iters: 100,
             sleep_us: 50,
+            min_batch_size: 4,
+            max_batch_size: 64,
+            batch_grow_threshold: 8,
+            batch_shrink_threshold: 2,
         }
     }
 }
@@ -95,6 +109,7 @@ impl MarkQueue {
     }
 
     /// Push work into global injector
+    #[inline]
     pub fn push(&self, object: usize) {
         if self.closed.load(Ordering::Relaxed) {
             return;
@@ -104,6 +119,7 @@ impl MarkQueue {
     }
 
     /// Push batch of objects efficiently
+    #[inline]
     pub fn push_batch(&self, objects: &[usize]) {
         if self.closed.load(Ordering::Relaxed) || objects.is_empty() {
             return;
@@ -130,6 +146,9 @@ impl MarkQueue {
             batch_size: self.batch_size,
             idle_count: 0,
             rng: rand::SeedableRng::seed_from_u64(0x123456789ABCDEF0),
+            consecutive_empty: 0,
+            local_batch_size: self.batch_size,
+            total_processed: 0,
         }
     }
 
@@ -174,6 +193,7 @@ impl MarkQueue {
 }
 
 /// MarkingWorker - Local queue for a single GC thread
+#[allow(dead_code)]
 pub struct MarkingWorker<'a> {
     worker: Worker<usize>,
     injector: &'a Injector<usize>,
@@ -182,27 +202,50 @@ pub struct MarkingWorker<'a> {
     batch_size: usize,
     idle_count: usize,
     rng: rand::rngs::StdRng,
+    consecutive_empty: usize,
+    local_batch_size: usize,
+    total_processed: usize,
 }
 
 impl<'a> MarkingWorker<'a> {
     /// Push work to local queue
+    #[inline]
     pub fn push(&mut self, object: usize) {
         self.worker.push(object);
     }
 
+    /// Adjust batch size based on workload characteristics
+    #[inline]
+    fn adapt_batch_size(&mut self) {
+        self.total_processed += 1;
+
+        let success_rate = self.processed_local as f64 / self.total_processed.max(1) as f64;
+
+        if self.consecutive_empty > 3 && self.local_batch_size > 4 {
+            self.local_batch_size = (self.local_batch_size / 2).max(4);
+            self.consecutive_empty = 0;
+        } else if success_rate > 0.8 && self.local_batch_size < 64 {
+            self.local_batch_size = (self.local_batch_size * 2).min(64);
+        }
+    }
+
     /// Pop work (local first, then steal with batching)
+    #[inline]
     pub fn pop(&mut self) -> Option<usize> {
         if let Some(obj) = self.worker.pop() {
             self.processed_local += 1;
             self.idle_count = 0;
+            self.consecutive_empty = 0;
             return Some(obj);
         }
 
         self.idle_count += 1;
+        self.consecutive_empty += 1;
 
         if self.idle_count < 3 {
             self.steal_batch_from_injector()
         } else {
+            self.adapt_batch_size();
             self.steal_from_workers()
         }
     }
@@ -259,7 +302,8 @@ impl<'a> MarkingWorker<'a> {
 
     /// Pop batch of objects for processing
     pub fn pop_batch(&mut self, max_count: usize) -> Vec<usize> {
-        let mut batch = Vec::with_capacity(max_count.min(self.batch_size));
+        let batch_size = max_count.min(self.local_batch_size);
+        let mut batch = Vec::with_capacity(batch_size);
 
         while batch.len() < max_count {
             if let Some(obj) = self.pop() {
@@ -270,6 +314,11 @@ impl<'a> MarkingWorker<'a> {
         }
 
         batch
+    }
+
+    /// Get current adaptive batch size
+    pub fn current_batch_size(&self) -> usize {
+        self.local_batch_size
     }
 }
 
