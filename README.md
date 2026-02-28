@@ -4,7 +4,7 @@
   <img src="faxc/docs/rubah-arktik.svg" width="150" alt="Fax Arctic Fox">
 </p>
 
-[![Version](https://img.shields.io/badge/version-0.0.3--pre--alpha-orange.svg)](https://github.com/Luvion1/Fax/releases)
+[![Version](https://img.shields.io/badge/version-0.0.4--pre--alpha-orange.svg)](https://github.com/Luvion1/Fax/releases)
 [![License](https://img.shields.io/badge/license-MIT%20or%20Apache--2.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.75+-blue.svg)](https://www.rust-lang.org)
 [![CI](https://img.shields.io/github/actions/workflow/status/Luvion1/Fax/ci.yml?branch=main)](https://github.com/Luvion1/Fax/actions)
@@ -329,7 +329,7 @@ Fax draws inspiration from:
 
 <div align="center">
 
-**Fax Compiler** v0.0.3 pre-alpha
+**Fax Compiler** v0.0.4 pre-alpha
 
 Made with ❤️ by the Fax Team
 
